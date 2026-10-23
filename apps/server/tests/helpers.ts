@@ -33,7 +33,11 @@ export function wav(tags: Record<string, string>, seconds = 1, sampleRate = 8000
 /** Server config for tests: no enrichment, no throttling. */
 export function testConfig(libraryPath: string, dataDir: string, overrides: Partial<Config> = {}): Config {
   return {
-    libraryPath,
+    libraryPaths: [libraryPath],
+    // Tests scan explicitly.
+    rescanMinutes: 0,
+    watch: false,
+    scanSettleMs: 0,
     dataDir,
     host: "127.0.0.1",
     port: 0,

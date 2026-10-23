@@ -1,10 +1,18 @@
 import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { delimiter, resolve } from "node:path";
 import { z } from "zod";
 import type { EnrichConfig } from "./enrich/enricher.ts";
 
 const Env = z.object({
+  /** Music folders, separated like PATH (`:` on Linux and macOS, `;` on Windows). */
   HP_LIBRARY: z.string().default(resolve(homedir(), "Music")),
+  /**
+   * Minutes between rescans of the library. The safety net that works on every
+   * filesystem: network shares don't report changes made on the server side. 0 disables.
+   */
+  HP_RESCAN_MINUTES: z.coerce.number().min(0).default(5),
+  /** Also watch the folders for changes and rescan shortly after (where the filesystem reports them). */
+  HP_WATCH: z.stringbool().default(true),
   HP_DATA_DIR: z.string().default(resolve(import.meta.dirname, "../.data")),
   HP_HOST: z.string().default("127.0.0.1"),
   HP_PORT: z.coerce.number().int().min(1).max(65535).default(4533),
@@ -32,7 +40,13 @@ const Env = z.object({
 });
 
 export type Config = {
-  libraryPath: string;
+  libraryPaths: string[];
+  rescanMinutes: number;
+  watch: boolean;
+  /** How long a file must be unchanged before it's read (see `SETTLE_MS`); tests use 0. */
+  scanSettleMs?: number;
+  /** Quiet time after a reported change before rescanning (defaults to `SETTLE_MS`). */
+  watchDebounceMs?: number;
   dataDir: string;
   host: string;
   port: number;
@@ -49,7 +63,16 @@ export type Config = {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const e = Env.parse(env);
   return {
-    libraryPath: resolve(e.HP_LIBRARY),
+    libraryPaths: [
+      ...new Set(
+        e.HP_LIBRARY.split(delimiter)
+          .map((p) => p.trim())
+          .filter(Boolean)
+          .map((p) => resolve(p)),
+      ),
+    ],
+    rescanMinutes: e.HP_RESCAN_MINUTES,
+    watch: e.HP_WATCH,
     dataDir: resolve(e.HP_DATA_DIR),
     host: e.HP_HOST,
     port: e.HP_PORT,

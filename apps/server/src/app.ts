@@ -19,6 +19,7 @@ import { Auth, type AuthContext } from "./auth/auth.ts";
 import { HttpError, notFound, Router, SESSION_COOKIE } from "./http/contract.ts";
 import { ArtworkStore } from "./library/artwork.ts";
 import { Scanner } from "./library/scanner.ts";
+import { LibraryWatcher } from "./library/watcher.ts";
 import {
   mimeForContainer,
   openFile,
@@ -34,7 +35,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
   mkdirSync(config.dataDir, { recursive: true });
   const db = openDb(join(config.dataDir, "library.db"));
   const artwork = new ArtworkStore(db, config.dataDir);
-  const scanner = new Scanner(db, artwork);
+  const scanner = new Scanner(db, artwork, { settleMs: config.scanSettleMs });
   const app = Fastify({ logger: opts.logger ?? true, trustProxy: config.trustProxy });
   const enricher = new Enricher(db, artwork, app.log, config.enrich);
   const catalog = new Catalog(db, enricher);
@@ -55,19 +56,48 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
   if (config.corsOrigins.length) await app.register(cors, { origin: config.corsOrigins, credentials: true });
 
   let scanning: Promise<void> | null = null;
-  const startScan = () => {
-    scanning ??= scanner
-      .scan(config.libraryPath)
+  let again: Promise<void> | null = null;
+  const scanOnce = () =>
+    scanner
+      .scan(config.libraryPaths)
       .then((s) => {
-        app.log.info(s, "library scan finished");
-        const relinked = playlists.relink();
-        if (relinked) app.log.info({ relinked }, "playlist entries relinked to moved tracks");
-        enricher.enqueuePending();
+        const changed = s.updated > 0 || s.removed > 0;
+        // Periodic rescans that find nothing new stay quiet.
+        if (changed || s.errors || s.unavailable.length) app.log.info(s, "library scan finished");
+        if (s.unsettled) watcher.scheduleSoon();
+        if (changed) {
+          const relinked = playlists.relink();
+          if (relinked) app.log.info({ relinked }, "playlist entries relinked to moved tracks");
+          enricher.enqueuePending();
+        }
       })
       .catch((err: unknown) => app.log.error(err, "library scan failed"))
-      .finally(() => (scanning = null));
-    return scanning;
+      .finally(() => {
+        scanning = null;
+        void watcher.sync();
+      });
+  /**
+   * Scans the library. While a scan runs, a request starts one more scan after it
+   * (the running one may already have passed the changed files); further requests
+   * join that one.
+   */
+  const startScan = (): Promise<void> => {
+    if (!scanning) return (scanning = scanOnce());
+    again ??= scanning.then(() => {
+      again = null;
+      return startScan();
+    });
+    return again;
   };
+  const watcher = new LibraryWatcher(config.libraryPaths, {
+    rescanMinutes: config.rescanMinutes,
+    watch: config.watch,
+    debounceMs: config.watchDebounceMs,
+    rescan: () => void startScan(),
+    log: { info: (m) => app.log.info(m), warn: (m) => app.log.warn(m) },
+  });
+  void watcher.start();
+  app.addHook("onClose", async () => watcher.close());
   const status = (): LibraryStatus => ({
     scanning: scanning !== null,
     lastScanAt: catalog.lastScanAt(),

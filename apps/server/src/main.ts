@@ -5,7 +5,7 @@ const config = loadConfig();
 const { app, startScan } = await buildApp(config);
 
 await app.listen({ host: config.host, port: config.port });
-app.log.info(`Library: ${config.libraryPath}`);
+app.log.info(`Library: ${config.libraryPaths.join(", ")}`);
 void startScan();
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

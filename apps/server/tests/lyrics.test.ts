@@ -54,7 +54,7 @@ beforeAll(async () => {
     ]);
   }
   db = openDb(join(dir, "library.db"));
-  await new Scanner(db, new ArtworkStore(db, dir)).scan(join(dir, "music"));
+  await new Scanner(db, new ArtworkStore(db, dir), { settleMs: 0 }).scan([join(dir, "music")]);
 });
 
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -162,7 +162,7 @@ test("results are cached until the file changes, and none means none offline", a
   // Retagging the file invalidates its entry.
   const path = join(album, "02 Online.wav");
   utimesSync(path, new Date(), new Date(Date.now() + 5000));
-  await new Scanner(db, new ArtworkStore(db, dir)).scan(join(dir, "music"));
+  await new Scanner(db, new ArtworkStore(db, dir), { settleMs: 0 }).scan([join(dir, "music")]);
   await lyrics.get(trackId("Online"));
   expect(http.requested).toHaveLength(1);
 

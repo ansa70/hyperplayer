@@ -37,6 +37,21 @@ vp run ready           # fmt + lint + typecheck + all tests + clippy + release b
 Server environment: `HP_LIBRARY`, `HP_DATA_DIR` (default `apps/server/.data`), `HP_HOST`, `HP_PORT` (4533),
 `HP_FFMPEG`, `HP_VALIDATE_RESPONSES`. The OpenAPI document is served at `/openapi.json`.
 
+## Library folders
+
+`HP_LIBRARY` lists one or more music folders, separated like `PATH`
+(`HP_LIBRARY=/mnt/storage/Music:/home/me/Music`). They make one library, kept current without restarts:
+
+- **Periodic rescans** (`HP_RESCAN_MINUTES`, default 5; 0 disables) work on every filesystem, including
+  network shares (SMB/CIFS, NFS), which don't report changes made on the server side. They're cheap:
+  unchanged files are only `stat`ed (a 14,000-track share rescans in under a second).
+- **Watching** (`HP_WATCH`, on by default) picks local changes up within seconds where the filesystem
+  reports them. Folders that can't be watched (missing, unsupported) fall back to the rescans, and
+  watching starts once they appear.
+- A folder that is **missing or reads as empty** (an unmounted share or drive) keeps its tracks, so queues,
+  playlists and history survive until it's back. A folder removed from `HP_LIBRARY` takes its tracks with it.
+- Files modified in the last few seconds are left for the next scan, so half-copied files aren't read.
+
 ## Enrichment
 
 After each scan the server fetches, in the background (MusicBrainz allows 1 request/s; the playing track

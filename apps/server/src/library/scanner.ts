@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, dirname, extname, join, sep } from "node:path";
 import { parseFile, type IAudioMetadata } from "music-metadata";
 import type { Db } from "../db.ts";
 import type { ArtworkStore } from "./artwork.ts";
@@ -43,7 +43,20 @@ export interface ScanStats {
   updated: number;
   removed: number;
   errors: number;
+  /** Files changed so recently they may still be being written: left for the next scan. */
+  unsettled: number;
+  /** Folders that were missing or read as empty, whose tracks were kept. */
+  unavailable: string[];
 }
+
+/** A file modified more recently than this may still be being copied in. */
+export const SETTLE_MS = 5_000;
+/** Modification times this far ahead of our clock come from a server whose clock differs. */
+const CLOCK_SKEW_MS = 60_000;
+
+/** Whether `path` is `root` or inside it. */
+const inside = (root: string, path: string) =>
+  path === root || path.startsWith(root.endsWith(sep) ? root : root + sep);
 
 async function* walk(dir: string): AsyncGenerator<string> {
   let entries;
@@ -66,56 +79,90 @@ export class Scanner {
   /** Folder cover lookups, cached per directory for the duration of a scan. */
   #folderCovers = new Map<string, Promise<string | null>>();
 
-  constructor(db: Db, artwork: ArtworkStore) {
+  readonly #settleMs: number;
+
+  constructor(db: Db, artwork: ArtworkStore, opts: { settleMs?: number } = {}) {
     this.#db = db;
     this.#artwork = artwork;
+    this.#settleMs = opts.settleMs ?? SETTLE_MS;
   }
 
-  async scan(root: string): Promise<ScanStats> {
+  /**
+   * Brings the catalog in line with the files under `roots`: adds and updates
+   * changed files (by mtime) and removes tracks whose files are gone.
+   */
+  async scan(roots: string[]): Promise<ScanStats> {
     const db = this.#db;
-    // A missing root is far more likely an unmounted network share than a deleted library:
-    // refuse to scan rather than remove every track (and empty queues along with them).
-    const rootStat = await stat(root).catch(() => null);
-    if (!rootStat?.isDirectory()) throw new Error(`library folder ${root} is not available`);
     const generation =
       Number(
         (db.prepare("SELECT value FROM meta WHERE key = 'scan_generation'").get()?.value as string) ?? 0,
       ) + 1;
-    const stats: ScanStats = { scanned: 0, updated: 0, removed: 0, errors: 0 };
+    const stats: ScanStats = { scanned: 0, updated: 0, removed: 0, errors: 0, unsettled: 0, unavailable: [] };
     const rescanAll =
       (db.prepare("SELECT value FROM meta WHERE key = 'scan_version'").get()?.value as string | undefined) !==
       SCAN_VERSION;
     const existing = db.prepare("SELECT mtime_ms FROM tracks WHERE path = ?");
     const markSeen = db.prepare("UPDATE tracks SET seen_scan = ? WHERE path = ?");
+    const knownPaths = db.prepare("SELECT path FROM tracks");
     this.#folderCovers.clear();
 
-    for await (const path of walk(root)) {
-      stats.scanned++;
-      try {
-        const { mtimeMs, size } = await stat(path);
-        const row = existing.get(path) as { mtime_ms: number } | undefined;
-        if (!rescanAll && row && row.mtime_ms === Math.trunc(mtimeMs)) {
-          markSeen.run(generation, path);
-          continue;
+    for (const root of roots) {
+      // A missing folder is far more likely an unmounted network share than a deleted
+      // library: keep its tracks (and the queues and playlists using them) rather than
+      // removing them all. Same for one that exists but reads as empty (a mount point
+      // without its share), as long as tracks from it are known.
+      const rootStat = await stat(root).catch(() => null);
+      let found = 0;
+      if (rootStat?.isDirectory()) {
+        for await (const path of walk(root)) {
+          found++;
+          stats.scanned++;
+          try {
+            const { mtimeMs, size } = await stat(path);
+            const row = existing.get(path) as { mtime_ms: number } | undefined;
+            if (!rescanAll && row && row.mtime_ms === Math.trunc(mtimeMs)) {
+              markSeen.run(generation, path);
+              continue;
+            }
+            // A time well in the future means the share's clock is ahead: waiting would only delay the file.
+            const age = Date.now() - mtimeMs;
+            if (this.#settleMs > 0 && age < this.#settleMs && age > -CLOCK_SKEW_MS) {
+              // Possibly still being written: keep any previous version and look again next time.
+              if (row) markSeen.run(generation, path);
+              stats.unsettled++;
+              continue;
+            }
+            const meta = await parseFile(path, { duration: true });
+            await this.#upsert(path, Math.trunc(mtimeMs), size, meta, generation);
+            stats.updated++;
+          } catch (err) {
+            stats.errors++;
+            console.warn(`scan: skipping ${path}: ${(err as Error).message}`);
+          }
         }
-        const meta = await parseFile(path, { duration: true });
-        await this.#upsert(path, Math.trunc(mtimeMs), size, meta, generation);
-        stats.updated++;
-      } catch (err) {
-        stats.errors++;
-        console.warn(`scan: skipping ${path}: ${(err as Error).message}`);
       }
+      const hadTracks = () => (knownPaths.all() as { path: string }[]).some((r) => inside(root, r.path));
+      if (found === 0 && hadTracks()) {
+        console.warn(`scan: ${root} is missing or empty but the library has tracks from it; keeping them`);
+        stats.unavailable.push(root);
+      }
+    }
+    if (stats.unavailable.length === roots.length && roots.length > 0) {
+      throw new Error(`no library folder is available (${roots.join(", ")})`);
     }
 
     db.exec("BEGIN");
     try {
-      const known = Number((db.prepare("SELECT COUNT(*) AS n FROM tracks").get() as { n: number }).n);
-      if (stats.scanned === 0 && known > 0) {
-        // Same reasoning for a root that exists but reads as empty (e.g. a mount point without its share).
-        console.warn(`scan: ${root} contains no audio but the library has ${known} tracks; keeping them`);
-      } else {
-        stats.removed = Number(db.prepare("DELETE FROM tracks WHERE seen_scan <> ?").run(generation).changes);
-      }
+      const stale = (
+        db.prepare("SELECT path FROM tracks WHERE seen_scan <> ?").all(generation) as { path: string }[]
+      )
+        .map((r) => r.path)
+        .filter((path) => !stats.unavailable.some((root) => inside(root, path)));
+      const remove = db.prepare("DELETE FROM tracks WHERE path = ?");
+      for (const path of stale) remove.run(path);
+      stats.removed = stale.length;
+      // Tracks kept from unavailable folders count as seen, so the next scan starts clean.
+      db.prepare("UPDATE tracks SET seen_scan = ? WHERE seen_scan <> ?").run(generation, generation);
       db.exec("DELETE FROM albums WHERE id NOT IN (SELECT album_id FROM tracks)");
       db.exec(`DELETE FROM artists WHERE id NOT IN (SELECT artist_id FROM tracks)
                                      AND id NOT IN (SELECT artist_id FROM albums)`);
@@ -127,7 +174,8 @@ export class Scanner {
       db.exec("ROLLBACK");
       throw err;
     }
-    rebuildSearchIndex(db);
+    // The index covers the whole catalog: rebuild it only when the catalog changed.
+    if (stats.updated || stats.removed || rescanAll) rebuildSearchIndex(db);
     return stats;
   }
 
