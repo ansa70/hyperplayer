@@ -97,7 +97,8 @@ export struct LoginState {
     error: string,
 }
 
-export enum Page { welcome, artist, album, search, playlist, queue }
+export enum Page { welcome, artist, album, search, playlist, queue, lyrics }
+export enum LyricsState { loading, none, instrumental, plain, synced }
 
 export enum RepeatMode { off, all, one }
 
@@ -107,6 +108,8 @@ global Icons {
     out property <string> repeat: "M17 2l4 4-4 4 M3 11v-1a4 4 0 0 1 4-4h14 M7 22l-4-4 4-4 M21 13v1a4 4 0 0 1-4 4H3";
     out property <string> repeat-one: "M17 2l4 4-4 4 M3 11v-1a4 4 0 0 1 4-4h14 M7 22l-4-4 4-4 M21 13v1a4 4 0 0 1-4 4H3 M11 10h1v4";
     out property <string> queue: "M16 5H3 M16 12H3 M11 19H3 M21 16v6 M18 19h6";
+    // Lucide "mic-vocal".
+    out property <string> lyrics: "M11 7.601l-5.994 8.19a1 1 0 0 0 .1 1.298l.817.818a1 1 0 0 0 1.314.087L15.09 12 M16.5 21.174C15.5 20.5 14.372 20 13 20c-2.058 0-3.928 2.356-6 2-2.072-.356-2.775-3.369-1.5-4.5 M11 7a5 5 0 1 0 10 0a5 5 0 1 0-10 0";
     out property <string> more: "M12 12h.01 M19 12h.01 M5 12h.01";
     out property <string> plus: "M5 12h14 M12 5v14";
 }
@@ -937,6 +940,67 @@ component NowPlayingPanel inherits Rectangle {
     }
 }
 
+component LyricsPage inherits Rectangle {
+    in property <string> title;
+    in property <string> artist;
+    in property <LyricsState> state;
+    in property <[string]> lines;
+    /// The synced line being sung, or -1.
+    in property <int> current: -1;
+    in property <string> source;
+    callback seek-line(int);
+    property <length> row-height: 60px;
+    // Keep the sung line a third of the way down, like a teleprompter.
+    changed current => {
+        if root.current >= 0 {
+            list.content-y = min(0px, max(list.visible-height - list.content-height, list.visible-height / 3 - root.current * root.row-height));
+        }
+    }
+    VerticalLayout {
+        padding: 28px;
+        padding-bottom: 12px;
+        spacing: 6px;
+        Text { text: root.title == "" ? "Lyrics" : root.title; color: Theme.text; font-size: 28px; font-weight: 800; overflow: elide; }
+        Text { text: root.artist; color: Theme.muted; font-size: 14px; overflow: elide; }
+        if root.state != LyricsState.plain && root.state != LyricsState.synced: Text {
+            vertical-stretch: 1;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            color: Theme.faint;
+            font-size: 18px;
+            text: root.state == LyricsState.loading ? "Looking for lyrics…"
+                : root.state == LyricsState.instrumental ? "Instrumental"
+                : root.title == "" ? "Nothing is playing" : "No lyrics found for this track";
+        }
+        list := ListView {
+            visible: root.state == LyricsState.plain || root.state == LyricsState.synced;
+            vertical-stretch: 1;
+            for line[i] in root.lines: Rectangle {
+                height: root.row-height;
+                Text {
+                    width: parent.width;
+                    text: line;
+                    wrap: word-wrap;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    font-size: 22px;
+                    font-weight: 700;
+                    color: root.state != LyricsState.synced || i == root.current ? Theme.text
+                        : line-ta.has-hover ? Theme.muted
+                        : i < root.current ? Theme.muted.with-alpha(0.7) : Theme.faint;
+                    animate color { duration: 200ms; }
+                }
+                line-ta := TouchArea {
+                    enabled: root.state == LyricsState.synced;
+                    mouse-cursor: self.enabled ? pointer : default;
+                    clicked => { root.seek-line(i); }
+                }
+            }
+        }
+        if root.source != "": Text { text: root.source; color: Theme.faint; font-size: 11px; }
+    }
+}
+
 component TransportBar inherits Rectangle {
     in property <NowPlayingView> np;
     in property <bool> playing;
@@ -954,6 +1018,8 @@ component TransportBar inherits Rectangle {
     // Same green as the playing-track marker, so "active" reads the same everywhere.
     in property <color> accent: #1ed760;
     in property <bool> queue-open;
+    in property <bool> lyrics-open;
+    callback show-lyrics();
     callback toggle();
     callback toggle-shuffle();
     callback cycle-repeat();
@@ -1046,6 +1112,12 @@ component TransportBar inherits Rectangle {
             HorizontalLayout {
                 spacing: 8px;
                 alignment: end;
+                ToggleIcon {
+                    commands: Icons.lyrics;
+                    active: root.lyrics-open;
+                    accent: root.accent;
+                    clicked => { root.show-lyrics(); }
+                }
                 ToggleIcon {
                     commands: Icons.queue;
                     active: root.queue-open;
@@ -1297,6 +1369,7 @@ component ShortcutHelp inherits Rectangle {
                 { key: "M", what: "Mute" },
                 { key: "S / R", what: "Shuffle / repeat" },
                 { key: "Q", what: "Queue" },
+                { key: "L", what: "Lyrics" },
                 { key: "/  or  Ctrl+F", what: "Search" },
                 { key: "Esc", what: "Leave search / close" },
                 { key: "?", what: "This help" },
@@ -1371,6 +1444,12 @@ export component AppWindow inherits Window {
     /// (list, index, action, playlist id); list is "album", "search", "playlist" or "queue".
     callback track-action(string, int, string, string);
     callback show-queue();
+    callback show-lyrics();
+    callback seek-lyric-line(int);
+    in property <LyricsState> lyrics-state: LyricsState.none;
+    in property <[string]> lyrics-lines;
+    in property <int> lyrics-current: -1;
+    in property <string> lyrics-source;
     callback jump-in-queue(int);
     callback clear-queue();
     /// Keyboard actions handled in Rust: "seek-back", "seek-forward", "toggle-mute".
@@ -1408,6 +1487,7 @@ export component AppWindow inherits Window {
             if root.show-help { root.show-help = false; }
             else if sidebar.clear-search() { }
             else if root.page == Page.queue { root.show-queue(); }
+            else if root.page == Page.lyrics { root.show-lyrics(); }
             keys.focus();
             return accept;
         }
@@ -1436,6 +1516,7 @@ export component AppWindow inherits Window {
         if event.text == "s" || event.text == "S" { root.toggle-shuffle(); return accept; }
         if event.text == "r" || event.text == "R" { root.cycle-repeat(); return accept; }
         if event.text == "q" || event.text == "Q" { root.show-queue(); return accept; }
+        if event.text == "l" || event.text == "L" { root.show-lyrics(); return accept; }
         if event.text == "/" { sidebar.focus-search(); return accept; }
         if event.text == "?" { root.show-help = !root.show-help; return accept; }
         return reject;
@@ -1494,6 +1575,15 @@ export component AppWindow inherits Window {
                     delete => { root.delete-playlist(); }
                     track-action(i, kind, id) => { root.track-action("playlist", i, kind, id); }
                 }
+                if root.page == Page.lyrics: LyricsPage {
+                    title: root.np.active ? root.np.title : "";
+                    artist: root.np.active ? root.np.artist : "";
+                    state: root.lyrics-state;
+                    lines: root.lyrics-lines;
+                    current: root.lyrics-current;
+                    source: root.lyrics-source;
+                    seek-line(i) => { root.seek-lyric-line(i); }
+                }
                 if root.page == Page.queue: QueuePage {
                     origin: root.queue-origin;
                     now: root.queue-now;
@@ -1547,6 +1637,8 @@ export component AppWindow inherits Window {
             cycle-repeat => { root.cycle-repeat(); }
             queue-open: root.page == Page.queue;
             show-queue => { root.show-queue(); }
+            lyrics-open: root.page == Page.lyrics;
+            show-lyrics => { root.show-lyrics(); }
         }
     }
     }

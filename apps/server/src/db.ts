@@ -76,6 +76,16 @@ CREATE TABLE IF NOT EXISTS credits (
 );
 CREATE INDEX IF NOT EXISTS credits_track ON credits(track_id, source);
 
+CREATE TABLE IF NOT EXISTS lyrics (
+  track_id      TEXT PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+  track_mtime   INTEGER NOT NULL,          -- the file's mtime when looked up: a retag invalidates
+  source        TEXT NOT NULL,             -- 'file' | 'tags' | 'lrclib' | 'none'
+  synced        INTEGER NOT NULL,
+  instrumental  INTEGER NOT NULL,
+  lines         TEXT NOT NULL,             -- JSON [{timeMs, text}]
+  fetched_at    TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS playlists (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,

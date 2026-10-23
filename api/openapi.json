@@ -995,6 +995,53 @@
         }
       }
     },
+    "/api/tracks/{id}/lyrics": {
+      "get": {
+        "operationId": "lyrics",
+        "summary": "Lyrics for a track: from a .lrc file beside it, its tags, or LRCLIB (synced when available)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lyrics for a track: from a .lrc file beside it, its tags, or LRCLIB (synced when available)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lyrics"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/artists/{id}/enrich": {
       "post": {
         "operationId": "enrichArtist",
@@ -2716,6 +2763,62 @@
           "trackId",
           "credits",
           "enrichment"
+        ],
+        "additionalProperties": false
+      },
+      "LyricLine": {
+        "type": "object",
+        "properties": {
+          "timeMs": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "timeMs",
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "Lyrics": {
+        "type": "object",
+        "properties": {
+          "trackId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "file",
+              "tags",
+              "lrclib",
+              "none"
+            ]
+          },
+          "synced": {
+            "type": "boolean"
+          },
+          "instrumental": {
+            "type": "boolean"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LyricLine"
+            }
+          }
+        },
+        "required": [
+          "trackId",
+          "source",
+          "synced",
+          "instrumental",
+          "lines"
         ],
         "additionalProperties": false
       },

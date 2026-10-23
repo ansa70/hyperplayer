@@ -7,6 +7,7 @@ import {
   ArtistPage,
   Id,
   LibraryStatus,
+  Lyrics,
   NowPlaying,
   SearchResults,
   TrackCredits,
@@ -314,6 +315,14 @@ export const api = {
     params: IdParams,
     query: NoQuery,
     response: TrackCredits,
+  }),
+  lyrics: json({
+    method: "GET",
+    path: "/api/tracks/{id}/lyrics",
+    summary: "Lyrics for a track: from a .lrc file beside it, its tags, or LRCLIB (synced when available)",
+    params: IdParams,
+    query: NoQuery,
+    response: Lyrics,
   }),
   enrichArtist: json({
     method: "POST",

@@ -218,6 +218,7 @@ const NP_POLL_INTERVAL: Duration = Duration::from_secs(2);
 const NP_MAX_POLLS: u32 = 30;
 
 pub fn fetch_now_playing(track_id: String) {
+    super::lyrics::load(track_id.clone());
     let api = with_app(|app| app.api.clone());
     background(
         move || api.now_playing(&track_id),

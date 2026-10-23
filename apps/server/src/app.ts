@@ -10,6 +10,8 @@ import { Catalog } from "./catalog/catalog.ts";
 import { Playlists } from "./collections/playlists.ts";
 import { Queues } from "./collections/queues.ts";
 import { Enricher } from "./enrich/enricher.ts";
+import { httpClient } from "./enrich/http.ts";
+import { LyricsService } from "./lyrics/lyrics.ts";
 import type { Config } from "./config.ts";
 import { openDb } from "./db.ts";
 import { Auth, type AuthContext } from "./auth/auth.ts";
@@ -37,6 +39,16 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
   const catalog = new Catalog(db, enricher);
   const playlists = new Playlists(db, catalog);
   const queues = new Queues(db, catalog);
+  // LRCLIB is an online lookup like enrichment, so it's off when enrichment is.
+  const lyrics = new LyricsService(
+    db,
+    config.enrich.enabled
+      ? httpClient({
+          userAgent: `HyperPlayer/${SERVER_VERSION} ( ${config.enrich.contact} )`,
+          minIntervalMs: { "lrclib.net": 250 },
+        })
+      : null,
+  );
   // Native clients ignore CORS; browsers get access only from explicitly listed origins.
   if (config.corsOrigins.length) await app.register(cors, { origin: config.corsOrigins, credentials: true });
 
@@ -139,6 +151,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
     enricher.prioritizeTrack(params.id);
     return catalog.trackCredits(params.id) ?? Promise.reject(notFound("Track"));
   });
+  route.json(api.lyrics, ({ params }) => lyrics.get(params.id) ?? Promise.reject(notFound("Track")));
   route.json(api.enrichArtist, ({ params }) => {
     if (!catalog.getArtist(params.id)) throw notFound("Artist");
     enricher.refreshArtist(params.id);

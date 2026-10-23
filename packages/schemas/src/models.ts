@@ -210,6 +210,31 @@ export const TrackCredits = named(
   }),
 );
 
+export const LyricLine = named(
+  "LyricLine",
+  z.object({
+    /** When the line starts, for synced lyrics; null in plain lyrics. */
+    timeMs: z.int().nonnegative().nullable(),
+    /** Empty for a stanza break. */
+    text: z.string(),
+  }),
+);
+
+export const Lyrics = named(
+  "Lyrics",
+  z.object({
+    trackId: Id,
+    /** Where they came from: a `.lrc` file beside the track, its tags, or LRCLIB. */
+    source: z.enum(["file", "tags", "lrclib", "none"]),
+    /** Every line has a time. */
+    synced: z.boolean(),
+    /** Known to have no vocals (no lines). */
+    instrumental: z.boolean(),
+    lines: z.array(LyricLine),
+  }),
+  "A track's lyrics; `source` is `none` (and `lines` empty) when none were found.",
+);
+
 export const NowPlaying = named(
   "NowPlaying",
   z.object({
@@ -283,6 +308,8 @@ export type BandMember = z.infer<typeof BandMember>;
 export type Credit = z.infer<typeof Credit>;
 export type CreditCategory = z.infer<typeof CreditCategory>;
 export type TrackCredits = z.infer<typeof TrackCredits>;
+export type LyricLine = z.infer<typeof LyricLine>;
+export type Lyrics = z.infer<typeof Lyrics>;
 export type ExternalLink = z.infer<typeof ExternalLink>;
 export type ArtistSummary = z.infer<typeof ArtistSummary>;
 export type Artist = z.infer<typeof Artist>;

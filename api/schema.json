@@ -782,6 +782,68 @@
       ],
       "additionalProperties": false
     },
+    "LyricLine": {
+      "type": "object",
+      "properties": {
+        "timeMs": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "timeMs",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "Lyrics": {
+      "type": "object",
+      "properties": {
+        "trackId": {
+          "$ref": "#/definitions/Id"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "file",
+            "tags",
+            "lrclib",
+            "none"
+          ]
+        },
+        "synced": {
+          "type": "boolean"
+        },
+        "instrumental": {
+          "type": "boolean"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LyricLine"
+          }
+        }
+      },
+      "required": [
+        "trackId",
+        "source",
+        "synced",
+        "instrumental",
+        "lines"
+      ],
+      "additionalProperties": false
+    },
     "NowPlaying": {
       "type": "object",
       "properties": {

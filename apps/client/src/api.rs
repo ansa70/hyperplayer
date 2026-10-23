@@ -16,7 +16,7 @@ use serde::Serialize;
 use types::{
     AddToPlaylist, AddToQueue, AddToQueuePlacement, Advance, Album, AlbumList, ApiError, Artist,
     ArtistPage, AuthStatus, CreatePlaylist, Jump, Me, MoveEntry, NowPlaying, Ok as OkResponse,
-    Playlist, PlaylistList, Preferences, QueueState, RepeatMode, SearchResults, Session, SetQueue,
+    Lyrics, Playlist, PlaylistList, Preferences, QueueState, RepeatMode, SearchResults, Session, SetQueue,
     TrackSource, UpdatePlaylist, UpdateQueue, UserList,
 };
 
@@ -206,6 +206,10 @@ impl Api {
 
     pub fn now_playing(&self, track_id: &str) -> Result<NowPlaying> {
         self.get(&format!("/api/tracks/{track_id}/now-playing"))
+    }
+
+    pub fn lyrics(&self, track_id: &str) -> Result<Lyrics> {
+        self.get(&format!("/api/tracks/{track_id}/lyrics"))
     }
 
     pub fn search(&self, query: &str, limit: u32) -> Result<SearchResults> {

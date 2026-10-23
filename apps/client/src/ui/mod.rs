@@ -5,6 +5,7 @@ mod account;
 mod browse;
 mod desktop;
 mod library;
+mod lyrics;
 mod models;
 mod playback;
 
@@ -41,6 +42,7 @@ pub struct App {
     /// Where clearing the search box / closing the queue returns to.
     page_before_search: Page,
     page_before_queue: Page,
+    page_before_lyrics: Page,
     playlists: Vec<types::PlaylistSummary>,
     playlist: Option<types::Playlist>,
 
@@ -74,6 +76,9 @@ pub struct App {
     pending: Option<account::Pending>,
     /// Media keys and the desktop's media widget (MPRIS on Linux).
     desktop: Option<desktop::Desktop>,
+    /// The playing track's lyrics once fetched, and the synced line being sung.
+    lyrics: Option<types::Lyrics>,
+    lyric_line: Option<usize>,
     /// ReplayGain mode and pre-amplification (dB), from the user's preferences.
     rg_mode: hyperplayer::replaygain::Mode,
     rg_preamp: f32,
@@ -178,6 +183,9 @@ pub fn run() -> anyhow::Result<()> {
             search_tracks: Vec::new(),
             page_before_search: Page::Welcome,
             page_before_queue: Page::Welcome,
+            page_before_lyrics: Page::Welcome,
+            lyrics: None,
+            lyric_line: None,
             playlists: Vec::new(),
             playlist: None,
             queue: None,
@@ -315,6 +323,8 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_track_action(library::track_action);
     ui.on_album_action(library::album_action);
     ui.on_show_queue(library::show_queue);
+    ui.on_show_lyrics(lyrics::toggle_page);
+    ui.on_seek_lyric_line(lyrics::seek_to_line);
     ui.on_jump_in_queue(library::jump_in_queue);
     ui.on_clear_queue(library::clear_queue);
 

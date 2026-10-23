@@ -501,6 +501,7 @@ pub fn tick() {
         ui.set_position(pos.as_secs_f32());
         ui.set_position_text(fmt_duration(pos.as_millis() as i64).into());
         let finished = !app.loading && s.pipeline.finished();
+        super::lyrics::follow(app, pos);
         update_stream_info(app);
         if !paused && app.last_saved.elapsed() > SAVE_EVERY {
             save_position(app);
