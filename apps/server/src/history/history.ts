@@ -2,6 +2,7 @@ import type { HistoryStats, ListenPage, RecordListen } from "@hyperplayer/schema
 import type { Catalog } from "../catalog/catalog.ts";
 import type { Db } from "../db.ts";
 import { HttpError, notFound } from "../http/contract.ts";
+import type { Scrobbler } from "./scrobbler.ts";
 
 type Row = Record<string, unknown>;
 
@@ -21,10 +22,12 @@ export function isListen(durationMs: number, playedMs: number): boolean {
 export class History {
   readonly #db: Db;
   readonly #catalog: Catalog;
+  readonly #scrobbler: Scrobbler | null;
 
-  constructor(db: Db, catalog: Catalog) {
+  constructor(db: Db, catalog: Catalog, scrobbler: Scrobbler | null = null) {
     this.#db = db;
     this.#catalog = catalog;
+    this.#scrobbler = scrobbler;
   }
 
   record(userId: string, listen: RecordListen) {
@@ -36,13 +39,19 @@ export class History {
     if (Date.parse(listen.startedAt) > Date.now() + FUTURE_SLACK_MS) {
       throw new HttpError(400, "bad_request", "startedAt is in the future");
     }
+    const startedAt = new Date(listen.startedAt).toISOString();
+    const known = this.#db
+      .prepare("SELECT 1 FROM listens WHERE user_id = ? AND track_id = ? AND started_at = ?")
+      .get(userId, track.id, startedAt);
     // Reporting the same listen again (a retry, or more of it played) only updates its length.
     this.#db
       .prepare(
         `INSERT INTO listens (user_id, track_id, started_at, played_ms) VALUES (?, ?, ?, ?)
          ON CONFLICT DO UPDATE SET played_ms = max(played_ms, excluded.played_ms)`,
       )
-      .run(userId, track.id, new Date(listen.startedAt).toISOString(), listen.playedMs);
+      .run(userId, track.id, startedAt, listen.playedMs);
+    // ...and is sent to scrobbling services only the first time.
+    if (!known) this.#scrobbler?.enqueue(userId, track.id, startedAt);
     return { ok: true as const };
   }
 

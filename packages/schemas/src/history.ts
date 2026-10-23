@@ -52,7 +52,38 @@ export const HistoryStats = named(
   "The user's most played tracks and artists over the last `days` days.",
 );
 
+export const ScrobbleAccount = named(
+  "ScrobbleAccount",
+  z.object({
+    connected: z.boolean(),
+    /** The account's name on the service. */
+    username: z.string().nullable(),
+    /** Listens waiting to be sent (e.g. while the service is unreachable). */
+    pending: Count,
+    /** Why the last attempt failed; cleared by the next success. */
+    lastError: z.string().nullable(),
+    lastSubmittedAt: Timestamp.nullable(),
+  }),
+);
+
+export const ScrobbleSettings = named(
+  "ScrobbleSettings",
+  z.object({ listenbrainz: ScrobbleAccount }),
+  "Where the caller's listens are sent. Tokens are write-only: they're never returned.",
+);
+
+export const ConnectListenBrainz = named(
+  "ConnectListenBrainz",
+  z.object({
+    /** The user token from listenbrainz.org/settings. */
+    token: z.string().trim().min(1).max(200),
+  }),
+);
+
 export type RecordListen = z.infer<typeof RecordListen>;
+export type ScrobbleAccount = z.infer<typeof ScrobbleAccount>;
+export type ScrobbleSettings = z.infer<typeof ScrobbleSettings>;
+export type ConnectListenBrainz = z.infer<typeof ConnectListenBrainz>;
 export type Listen = z.infer<typeof Listen>;
 export type ListenPage = z.infer<typeof ListenPage>;
 export type TopTrack = z.infer<typeof TopTrack>;

@@ -10,6 +10,7 @@ mod library;
 mod lyrics;
 mod models;
 mod playback;
+mod settings;
 
 use std::{
     cell::RefCell,
@@ -47,6 +48,7 @@ pub struct App {
     page_before_lyrics: Page,
     page_before_history: Page,
     page_before_albums: Page,
+    page_before_settings: Page,
     albums: albums::AlbumsView,
     playlists: Vec<types::PlaylistSummary>,
     playlist: Option<types::Playlist>,
@@ -196,6 +198,7 @@ pub fn run() -> anyhow::Result<()> {
             page_before_lyrics: Page::Welcome,
             page_before_history: Page::Welcome,
             page_before_albums: Page::Welcome,
+            page_before_settings: Page::Welcome,
             albums: Default::default(),
             listening: None,
             history_top: Vec::new(),
@@ -256,6 +259,9 @@ pub fn run() -> anyhow::Result<()> {
     });
     ui.on_show_history(history::toggle_page);
     ui.on_show_albums(albums::toggle_page);
+    ui.on_show_settings(settings::toggle_page);
+    ui.on_lb_connect(settings::connect_listenbrainz);
+    ui.on_lb_disconnect(settings::disconnect_listenbrainz);
     ui.on_albums_sort_by(|key| albums::load(key.to_string()));
     ui.on_albums_columns(albums::set_columns);
     ui.on_albums_visible(albums::visible_rows);

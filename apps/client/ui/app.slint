@@ -102,7 +102,7 @@ export struct LoginState {
     error: string,
 }
 
-export enum Page { welcome, artist, album, search, playlist, queue, lyrics, history, albums }
+export enum Page { welcome, artist, album, search, playlist, queue, lyrics, history, albums, settings }
 export enum LyricsState { loading, none, instrumental, plain, synced }
 
 export enum RepeatMode { off, all, one }
@@ -424,6 +424,8 @@ component Sidebar inherits Rectangle {
     callback show-history();
     in property <bool> albums-open;
     callback show-albums();
+    in property <bool> settings-open;
+    callback show-settings();
     in property <string> selected-id;
     in property <string> status;
     in property <[PlaylistItem]> playlists;
@@ -544,6 +546,13 @@ component Sidebar inherits Rectangle {
         HorizontalLayout {
             spacing: 8px;
             Text { text: root.account; color: Theme.muted; font-size: 12px; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+            Text {
+                text: "Settings";
+                color: root.settings-open || settings-ta.has-hover ? Theme.text : Theme.faint;
+                font-size: 12px;
+                vertical-alignment: center;
+                settings-ta := TouchArea { mouse-cursor: pointer; clicked => { root.show-settings(); } }
+            }
             Text {
                 text: "Sign out";
                 color: out-ta.has-hover ? Theme.text : Theme.faint;
@@ -1573,12 +1582,94 @@ component ShortcutHelp inherits Rectangle {
                 { key: "L", what: "Lyrics" },
                 { key: "H", what: "History" },
                 { key: "A", what: "Albums" },
+                { key: ",", what: "Settings" },
                 { key: "/  or  Ctrl+F", what: "Search" },
                 { key: "Esc", what: "Leave search / close" },
                 { key: "?", what: "This help" },
             ]: HorizontalLayout {
                 Text { width: 150px; text: row.key; color: Theme.text; font-size: 13px; font-weight: 700; }
                 Text { text: row.what; color: Theme.muted; font-size: 13px; }
+            }
+        }
+    }
+}
+
+component SettingsPage inherits Rectangle {
+    in property <bool> lb-connected;
+    in property <string> lb-username;
+    in property <string> lb-status;
+    in property <bool> lb-failing;
+    in property <bool> lb-busy;
+    in property <string> lb-error;
+    in-out property <string> lb-token;
+    callback lb-connect(string);
+    callback lb-disconnect();
+    ScrollView {
+        VerticalLayout {
+            alignment: start;
+            padding: 28px;
+            spacing: 18px;
+            Text { text: "Settings"; color: Theme.text; font-size: 28px; font-weight: 800; }
+            Text { text: "Scrobbling"; color: Theme.text; font-size: 18px; font-weight: 700; }
+            Rectangle {
+                background: Theme.surface;
+                border-radius: Theme.radius;
+                max-width: 640px;
+                VerticalLayout {
+                    padding: 18px;
+                    spacing: 12px;
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Text { text: "ListenBrainz"; color: Theme.text; font-size: 15px; font-weight: 700; vertical-alignment: center; }
+                        if root.lb-connected: VerticalLayout {
+                            alignment: center;
+                            Chip { text: "Connected as " + root.lb-username; accent: #1ed760; }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    Text {
+                        text: "Sends what you listen to to your ListenBrainz profile, for a public listening history, statistics and recommendations. Listens are sent from the moment you connect; earlier history stays here.";
+                        color: Theme.muted;
+                        font-size: 13px;
+                        wrap: word-wrap;
+                    }
+                    if root.lb-connected: Text {
+                        text: root.lb-status;
+                        color: root.lb-failing ? #ff8a80 : Theme.muted;
+                        font-size: 12px;
+                        wrap: word-wrap;
+                    }
+                    // Shown to connect, and to replace a token ListenBrainz no longer accepts.
+                    if !root.lb-connected || root.lb-failing: Field {
+                        label: "USER TOKEN";
+                        token := LineEdit {
+                            text <=> root.lb-token;
+                            input-type: InputType.password;
+                            placeholder-text: "Copy it from listenbrainz.org/settings";
+                            accepted(t) => { root.lb-connect(t); }
+                        }
+                    }
+                    if root.lb-error != "": Text { text: root.lb-error; color: #ff8a80; font-size: 12px; wrap: word-wrap; }
+                    HorizontalLayout {
+                        alignment: start;
+                        spacing: 12px;
+                        if !root.lb-connected || root.lb-failing: PrimaryButton {
+                            width: 160px;
+                            text: root.lb-connected ? "Reconnect" : "Connect";
+                            busy: root.lb-busy;
+                            clicked => { root.lb-connect(root.lb-token); }
+                        }
+                        if root.lb-connected: Rectangle {
+                            height: 40px;
+                            width: disconnect-label.preferred-width + 36px;
+                            border-radius: 20px;
+                            border-width: 1px;
+                            border-color: disconnect-ta.has-hover ? Theme.text : Theme.faint;
+                            disconnect-label := Text { text: "Disconnect"; color: Theme.muted; font-size: 13px; horizontal-alignment: center; vertical-alignment: center; }
+                            disconnect-ta := TouchArea { mouse-cursor: pointer; clicked => { root.lb-disconnect(); } }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1636,6 +1727,16 @@ export component AppWindow inherits Window {
     callback play-search-track(int);
     callback show-history();
     callback show-albums();
+    callback show-settings();
+    callback lb-connect(string);
+    callback lb-disconnect();
+    in property <bool> lb-connected;
+    in property <string> lb-username;
+    in property <string> lb-status;
+    in property <bool> lb-failing;
+    in property <bool> lb-busy;
+    in property <string> lb-error;
+    in-out property <string> lb-token;
     callback albums-sort-by(string);
     callback albums-columns(int);
     callback albums-visible(int, int);
@@ -1709,6 +1810,7 @@ export component AppWindow inherits Window {
             else if root.page == Page.lyrics { root.show-lyrics(); }
             else if root.page == Page.history { root.show-history(); }
             else if root.page == Page.albums { root.show-albums(); }
+            else if root.page == Page.settings { root.show-settings(); }
             keys.focus();
             return accept;
         }
@@ -1740,6 +1842,7 @@ export component AppWindow inherits Window {
         if event.text == "l" || event.text == "L" { root.show-lyrics(); return accept; }
         if event.text == "h" || event.text == "H" { root.show-history(); return accept; }
         if event.text == "a" || event.text == "A" { root.show-albums(); return accept; }
+        if event.text == "," { root.show-settings(); return accept; }
         if event.text == "/" { sidebar.focus-search(); return accept; }
         if event.text == "?" { root.show-help = !root.show-help; return accept; }
         return reject;
@@ -1764,6 +1867,8 @@ export component AppWindow inherits Window {
                 show-history => { root.show-history(); }
                 albums-open: root.page == Page.albums;
                 show-albums => { root.show-albums(); }
+                settings-open: root.page == Page.settings;
+                show-settings => { root.show-settings(); }
             }
             Rectangle {
                 horizontal-stretch: 1;
@@ -1801,6 +1906,17 @@ export component AppWindow inherits Window {
                     rename(name) => { root.rename-playlist(name); }
                     delete => { root.delete-playlist(); }
                     track-action(i, kind, id) => { root.track-action("playlist", i, kind, id); }
+                }
+                if root.page == Page.settings: SettingsPage {
+                    lb-connected: root.lb-connected;
+                    lb-username: root.lb-username;
+                    lb-status: root.lb-status;
+                    lb-failing: root.lb-failing;
+                    lb-busy: root.lb-busy;
+                    lb-error: root.lb-error;
+                    lb-token <=> root.lb-token;
+                    lb-connect(t) => { root.lb-connect(t); }
+                    lb-disconnect => { root.lb-disconnect(); }
                 }
                 if root.page == Page.albums: AlbumsPage {
                     summary: root.albums-summary;

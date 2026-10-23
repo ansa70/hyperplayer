@@ -15,7 +15,7 @@ use reqwest::Method;
 use serde::Serialize;
 use types::{
     AddToPlaylist, AddToQueue, AddToQueuePlacement, Advance, Album, AlbumList, AlbumPage, ApiError, Artist,
-    ArtistPage, AuthStatus, HistoryStats, ListenPage, RecordListen, CreatePlaylist, Jump, Me, MoveEntry, NowPlaying, Ok as OkResponse,
+    ArtistPage, AuthStatus, ConnectListenBrainz, HistoryStats, ListenPage, RecordListen, ScrobbleSettings, CreatePlaylist, Jump, Me, MoveEntry, NowPlaying, Ok as OkResponse,
     Lyrics, Playlist, PlaylistList, Preferences, QueueState, RepeatMode, SearchResults, Session, SetQueue,
     TrackSource, UpdatePlaylist, UpdateQueue, UserList,
 };
@@ -222,6 +222,21 @@ impl Api {
         };
         self.send::<OkResponse, _>(Method::POST, "/api/history", Some(&body))
             .map(|_| ())
+    }
+
+    pub fn scrobbling(&self) -> Result<ScrobbleSettings> {
+        self.get("/api/me/scrobbling")
+    }
+
+    pub fn connect_listenbrainz(&self, token: &str) -> Result<ScrobbleSettings> {
+        let body = ConnectListenBrainz {
+            token: token.try_into().map_err(|e| anyhow::anyhow!("{e}"))?,
+        };
+        self.send(Method::PUT, "/api/me/scrobbling/listenbrainz", Some(&body))
+    }
+
+    pub fn disconnect_listenbrainz(&self) -> Result<ScrobbleSettings> {
+        self.send::<_, ()>(Method::DELETE, "/api/me/scrobbling/listenbrainz", None)
     }
 
     pub fn history(&self, offset: i64, limit: i64) -> Result<ListenPage> {

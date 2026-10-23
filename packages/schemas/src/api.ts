@@ -29,7 +29,7 @@ import {
   UpdatePlaylist,
   UpdateQueue,
 } from "./library.ts";
-import { HistoryStats, ListenPage, RecordListen } from "./history.ts";
+import { ConnectListenBrainz, HistoryStats, ListenPage, RecordListen, ScrobbleSettings } from "./history.ts";
 import {
   AuthStatus,
   ChangePassword,
@@ -443,6 +443,33 @@ export const api = {
       limit: z.coerce.number().int().min(1).max(100).default(10),
     }),
     response: HistoryStats,
+  }),
+
+  getScrobbling: json({
+    method: "GET",
+    path: "/api/me/scrobbling",
+    summary: "The caller's scrobbling accounts and their state",
+    params: NoParams,
+    query: NoQuery,
+    response: ScrobbleSettings,
+  }),
+  connectListenBrainz: json({
+    method: "PUT",
+    path: "/api/me/scrobbling/listenbrainz",
+    summary:
+      "Send the caller's future listens to ListenBrainz (the token is checked with ListenBrainz first)",
+    params: NoParams,
+    query: NoQuery,
+    body: ConnectListenBrainz,
+    response: ScrobbleSettings,
+  }),
+  disconnectListenBrainz: json({
+    method: "DELETE",
+    path: "/api/me/scrobbling/listenbrainz",
+    summary: "Stop sending listens to ListenBrainz and forget the token (unsent listens are dropped)",
+    params: NoParams,
+    query: NoQuery,
+    response: ScrobbleSettings,
   }),
 
   // ------------------------------------------------------------------- queue

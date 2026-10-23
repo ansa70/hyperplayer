@@ -164,6 +164,30 @@ CREATE TABLE IF NOT EXISTS listens (
   PRIMARY KEY (user_id, track_id, started_at)
 );
 CREATE INDEX IF NOT EXISTS listens_recent ON listens(user_id, started_at);
+
+-- Services a user's listens are sent to. The token is needed to submit, so it's stored as is.
+CREATE TABLE IF NOT EXISTS scrobble_accounts (
+  user_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  service           TEXT NOT NULL,             -- 'listenbrainz'
+  token             TEXT NOT NULL,
+  username          TEXT NOT NULL,
+  connected_at      TEXT NOT NULL,
+  last_error        TEXT,
+  last_submitted_at TEXT,
+  PRIMARY KEY (user_id, service)
+);
+
+-- Listens waiting to be sent; a row is deleted once the service has it.
+CREATE TABLE IF NOT EXISTS scrobbles (
+  user_id         TEXT NOT NULL,
+  service         TEXT NOT NULL,
+  track_id        TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+  started_at      TEXT NOT NULL,
+  attempts        INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, service, track_id, started_at),
+  FOREIGN KEY (user_id, service) REFERENCES scrobble_accounts(user_id, service) ON DELETE CASCADE
+);
 `;
 
 /** Columns added after the first schema version, applied to existing databases. */

@@ -1720,6 +1720,125 @@
         }
       }
     },
+    "/api/me/scrobbling": {
+      "get": {
+        "operationId": "getScrobbling",
+        "summary": "The caller's scrobbling accounts and their state",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's scrobbling accounts and their state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrobbleSettings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/scrobbling/listenbrainz": {
+      "put": {
+        "operationId": "connectListenBrainz",
+        "summary": "Send the caller's future listens to ListenBrainz (the token is checked with ListenBrainz first)",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectListenBrainz"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Send the caller's future listens to ListenBrainz (the token is checked with ListenBrainz first)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrobbleSettings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "disconnectListenBrainz",
+        "summary": "Stop sending listens to ListenBrainz and forget the token (unsent listens are dropped)",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stop sending listens to ListenBrainz and forget the token (unsent listens are dropped)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrobbleSettings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/queue": {
       "get": {
         "operationId": "getQueue",
@@ -4240,6 +4359,67 @@
           "listenedMs",
           "topTracks",
           "topArtists"
+        ],
+        "additionalProperties": false
+      },
+      "ScrobbleAccount": {
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "username": {
+            "nullable": true,
+            "type": "string"
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "lastError": {
+            "nullable": true,
+            "type": "string"
+          },
+          "lastSubmittedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "connected",
+          "username",
+          "pending",
+          "lastError",
+          "lastSubmittedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ScrobbleSettings": {
+        "type": "object",
+        "properties": {
+          "listenbrainz": {
+            "$ref": "#/components/schemas/ScrobbleAccount"
+          }
+        },
+        "required": [
+          "listenbrainz"
+        ],
+        "additionalProperties": false
+      },
+      "ConnectListenBrainz": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "token"
         ],
         "additionalProperties": false
       }
