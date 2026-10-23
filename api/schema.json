@@ -1975,6 +1975,164 @@
         }
       },
       "additionalProperties": false
+    },
+    "RecordListen": {
+      "type": "object",
+      "properties": {
+        "trackId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "playedMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "trackId",
+        "startedAt",
+        "playedMs"
+      ],
+      "additionalProperties": false
+    },
+    "Listen": {
+      "type": "object",
+      "properties": {
+        "track": {
+          "$ref": "#/definitions/Track"
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "playedMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "track",
+        "startedAt",
+        "playedMs"
+      ],
+      "additionalProperties": false
+    },
+    "ListenPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Listen"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "items",
+        "total",
+        "offset",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "TopTrack": {
+      "type": "object",
+      "properties": {
+        "track": {
+          "$ref": "#/definitions/Track"
+        },
+        "plays": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "track",
+        "plays"
+      ],
+      "additionalProperties": false
+    },
+    "TopArtist": {
+      "type": "object",
+      "properties": {
+        "artist": {
+          "$ref": "#/definitions/ArtistSummary"
+        },
+        "plays": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "artist",
+        "plays"
+      ],
+      "additionalProperties": false
+    },
+    "HistoryStats": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "listens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "listenedMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "topTracks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TopTrack"
+          }
+        },
+        "topArtists": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TopArtist"
+          }
+        }
+      },
+      "required": [
+        "days",
+        "listens",
+        "listenedMs",
+        "topTracks",
+        "topArtists"
+      ],
+      "additionalProperties": false
     }
   }
 }

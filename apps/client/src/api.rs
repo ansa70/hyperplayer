@@ -15,7 +15,7 @@ use reqwest::Method;
 use serde::Serialize;
 use types::{
     AddToPlaylist, AddToQueue, AddToQueuePlacement, Advance, Album, AlbumList, ApiError, Artist,
-    ArtistPage, AuthStatus, CreatePlaylist, Jump, Me, MoveEntry, NowPlaying, Ok as OkResponse,
+    ArtistPage, AuthStatus, HistoryStats, ListenPage, RecordListen, CreatePlaylist, Jump, Me, MoveEntry, NowPlaying, Ok as OkResponse,
     Lyrics, Playlist, PlaylistList, Preferences, QueueState, RepeatMode, SearchResults, Session, SetQueue,
     TrackSource, UpdatePlaylist, UpdateQueue, UserList,
 };
@@ -206,6 +206,30 @@ impl Api {
 
     pub fn now_playing(&self, track_id: &str) -> Result<NowPlaying> {
         self.get(&format!("/api/tracks/{track_id}/now-playing"))
+    }
+
+    /// Reports a listen (see the listen rule in the history schema).
+    pub fn record_listen(
+        &self,
+        track_id: &str,
+        started_at: chrono::DateTime<chrono::Utc>,
+        played: std::time::Duration,
+    ) -> Result<()> {
+        let body = RecordListen {
+            track_id: track_id.try_into().map_err(|e| anyhow::anyhow!("{e}"))?,
+            started_at,
+            played_ms: played.as_millis() as i64,
+        };
+        self.send::<OkResponse, _>(Method::POST, "/api/history", Some(&body))
+            .map(|_| ())
+    }
+
+    pub fn history(&self, offset: i64, limit: i64) -> Result<ListenPage> {
+        self.get(&format!("/api/history?offset={offset}&limit={limit}"))
+    }
+
+    pub fn history_stats(&self, days: i64, limit: i64) -> Result<HistoryStats> {
+        self.get(&format!("/api/history/stats?days={days}&limit={limit}"))
     }
 
     pub fn lyrics(&self, track_id: &str) -> Result<Lyrics> {

@@ -29,6 +29,7 @@ import {
   UpdatePlaylist,
   UpdateQueue,
 } from "./library.ts";
+import { HistoryStats, ListenPage, RecordListen } from "./history.ts";
 import {
   AuthStatus,
   ChangePassword,
@@ -412,6 +413,36 @@ export const api = {
     query: NoQuery,
     body: MoveEntry,
     response: Playlist,
+  }),
+
+  // ----------------------------------------------------------------- history
+  recordListen: json({
+    method: "POST",
+    path: "/api/history",
+    summary: "Record a listen (only plays meeting the listen rule count; repeats of one listen are ignored)",
+    params: NoParams,
+    query: NoQuery,
+    body: RecordListen,
+    response: Ok,
+  }),
+  listHistory: json({
+    method: "GET",
+    path: "/api/history",
+    summary: "The caller's listens, most recent first",
+    params: NoParams,
+    query: Pagination,
+    response: ListenPage,
+  }),
+  historyStats: json({
+    method: "GET",
+    path: "/api/history/stats",
+    summary: "The caller's most played tracks and artists over recent days",
+    params: NoParams,
+    query: z.object({
+      days: z.coerce.number().int().min(1).max(36500).default(30),
+      limit: z.coerce.number().int().min(1).max(100).default(10),
+    }),
+    response: HistoryStats,
   }),
 
   // ------------------------------------------------------------------- queue

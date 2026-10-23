@@ -118,6 +118,7 @@ pub fn play_current(start: Duration) {
     refresh_playing_marks();
     let quality = with_app(|app| {
         app.resume_at = Duration::ZERO;
+        super::history::begin(app, &track);
         adaptive::choose(&track, app.mode, app.bandwidth.get())
     });
     start_stream(track.clone(), quality, start, false);
@@ -394,6 +395,7 @@ fn promote_preload() -> bool {
             a.promote_next();
         }
         let id = p.session.track.id.to_string();
+        super::history::begin(app, &p.session.track);
         app.session = Some(p.session);
         app.generation += 1;
         app.preload_tried = None;
@@ -480,6 +482,7 @@ pub fn refresh_playing_marks() {
         let playing = current_track(app).map(|t| t.id.to_string());
         ui.set_album_tracks(track_model(&app.album_tracks, playing.as_deref()));
         ui.set_search_tracks(search_track_model(&app.search_tracks, playing.as_deref()));
+        super::history::refresh_playing(app, &ui);
     });
 }
 
@@ -502,6 +505,7 @@ pub fn tick() {
         ui.set_position_text(fmt_duration(pos.as_millis() as i64).into());
         let finished = !app.loading && s.pipeline.finished();
         super::lyrics::follow(app, pos);
+        super::history::follow(app, pos, !paused);
         update_stream_info(app);
         if !paused && app.last_saved.elapsed() > SAVE_EVERY {
             save_position(app);

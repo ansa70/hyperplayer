@@ -12,6 +12,7 @@ import { Queues } from "./collections/queues.ts";
 import { Enricher } from "./enrich/enricher.ts";
 import { httpClient } from "./enrich/http.ts";
 import { LyricsService } from "./lyrics/lyrics.ts";
+import { History } from "./history/history.ts";
 import type { Config } from "./config.ts";
 import { openDb } from "./db.ts";
 import { Auth, type AuthContext } from "./auth/auth.ts";
@@ -39,6 +40,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
   const catalog = new Catalog(db, enricher);
   const playlists = new Playlists(db, catalog);
   const queues = new Queues(db, catalog);
+  const history = new History(db, catalog);
   // LRCLIB is an online lookup like enrichment, so it's off when enrichment is.
   const lyrics = new LyricsService(
     db,
@@ -160,6 +162,9 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
   route.json(api.search, ({ query }) => catalog.search(query.q, query.limit));
 
   // ------------------------------------------------------------- playlists
+  route.json(api.recordListen, ({ auth: a, body }) => history.record(a.user.id, body));
+  route.json(api.listHistory, ({ auth: a, query }) => history.list(a.user.id, query.offset, query.limit));
+  route.json(api.historyStats, ({ auth: a, query }) => history.stats(a.user.id, query.days, query.limit));
   route.json(api.listPlaylists, ({ auth: a }) => playlists.list(a.user.id));
   route.json(api.createPlaylist, ({ auth: a, body }) =>
     playlists.create(a.user.id, body.name, body.description ?? null, body.trackIds),

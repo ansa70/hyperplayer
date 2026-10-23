@@ -4,6 +4,7 @@
 mod account;
 mod browse;
 mod desktop;
+mod history;
 mod library;
 mod lyrics;
 mod models;
@@ -43,6 +44,7 @@ pub struct App {
     page_before_search: Page,
     page_before_queue: Page,
     page_before_lyrics: Page,
+    page_before_history: Page,
     playlists: Vec<types::PlaylistSummary>,
     playlist: Option<types::Playlist>,
 
@@ -76,6 +78,11 @@ pub struct App {
     pending: Option<account::Pending>,
     /// Media keys and the desktop's media widget (MPRIS on Linux).
     desktop: Option<desktop::Desktop>,
+    /// How much of the current track has really been played, for listening history.
+    listening: Option<history::Listening>,
+    /// The History page's track lists, for playing and ⋯ menus.
+    history_top: Vec<types::Track>,
+    history_recent: Vec<types::Track>,
     /// The playing track's lyrics once fetched, and the synced line being sung.
     lyrics: Option<types::Lyrics>,
     lyric_line: Option<usize>,
@@ -184,6 +191,10 @@ pub fn run() -> anyhow::Result<()> {
             page_before_search: Page::Welcome,
             page_before_queue: Page::Welcome,
             page_before_lyrics: Page::Welcome,
+            page_before_history: Page::Welcome,
+            listening: None,
+            history_top: Vec::new(),
+            history_recent: Vec::new(),
             lyrics: None,
             lyric_line: None,
             playlists: Vec::new(),
@@ -236,6 +247,16 @@ pub fn run() -> anyhow::Result<()> {
                 i as usize,
                 None,
             );
+        }
+    });
+    ui.on_show_history(history::toggle_page);
+    ui.on_play_history_track(|list, i| {
+        let ids = with_app(|app| {
+            let tracks = if list == "history-top" { &app.history_top } else { &app.history_recent };
+            tracks.iter().map(|t| t.id.clone()).collect::<Vec<_>>()
+        });
+        if !ids.is_empty() {
+            playback::play_from(types::TrackSource::Tracks { track_ids: ids }, i as usize, None);
         }
     });
     ui.on_play_search_track(|i| {

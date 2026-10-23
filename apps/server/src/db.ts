@@ -154,6 +154,16 @@ CREATE TABLE IF NOT EXISTS queue_entries (
   play_index   INTEGER NOT NULL,
   PRIMARY KEY (device_id, entry_id)
 );
+
+-- One row per listen. Keyed by start time so a client retrying a report can't double count.
+CREATE TABLE IF NOT EXISTS listens (
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  track_id    TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+  started_at  TEXT NOT NULL,
+  played_ms   INTEGER NOT NULL,
+  PRIMARY KEY (user_id, track_id, started_at)
+);
+CREATE INDEX IF NOT EXISTS listens_recent ON listens(user_id, started_at);
 `;
 
 /** Columns added after the first schema version, applied to existing databases. */

@@ -97,7 +97,7 @@ export struct LoginState {
     error: string,
 }
 
-export enum Page { welcome, artist, album, search, playlist, queue, lyrics }
+export enum Page { welcome, artist, album, search, playlist, queue, lyrics, history }
 export enum LyricsState { loading, none, instrumental, plain, synced }
 
 export enum RepeatMode { off, all, one }
@@ -108,6 +108,8 @@ global Icons {
     out property <string> repeat: "M17 2l4 4-4 4 M3 11v-1a4 4 0 0 1 4-4h14 M7 22l-4-4 4-4 M21 13v1a4 4 0 0 1-4 4H3";
     out property <string> repeat-one: "M17 2l4 4-4 4 M3 11v-1a4 4 0 0 1 4-4h14 M7 22l-4-4 4-4 M21 13v1a4 4 0 0 1-4 4H3 M11 10h1v4";
     out property <string> queue: "M16 5H3 M16 12H3 M11 19H3 M21 16v6 M18 19h6";
+    // Lucide "history".
+    out property <string> history: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5 M12 7v5l4 2";
     // Lucide "mic-vocal".
     out property <string> lyrics: "M11 7.601l-5.994 8.19a1 1 0 0 0 .1 1.298l.817.818a1 1 0 0 0 1.314.087L15.09 12 M16.5 21.174C15.5 20.5 14.372 20 13 20c-2.058 0-3.928 2.356-6 2-2.072-.356-2.775-3.369-1.5-4.5 M11 7a5 5 0 1 0 10 0a5 5 0 1 0-10 0";
     out property <string> more: "M12 12h.01 M19 12h.01 M5 12h.01";
@@ -381,6 +383,8 @@ component TrackRow inherits Rectangle {
 
 component Sidebar inherits Rectangle {
     in property <[ArtistItem]> artists;
+    in property <bool> history-open;
+    callback show-history();
     in property <string> selected-id;
     in property <string> status;
     in property <[PlaylistItem]> playlists;
@@ -423,6 +427,30 @@ component Sidebar inherits Rectangle {
             placeholder-text: "Search artists, albums, tracks   ( / )";
             edited(text) => { root.search-changed(text); }
             accepted(text) => { root.search-accepted(text); }
+        }
+        Rectangle {
+            height: 30px;
+            border-radius: 6px;
+            background: root.history-open ? Theme.surface-hi : (history-ta.has-hover ? Theme.surface-hi.with-alpha(0.5) : transparent);
+            HorizontalLayout {
+                padding-left: 8px;
+                spacing: 8px;
+                VerticalLayout {
+                    alignment: center;
+                    Path {
+                        width: 16px;
+                        height: 16px;
+                        viewbox-width: 24;
+                        viewbox-height: 24;
+                        commands: Icons.history;
+                        fill: transparent;
+                        stroke: Theme.muted;
+                        stroke-width: 2px;
+                    }
+                }
+                Text { text: "History"; color: Theme.text; font-size: 13px; vertical-alignment: center; }
+            }
+            history-ta := TouchArea { mouse-cursor: pointer; clicked => { root.show-history(); } }
         }
         HorizontalLayout {
             Text { text: "PLAYLISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; vertical-alignment: center; }
@@ -641,6 +669,70 @@ component AlbumPage inherits Rectangle {
         y: 250px;
         playlists: root.playlists;
         action(kind, id) => { root.album-action(kind, id); }
+    }
+}
+
+component HistoryPage inherits Rectangle {
+    in property <bool> loaded;
+    in property <string> summary;
+    in property <[ArtistItem]> artists;
+    in property <[TrackItem]> top;
+    in property <[TrackItem]> recent;
+    in property <[PlaylistItem]> playlists;
+    callback select-artist(string);
+    callback play(string, int);
+    callback track-action(string, int, string, string);
+    ScrollView {
+        VerticalLayout {
+            alignment: start;
+            padding: 28px;
+            spacing: 18px;
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "History"; color: Theme.text; font-size: 28px; font-weight: 800; }
+                if root.summary != "": Text { text: root.summary; color: Theme.muted; font-size: 13px; }
+            }
+            if root.loaded && root.recent.length == 0: Text {
+                text: "Nothing yet. Tracks you listen to (half of them, or 4 minutes) show up here.";
+                color: Theme.faint;
+                font-size: 13px;
+                wrap: word-wrap;
+            }
+            if root.artists.length > 0: Text { text: "Top artists · last 30 days"; color: Theme.text; font-size: 18px; font-weight: 700; }
+            if root.artists.length > 0: HorizontalLayout {
+                alignment: start;
+                spacing: 20px;
+                for artist in root.artists: VerticalLayout {
+                    width: 110px;
+                    spacing: 4px;
+                    Rectangle {
+                        width: 110px;
+                        height: 110px;
+                        border-radius: 55px;
+                        clip: true;
+                        background: Theme.surface-hi;
+                        Image { width: 110px; height: 110px; source: artist.image; image-fit: cover; }
+                        TouchArea { mouse-cursor: pointer; clicked => { root.select-artist(artist.id); } }
+                    }
+                    Text { text: artist.name; color: Theme.text; font-size: 13px; font-weight: 600; horizontal-alignment: center; overflow: elide; }
+                    Text { text: artist.subtitle; color: Theme.muted; font-size: 11px; horizontal-alignment: center; }
+                }
+            }
+            if root.top.length > 0: Text { text: "Most played · last 30 days"; color: Theme.text; font-size: 18px; font-weight: 700; }
+            for track[i] in root.top: TrackRow {
+                track: track;
+                playlists: root.playlists;
+                play => { root.play("history-top", i); }
+                action(kind, id) => { root.track-action("history-top", i, kind, id); }
+            }
+            if root.recent.length > 0: Text { text: "Recently played"; color: Theme.text; font-size: 18px; font-weight: 700; }
+            for track[i] in root.recent: TrackRow {
+                track: track;
+                playlists: root.playlists;
+                play => { root.play("history-recent", i); }
+                action(kind, id) => { root.track-action("history-recent", i, kind, id); }
+            }
+        }
     }
 }
 
@@ -1370,6 +1462,7 @@ component ShortcutHelp inherits Rectangle {
                 { key: "S / R", what: "Shuffle / repeat" },
                 { key: "Q", what: "Queue" },
                 { key: "L", what: "Lyrics" },
+                { key: "H", what: "History" },
                 { key: "/  or  Ctrl+F", what: "Search" },
                 { key: "Esc", what: "Leave search / close" },
                 { key: "?", what: "This help" },
@@ -1431,6 +1524,13 @@ export component AppWindow inherits Window {
     callback select-album(string);
     callback play-track(int);
     callback play-search-track(int);
+    callback show-history();
+    callback play-history-track(string, int);
+    in property <bool> history-loaded;
+    in property <string> history-summary;
+    in property <[ArtistItem]> history-artists;
+    in property <[TrackItem]> history-top;
+    in property <[TrackItem]> history-recent;
     callback search-changed(string);
     callback search-accepted(string);
     public function reveal-artist(index: int) { sidebar.reveal-artist(index); }
@@ -1488,6 +1588,7 @@ export component AppWindow inherits Window {
             else if sidebar.clear-search() { }
             else if root.page == Page.queue { root.show-queue(); }
             else if root.page == Page.lyrics { root.show-lyrics(); }
+            else if root.page == Page.history { root.show-history(); }
             keys.focus();
             return accept;
         }
@@ -1517,6 +1618,7 @@ export component AppWindow inherits Window {
         if event.text == "r" || event.text == "R" { root.cycle-repeat(); return accept; }
         if event.text == "q" || event.text == "Q" { root.show-queue(); return accept; }
         if event.text == "l" || event.text == "L" { root.show-lyrics(); return accept; }
+        if event.text == "h" || event.text == "H" { root.show-history(); return accept; }
         if event.text == "/" { sidebar.focus-search(); return accept; }
         if event.text == "?" { root.show-help = !root.show-help; return accept; }
         return reject;
@@ -1537,6 +1639,8 @@ export component AppWindow inherits Window {
                 new-playlist => { root.new-playlist(); }
                 account: root.account;
                 sign-out => { root.sign-out(); }
+                history-open: root.page == Page.history;
+                show-history => { root.show-history(); }
             }
             Rectangle {
                 horizontal-stretch: 1;
@@ -1574,6 +1678,17 @@ export component AppWindow inherits Window {
                     rename(name) => { root.rename-playlist(name); }
                     delete => { root.delete-playlist(); }
                     track-action(i, kind, id) => { root.track-action("playlist", i, kind, id); }
+                }
+                if root.page == Page.history: HistoryPage {
+                    loaded: root.history-loaded;
+                    summary: root.history-summary;
+                    artists: root.history-artists;
+                    top: root.history-top;
+                    recent: root.history-recent;
+                    playlists: root.playlists;
+                    select-artist(id) => { root.select-artist(id); }
+                    play(list, i) => { root.play-history-track(list, i); }
+                    track-action(list, i, kind, id) => { root.track-action(list, i, kind, id); }
                 }
                 if root.page == Page.lyrics: LyricsPage {
                     title: root.np.active ? root.np.title : "";

@@ -290,6 +290,19 @@ export class Catalog {
   }
 
   /** Tracks by id (any order); ids not in the library are absent from the map. */
+  artistSummaries(ids: string[]): Map<string, ArtistSummary> {
+    const out = new Map<string, ArtistSummary>();
+    const unique = [...new Set(ids)];
+    for (let i = 0; i < unique.length; i += 500) {
+      const chunk = unique.slice(i, i + 500);
+      const rows = this.#db
+        .prepare(`${ARTIST_SELECT} WHERE ar.id IN (${chunk.map(() => "?").join(",")})`)
+        .all(...chunk) as Row[];
+      for (const r of rows) out.set(String(r.id), this.#artistSummary(r));
+    }
+    return out;
+  }
+
   tracksByIds(ids: string[]): Map<string, Track> {
     const out = new Map<string, Track>();
     const unique = [...new Set(ids)];
