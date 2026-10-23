@@ -3,6 +3,7 @@
 
 mod account;
 mod browse;
+mod desktop;
 mod library;
 mod models;
 mod playback;
@@ -67,6 +68,8 @@ pub struct App {
     unmuted_volume: Option<f32>,
     /// Signed in with a default password: held here until a new one is saved.
     pending: Option<account::Pending>,
+    /// Media keys and the desktop's media widget (MPRIS on Linux).
+    desktop: Option<desktop::Desktop>,
 }
 
 thread_local! {
@@ -185,6 +188,7 @@ pub fn run() -> anyhow::Result<()> {
             np_had_banner: false,
             unmuted_volume: None,
             pending: None,
+            desktop: None,
         })
     });
     ui.set_status(format!("Connecting to {server}…").into());
@@ -266,6 +270,7 @@ pub fn run() -> anyhow::Result<()> {
             }
             app.unmuted_volume = None;
             app.settings.volume = v;
+            desktop::publish_volume(app, v);
         })
     });
 
@@ -288,6 +293,9 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_show_queue(library::show_queue);
     ui.on_jump_in_queue(library::jump_in_queue);
     ui.on_clear_queue(library::clear_queue);
+
+    let media = desktop::start();
+    with_app(|app| app.desktop = media);
 
     let timer = Timer::default();
     timer.start(
@@ -326,7 +334,7 @@ pub fn run() -> anyhow::Result<()> {
 /// Arrow-key seek distance, in seconds.
 const SEEK_STEP: f64 = 10.0;
 
-fn seek_by(delta: f64) {
+pub(super) fn seek_by(delta: f64) {
     let target = with_app(|app| {
         let s = app.session.as_ref()?;
         let end = s.track.duration_ms as f64 / 1000.0;
@@ -336,6 +344,20 @@ fn seek_by(delta: f64) {
     if let Some(t) = target {
         playback::seek_to(Duration::from_secs_f64(t));
     }
+}
+
+/// Sets the volume from outside the slider (desktop media controls).
+pub(super) fn set_volume(volume: f32) {
+    with_app(|app| {
+        if let Some(ui) = app.ui.upgrade() {
+            ui.set_volume(volume);
+        }
+        if let Some(a) = &app.audio {
+            a.set_volume(volume);
+        }
+        app.unmuted_volume = None;
+        app.settings.volume = volume;
+    });
 }
 
 fn toggle_mute() {

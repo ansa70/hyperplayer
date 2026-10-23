@@ -102,3 +102,11 @@ the bitrate or audio underruns. The mode chip in the player cycles Auto → Orig
 - **TLS:** tokens are only as safe as the connection. Keep the server on a trusted LAN, or put it behind an HTTPS
   reverse proxy (set `HP_TRUST_PROXY=true` there, so rate limits see real client IPs). `HP_SECURE_COOKIES=false`
   is for plain-HTTP development only.
+
+## Desktop integration
+
+The client registers as an MPRIS player (`org.mpris.MediaPlayer2.hyperplayer`) via souvlaki's pure-Rust D-Bus
+backend: media keys, headset buttons, KDE Connect/GSConnect and the GNOME/KDE media widgets can play, pause, skip
+and seek, and show title, artist, album, duration and cover. Covers are cached as JPEG under
+`~/.cache/hyperplayer/covers` because desktop shells can't fetch the authenticated artwork URLs. The same crate
+provides the macOS and Windows media controls.

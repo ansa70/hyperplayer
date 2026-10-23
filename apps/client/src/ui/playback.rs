@@ -322,6 +322,7 @@ pub fn tick() {
         };
         let paused = app.audio.as_ref().is_none_or(|a| a.is_paused());
         ui.set_playing((app.session.is_some() && !paused) || app.loading);
+        super::desktop::sync(app);
         let Some(s) = &app.session else {
             return (false, None);
         };
