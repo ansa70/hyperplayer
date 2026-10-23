@@ -1,0 +1,25 @@
+{
+  "name": "@hyperplayer/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vpx --watch src/main.ts",
+    "start": "vpx src/main.ts",
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.1",
+    "@hyperplayer/schemas": "workspace:*",
+    "fastify": "^5.12.7",
+    "music-metadata": "^12.2.3",
+    "sharp": "^0.35.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

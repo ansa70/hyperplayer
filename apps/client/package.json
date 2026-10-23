@@ -1,0 +1,9 @@
+{
+  "name": "@hyperplayer/client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Native Rust + Slint client. Tasks are defined in vite.config.ts and wrap cargo.",
+  "devDependencies": {
+    "@hyperplayer/schemas": "workspace:*"
+  }
+}

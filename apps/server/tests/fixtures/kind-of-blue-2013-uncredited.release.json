@@ -1,0 +1,298 @@
+{
+  "title": "Kind of Blue",
+  "media": [
+    {
+      "title": "",
+      "tracks": [
+        {
+          "id": "100aa187-149c-4c77-8ebb-02a31e3910c6",
+          "number": "1",
+          "length": 548000,
+          "title": "So What",
+          "position": 1,
+          "artist-credit": [
+            {
+              "artist": {
+                "id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+                "type": "Person",
+                "sort-name": "Davis, Miles",
+                "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                "disambiguation": "jazz trumpeter, bandleader, songwriter",
+                "country": "US",
+                "name": "Miles Davis"
+              },
+              "joinphrase": "",
+              "name": "Miles Davis"
+            }
+          ],
+          "recording": {
+            "relations": [],
+            "artist-credit": [
+              {
+                "name": "Miles Davis",
+                "joinphrase": "",
+                "artist": {
+                  "type": "Person",
+                  "sort-name": "Davis, Miles",
+                  "id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+                  "country": "US",
+                  "name": "Miles Davis",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "disambiguation": "jazz trumpeter, bandleader, songwriter"
+                }
+              }
+            ],
+            "disambiguation": "mono",
+            "first-release-date": "2013-11",
+            "video": false,
+            "title": "So What",
+            "id": "4ca4075f-d269-4be0-9b38-fd1c832d8436",
+            "length": 548000
+          }
+        },
+        {
+          "recording": {
+            "length": 588000,
+            "id": "cc2620ec-a7b6-40f4-b3c5-7626bcca139e",
+            "title": "Freddie Freeloader",
+            "video": false,
+            "first-release-date": "2013-11",
+            "disambiguation": "mono",
+            "artist-credit": [
+              {
+                "artist": {
+                  "country": "US",
+                  "name": "Miles Davis",
+                  "disambiguation": "jazz trumpeter, bandleader, songwriter",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "type": "Person",
+                  "sort-name": "Davis, Miles",
+                  "id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a"
+                },
+                "joinphrase": "",
+                "name": "Miles Davis"
+              }
+            ],
+            "relations": []
+          },
+          "artist-credit": [
+            {
+              "name": "Miles Davis",
+              "joinphrase": "",
+              "artist": {
+                "type": "Person",
+                "sort-name": "Davis, Miles",
+                "id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+                "country": "US",
+                "name": "Miles Davis",
+                "disambiguation": "jazz trumpeter, bandleader, songwriter",
+                "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df"
+              }
+            }
+          ],
+          "position": 2,
+          "title": "Freddie Freeloader",
+          "length": 588000,
+          "id": "c325299d-95c9-451a-a2e4-cbc1f2692d4b",
+          "number": "2"
+        },
+        {
+          "position": 3,
+          "id": "685b95b6-6a65-4a08-9612-fdc235bf4c59",
+          "number": "3",
+          "length": 336000,
+          "title": "Blue in Green",
+          "artist-credit": [
+            {
+              "artist": {
+                "id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+                "sort-name": "Davis, Miles",
+                "type": "Person",
+                "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                "disambiguation": "jazz trumpeter, bandleader, songwriter",
+                "name": "Miles Davis",
+                "country": "US"
+              },
+              "joinphrase": "",
+              "name": "Miles Davis"
+            }
+          ],
+          "recording": {
+            "title": "Blue in Green",
+            "video": false,
+            "length": 336000,
+            "id": "be6fcacf-1a4a-4448-93f5-843127dd7838",
+            "first-release-date": "2013-11",
+            "disambiguation": "mono",
+            "artist-credit": [
+              {
+                "joinphrase": "",
+                "name": "Miles Davis",
+                "artist": {
+                  "disambiguation": "jazz trumpeter, bandleader, songwriter",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "country": "US",
+                  "name": "Miles Davis",
+                  "id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+                  "type": "Person",
+                  "sort-name": "Davis, Miles"
+                }
+              }
+            ],
+            "relations": []
+          }
+        },
+        {
+          "number": "4",
+          "id": "777f006c-ee3a-4d9c-90f5-0e5be2ed4125",
+          "length": 693000,
+          "title": "All Blues",
+          "position": 4,
+          "artist-credit": [
+            {
+              "joinphrase": "",
+              "name": "Miles Davis",
+              "artist": {
+                "type": "Person",
+                "sort-name": "Davis, Miles",
+                "id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+                "country": "US",
+                "name": "Miles Davis",
+                "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                "disambiguation": "jazz trumpeter, bandleader, songwriter"
+              }
+            }
+          ],
+          "recording": {
+            "id": "a7c9177f-0642-4660-a624-4936c6dbf4f6",
+            "length": 693000,
+            "video": false,
+            "title": "All Blues",
+            "first-release-date": "2013-11",
+            "disambiguation": "mono",
+            "artist-credit": [
+              {
+                "name": "Miles Davis",
+                "joinphrase": "",
+                "artist": {
+                  "id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+                  "type": "Person",
+                  "sort-name": "Davis, Miles",
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "disambiguation": "jazz trumpeter, bandleader, songwriter",
+                  "country": "US",
+                  "name": "Miles Davis"
+                }
+              }
+            ],
+            "relations": []
+          }
+        },
+        {
+          "artist-credit": [
+            {
+              "artist": {
+                "name": "Miles Davis",
+                "country": "US",
+                "disambiguation": "jazz trumpeter, bandleader, songwriter",
+                "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                "sort-name": "Davis, Miles",
+                "type": "Person",
+                "id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a"
+              },
+              "joinphrase": "",
+              "name": "Miles Davis"
+            }
+          ],
+          "recording": {
+            "disambiguation": "mono",
+            "artist-credit": [
+              {
+                "name": "Miles Davis",
+                "joinphrase": "",
+                "artist": {
+                  "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+                  "disambiguation": "jazz trumpeter, bandleader, songwriter",
+                  "name": "Miles Davis",
+                  "country": "US",
+                  "id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+                  "sort-name": "Davis, Miles",
+                  "type": "Person"
+                }
+              }
+            ],
+            "relations": [],
+            "length": 567000,
+            "id": "c862c1cb-795a-4f7e-9748-13771098c996",
+            "video": false,
+            "title": "Flamenco Sketches",
+            "first-release-date": "2013-11"
+          },
+          "position": 5,
+          "title": "Flamenco Sketches",
+          "number": "5",
+          "id": "d818ac6f-283e-42aa-aa17-7b56789bc75b",
+          "length": 567000
+        }
+      ],
+      "id": "6a12503a-19d5-3f3c-b1e9-5076995e643e",
+      "position": 1,
+      "track-count": 5,
+      "format": "Digital Media",
+      "track-offset": 0,
+      "format-id": "907a28d9-b3b2-3ef6-89a8-7b18d91d4794"
+    }
+  ],
+  "cover-art-archive": {
+    "front": true,
+    "back": false,
+    "count": 2,
+    "artwork": true,
+    "darkened": false
+  },
+  "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+  "packaging-id": "119eba76-b343-3e02-a292-f0f00644bb9b",
+  "packaging": "None",
+  "artist-credit": [
+    {
+      "name": "Miles Davis",
+      "joinphrase": "",
+      "artist": {
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "disambiguation": "jazz trumpeter, bandleader, songwriter",
+        "name": "Miles Davis",
+        "country": "US",
+        "id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+        "sort-name": "Davis, Miles",
+        "type": "Person"
+      }
+    }
+  ],
+  "text-representation": {
+    "script": "Latn",
+    "language": "eng"
+  },
+  "id": "a25deb78-2bcd-4535-86b6-2c66505e796d",
+  "status": "Official",
+  "date": "2013-11",
+  "release-events": [
+    {
+      "area": {
+        "type": null,
+        "sort-name": "United States",
+        "id": "489ce91b-6658-3307-9877-795b68554c98",
+        "name": "United States",
+        "disambiguation": "",
+        "iso-3166-1-codes": ["US"],
+        "type-id": null
+      },
+      "date": "2013-11"
+    }
+  ],
+  "barcode": "",
+  "asin": null,
+  "disambiguation": "mono",
+  "relations": [],
+  "quality": "normal",
+  "country": "US"
+}

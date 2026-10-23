@@ -1,0 +1,643 @@
+import { ListView, Slider, ScrollView } from "std-widgets.slint";
+
+export struct ArtistItem {
+    id: string,
+    name: string,
+    subtitle: string,
+    image: image,
+}
+
+export struct AlbumItem {
+    id: string,
+    title: string,
+    subtitle: string,
+    cover: image,
+}
+
+export struct TrackItem {
+    number: string,
+    title: string,
+    artist: string,
+    duration: string,
+    playing: bool,
+}
+
+export struct ArtistView {
+    id: string,
+    name: string,
+    stats: string,
+    genres: string,
+    meta: string,
+    biography: string,
+    image: image,
+}
+
+/// A row in a credits or band-member list. `heading` is set on the first row of each group.
+export struct CreditItem {
+    heading: string,
+    name: string,
+    detail: string,
+    artist-id: string,
+}
+
+export struct AlbumView {
+    id: string,
+    title: string,
+    artist: string,
+    meta: string,
+    genres: string,
+    cover: image,
+}
+
+export struct NowPlayingView {
+    active: bool,
+    track-id: string,
+    title: string,
+    artist: string,
+    album: string,
+    year: string,
+    format: string,
+    quality: string,
+    genres: string,
+    artist-id: string,
+    artist-meta: string,
+    biography: string,
+    /// Shown while credits / artist details are still being fetched.
+    loading-details: bool,
+    cover: image,
+    backdrop: image,
+    accent: color,
+}
+
+export enum Page { welcome, artist, album }
+
+global Theme {
+    out property <color> bg: #0c0d10;
+    out property <color> surface: #15171c;
+    out property <color> surface-hi: #1e2128;
+    out property <color> text: #f2f3f5;
+    out property <color> muted: #9097a3;
+    out property <color> faint: #5c6370;
+    out property <length> radius: 10px;
+}
+
+component Cover inherits Rectangle {
+    in property <image> source;
+    in property <length> size: 160px;
+    width: size;
+    height: size;
+    border-radius: Theme.radius;
+    background: Theme.surface-hi;
+    clip: true;
+    Image {
+        width: parent.width;
+        height: parent.height;
+        source: root.source;
+        image-fit: cover;
+    }
+}
+
+component IconButton inherits Rectangle {
+    in property <string> glyph;
+    in property <length> size: 36px;
+    in property <bool> primary;
+    callback clicked;
+    width: size;
+    height: size;
+    border-radius: size / 2;
+    background: primary ? (ta.has-hover ? #ffffff : #e8e9ec) : (ta.has-hover ? Theme.surface-hi : transparent);
+    animate background { duration: 120ms; }
+    Text {
+        text: glyph;
+        color: primary ? Theme.bg : Theme.text;
+        font-size: size * 0.42;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+component Chip inherits Rectangle {
+    in property <string> text;
+    in property <color> accent: Theme.muted;
+    height: 22px;
+    width: label.preferred-width + 16px;
+    border-radius: 11px;
+    border-width: 1px;
+    border-color: accent.with-alpha(0.5);
+    background: accent.with-alpha(0.12);
+    label := Text {
+        text: root.text;
+        color: Theme.text;
+        font-size: 11px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component CreditList inherits VerticalLayout {
+    in property <[CreditItem]> items;
+    in property <color> accent: Theme.muted;
+    callback select-artist(string);
+    spacing: 2px;
+    for item in root.items: VerticalLayout {
+        padding-top: item.heading != "" ? 12px : 0px;
+        spacing: 4px;
+        if item.heading != "": Text {
+            text: item.heading;
+            color: Theme.faint;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: item.name;
+                color: item.artist-id != "" && ta.has-hover ? root.accent.brighter(0.4) : Theme.text;
+                font-size: 12px;
+                font-weight: 600;
+                min-width: 110px;
+                max-width: 150px;
+                overflow: elide;
+                ta := TouchArea {
+                    enabled: item.artist-id != "";
+                    mouse-cursor: item.artist-id != "" ? pointer : default;
+                    clicked => { root.select-artist(item.artist-id); }
+                }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: item.detail;
+                color: Theme.muted;
+                font-size: 12px;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+component Sidebar inherits Rectangle {
+    in property <[ArtistItem]> artists;
+    in property <string> selected-id;
+    in property <string> status;
+    callback select(string);
+    background: Theme.surface;
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+        Text {
+            text: "HyperPlayer";
+            color: Theme.text;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+        Text { text: "ARTISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
+        ListView {
+            for artist in root.artists: Rectangle {
+                height: 52px;
+                border-radius: 8px;
+                background: artist.id == root.selected-id ? Theme.surface-hi : (ta.has-hover ? Theme.surface-hi.with-alpha(0.5) : transparent);
+                HorizontalLayout {
+                    padding: 6px;
+                    spacing: 10px;
+                    Rectangle {
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 20px;
+                        clip: true;
+                        background: Theme.surface-hi;
+                        Image { width: 40px; height: 40px; source: artist.image; image-fit: cover; }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Text { text: artist.name; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
+                        Text { text: artist.subtitle; color: Theme.muted; font-size: 11px; overflow: elide; }
+                    }
+                }
+                ta := TouchArea { clicked => { root.select(artist.id); } }
+            }
+        }
+        Text { text: root.status; color: Theme.faint; font-size: 11px; wrap: word-wrap; }
+    }
+}
+
+component AlbumGrid inherits Rectangle {
+    in property <[AlbumItem]> albums;
+    in property <length> cell: 180px;
+    callback select(string);
+    property <int> columns: max(1, floor(self.width / (cell + 20px)));
+    min-height: ceil(albums.length / columns) * (cell + 64px);
+    for album[i] in albums: Rectangle {
+        x: mod(i, root.columns) * (root.cell + 20px);
+        y: floor(i / root.columns) * (root.cell + 64px);
+        width: root.cell;
+        height: root.cell + 54px;
+        VerticalLayout {
+            alignment: start;
+            spacing: 4px;
+            Cover {
+                source: album.cover;
+                size: root.cell;
+                drop-shadow-blur: ta.has-hover ? 24px : 12px;
+                drop-shadow-color: #00000080;
+                animate drop-shadow-blur { duration: 150ms; }
+            }
+            Text { text: album.title; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
+            Text { text: album.subtitle; color: Theme.muted; font-size: 11px; overflow: elide; }
+        }
+        ta := TouchArea { clicked => { root.select(album.id); } }
+    }
+}
+
+component ArtistPage inherits Rectangle {
+    in property <ArtistView> artist;
+    in property <[AlbumItem]> albums;
+    in property <[CreditItem]> members;
+    callback select-album(string);
+    callback select-artist(string);
+    ScrollView {
+        VerticalLayout {
+            alignment: start;
+            padding: 28px;
+            spacing: 24px;
+            HorizontalLayout {
+                spacing: 24px;
+                alignment: start;
+                Rectangle {
+                    width: 168px;
+                    height: 168px;
+                    border-radius: 84px;
+                    clip: true;
+                    background: Theme.surface-hi;
+                    Image { width: 168px; height: 168px; source: artist.image; image-fit: cover; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 6px;
+                    Text { text: "ARTIST"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+                    Text { text: artist.name; color: Theme.text; font-size: 44px; font-weight: 900; letter-spacing: -1px; }
+                    if artist.meta != "": Text { text: artist.meta; color: Theme.text; font-size: 13px; }
+                    Text { text: artist.stats; color: Theme.muted; font-size: 13px; }
+                    Text { text: artist.genres; color: Theme.faint; font-size: 12px; }
+                }
+            }
+            if artist.biography != "": Text {
+                text: artist.biography;
+                color: Theme.muted;
+                font-size: 13px;
+                wrap: word-wrap;
+                max-width: 760px;
+            }
+            if root.members.length > 0: VerticalLayout {
+                max-width: 760px;
+                Text { text: "Members"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                CreditList {
+                    items: root.members;
+                    select-artist(id) => { root.select-artist(id); }
+                }
+            }
+            Text { text: "Discography"; color: Theme.text; font-size: 18px; font-weight: 700; }
+            AlbumGrid {
+                albums: root.albums;
+                select(id) => { root.select-album(id); }
+            }
+        }
+    }
+}
+
+component AlbumPage inherits Rectangle {
+    in property <AlbumView> album;
+    in property <[TrackItem]> tracks;
+    callback play(int);
+    callback back();
+    VerticalLayout {
+        padding: 28px;
+        spacing: 20px;
+        HorizontalLayout {
+            spacing: 24px;
+            alignment: start;
+            Cover {
+                source: album.cover;
+                size: 200px;
+                drop-shadow-blur: 30px;
+                drop-shadow-color: #000000a0;
+            }
+            VerticalLayout {
+                alignment: end;
+                spacing: 6px;
+                Text {
+                    text: "‹ Back to artist";
+                    color: back-ta.has-hover ? Theme.text : Theme.muted;
+                    font-size: 12px;
+                    back-ta := TouchArea { clicked => { root.back(); } }
+                }
+                Text { text: "ALBUM"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+                Text { text: album.title; color: Theme.text; font-size: 36px; font-weight: 900; letter-spacing: -0.8px; wrap: word-wrap; }
+                Text { text: album.artist; color: Theme.text; font-size: 15px; font-weight: 600; }
+                Text { text: album.meta; color: Theme.muted; font-size: 12px; }
+                Text { text: album.genres; color: Theme.faint; font-size: 12px; }
+                HorizontalLayout {
+                    alignment: start;
+                    padding-top: 8px;
+                    IconButton { glyph: "▶"; primary: true; size: 48px; clicked => { root.play(0); } }
+                }
+            }
+        }
+        ListView {
+            for track[i] in root.tracks: Rectangle {
+                height: 44px;
+                border-radius: 6px;
+                background: ta.has-hover ? Theme.surface-hi : transparent;
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 16px;
+                    Text {
+                        width: 28px;
+                        text: track.playing ? "♪" : track.number;
+                        color: track.playing ? #1ed760 : Theme.faint;
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Text { text: track.title; color: track.playing ? #1ed760 : Theme.text; font-size: 14px; overflow: elide; }
+                        Text { text: track.artist; color: Theme.muted; font-size: 11px; overflow: elide; }
+                    }
+                    Text { text: track.duration; color: Theme.muted; font-size: 12px; vertical-alignment: center; horizontal-alignment: right; }
+                }
+                ta := TouchArea { double-clicked => { root.play(i); } clicked => { root.play(i); } }
+            }
+        }
+    }
+}
+
+component NowPlayingPanel inherits Rectangle {
+    in property <NowPlayingView> np;
+    in property <[AlbumItem]> more-from;
+    in property <[CreditItem]> credits;
+    in property <[CreditItem]> members;
+    callback select-album(string);
+    callback select-artist(string);
+    background: Theme.surface;
+    clip: true;
+    // Blurred, darkened cover fills the panel; the accent colour tints it.
+    Image {
+        width: parent.width;
+        height: parent.height;
+        source: np.backdrop;
+        image-fit: cover;
+        opacity: 0.55;
+    }
+    Rectangle {
+        background: @linear-gradient(180deg, np.accent.with-alpha(0.25) 0%, Theme.surface.with-alpha(0.85) 45%, Theme.surface 100%);
+    }
+    if !np.active: Text {
+        text: "Nothing playing";
+        color: Theme.faint;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if np.active: ScrollView {
+        VerticalLayout {
+            alignment: start;
+            padding: 22px;
+            spacing: 14px;
+            Text { text: "NOW PLAYING"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+            Cover {
+                source: np.cover;
+                size: root.width - 44px;
+                drop-shadow-blur: 40px;
+                drop-shadow-color: np.accent.with-alpha(0.45);
+            }
+            VerticalLayout {
+                spacing: 2px;
+                Text { text: np.title; color: Theme.text; font-size: 22px; font-weight: 800; wrap: word-wrap; }
+                Text { text: np.artist; color: Theme.text; font-size: 15px; font-weight: 600; }
+                Text { text: np.album + (np.year == "" ? "" : "  ·  " + np.year); color: Theme.muted; font-size: 13px; }
+            }
+            HorizontalLayout {
+                alignment: start;
+                spacing: 6px;
+                Chip { text: np.format; accent: np.accent; }
+                if np.quality != "": Chip { text: np.quality; accent: np.accent; }
+            }
+            if np.genres != "": Text { text: np.genres; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+            Rectangle { height: 1px; background: Theme.surface-hi; }
+            Text { text: "Credits"; color: Theme.text; font-size: 15px; font-weight: 700; }
+            if credits.length == 0: Text {
+                text: np.loading-details ? "Looking up musicians…" : "No credits found for this track.";
+                color: Theme.faint;
+                font-size: 12px;
+            }
+            CreditList {
+                items: root.credits;
+                accent: np.accent;
+                select-artist(id) => { root.select-artist(id); }
+            }
+            Rectangle { height: 1px; background: Theme.surface-hi; }
+            VerticalLayout {
+                spacing: 2px;
+                Text {
+                    text: "About " + np.artist;
+                    color: about-ta.has-hover ? np.accent.brighter(0.4) : Theme.text;
+                    font-size: 15px;
+                    font-weight: 700;
+                    about-ta := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.select-artist(np.artist-id); }
+                    }
+                }
+                if np.artist-meta != "": Text { text: np.artist-meta; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+            }
+            Text {
+                text: np.biography != "" ? np.biography : np.loading-details ? "Fetching biography…" : "No biography available.";
+                color: Theme.muted;
+                font-size: 12px;
+                wrap: word-wrap;
+            }
+            if members.length > 0: CreditList {
+                items: root.members;
+                accent: np.accent;
+                select-artist(id) => { root.select-artist(id); }
+            }
+            if more-from.length > 0: Text { text: "More from " + np.artist; color: Theme.text; font-size: 15px; font-weight: 700; }
+            if more-from.length > 0: AlbumGrid {
+                albums: root.more-from;
+                cell: (root.width - 44px - 20px) / 2;
+                select(id) => { root.select-album(id); }
+            }
+        }
+    }
+}
+
+component TransportBar inherits Rectangle {
+    in property <NowPlayingView> np;
+    in property <bool> playing;
+    in property <float> position;
+    in property <float> duration;
+    in property <string> position-text;
+    in property <string> duration-text;
+    in-out property <float> volume;
+    callback toggle();
+    callback next();
+    callback prev();
+    callback seek(float);
+    callback volume-changed(float);
+    height: 84px;
+    background: Theme.bg;
+    Rectangle { y: 0; height: 1px; background: Theme.surface-hi; }
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 16px;
+        HorizontalLayout {
+            width: 280px;
+            spacing: 12px;
+            alignment: start;
+            VerticalLayout {
+                alignment: center;
+                Cover { source: np.cover; size: 56px; border-radius: 6px; }
+            }
+            VerticalLayout {
+                alignment: center;
+                Text { text: np.title; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
+                Text { text: np.artist; color: Theme.muted; font-size: 11px; overflow: elide; }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 4px;
+            HorizontalLayout {
+                alignment: center;
+                spacing: 12px;
+                IconButton { glyph: "⏮"; clicked => { root.prev(); } }
+                IconButton { glyph: root.playing ? "⏸" : "▶"; primary: true; size: 40px; clicked => { root.toggle(); } }
+                IconButton { glyph: "⏭"; clicked => { root.next(); } }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                Text { text: root.position-text; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
+                Slider {
+                    minimum: 0;
+                    maximum: max(1, root.duration);
+                    value: root.position;
+                    released(v) => { root.seek(v); }
+                }
+                Text { text: root.duration-text; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
+            }
+        }
+        HorizontalLayout {
+            width: 180px;
+            spacing: 8px;
+            Text { text: "🔊"; color: Theme.muted; vertical-alignment: center; }
+            Slider {
+                minimum: 0;
+                maximum: 1;
+                value <=> root.volume;
+                changed(v) => { root.volume-changed(v); }
+            }
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: np.active ? np.title + " — " + np.artist : "HyperPlayer";
+    preferred-width: 1400px;
+    preferred-height: 880px;
+    min-width: 960px;
+    min-height: 600px;
+    background: Theme.bg;
+    default-font-family: "Inter";
+
+    in property <[ArtistItem]> artists;
+    in property <string> selected-artist-id;
+    in property <string> status;
+    in property <Page> page: Page.welcome;
+    in property <ArtistView> artist;
+    in property <[AlbumItem]> artist-albums;
+    in property <AlbumView> album;
+    in property <[TrackItem]> album-tracks;
+    in property <NowPlayingView> np;
+    in property <[AlbumItem]> more-from;
+    in property <[CreditItem]> credits;
+    in property <[CreditItem]> np-members;
+    in property <[CreditItem]> artist-members;
+    in property <bool> playing;
+    in property <float> position;
+    in property <float> duration;
+    in property <string> position-text: "0:00";
+    in property <string> duration-text: "0:00";
+    in-out property <float> volume: 0.8;
+
+    callback select-artist(string);
+    callback select-album(string);
+    callback play-track(int);
+    callback back-to-artist();
+    callback toggle();
+    callback next();
+    callback prev();
+    callback seek(float);
+    callback volume-changed(float);
+
+    VerticalLayout {
+        HorizontalLayout {
+            Sidebar {
+                width: 260px;
+                artists: root.artists;
+                selected-id: root.selected-artist-id;
+                status: root.status;
+                select(id) => { root.select-artist(id); }
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+                if root.page == Page.welcome: Text {
+                    text: "Pick an artist to start listening";
+                    color: Theme.faint;
+                    font-size: 16px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                if root.page == Page.artist: ArtistPage {
+                    artist: root.artist;
+                    albums: root.artist-albums;
+                    members: root.artist-members;
+                    select-album(id) => { root.select-album(id); }
+                    select-artist(id) => { root.select-artist(id); }
+                }
+                if root.page == Page.album: AlbumPage {
+                    album: root.album;
+                    tracks: root.album-tracks;
+                    play(i) => { root.play-track(i); }
+                    back => { root.back-to-artist(); }
+                }
+            }
+            NowPlayingPanel {
+                width: 360px;
+                np: root.np;
+                more-from: root.more-from;
+                credits: root.credits;
+                members: root.np-members;
+                select-album(id) => { root.select-album(id); }
+                select-artist(id) => { root.select-artist(id); }
+            }
+        }
+        TransportBar {
+            np: root.np;
+            playing: root.playing;
+            position: root.position;
+            duration: root.duration;
+            position-text: root.position-text;
+            duration-text: root.duration-text;
+            volume <=> root.volume;
+            toggle => { root.toggle(); }
+            next => { root.next(); }
+            prev => { root.prev(); }
+            seek(v) => { root.seek(v); }
+            volume-changed(v) => { root.volume-changed(v); }
+        }
+    }
+}

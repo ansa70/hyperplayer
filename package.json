@@ -1,0 +1,26 @@
+{
+  "name": "hyperplayer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "vp run @hyperplayer/schemas#generate",
+    "server": "vp run @hyperplayer/server#dev",
+    "client": "vp run @hyperplayer/client#dev",
+    "dev": "vp run @hyperplayer/schemas#generate && vp run --parallel --filter @hyperplayer/server --filter @hyperplayer/client dev",
+    "ready": "vp check && vp run -r test && vp run @hyperplayer/client#lint && vp run @hyperplayer/client#build"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.15.0",
+      "onFail": "download"
+    }
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

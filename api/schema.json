@@ -1,0 +1,983 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HyperPlayer API models",
+  "definitions": {
+    "Id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Artwork": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "mime": {
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dominantColor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^#[0-9a-f]{6}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "mime",
+        "width",
+        "height",
+        "dominantColor"
+      ],
+      "additionalProperties": false
+    },
+    "ExternalLink": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "homepage",
+            "wikipedia",
+            "wikidata",
+            "musicbrainz",
+            "discogs",
+            "allmusic",
+            "lastfm",
+            "bandcamp"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "kind",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "EnrichmentState": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "done",
+        "not_found",
+        "disabled"
+      ]
+    },
+    "BandMember": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "artistId": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "musicbrainzId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "years": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "current": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "artistId",
+        "musicbrainzId",
+        "roles",
+        "years",
+        "current"
+      ],
+      "additionalProperties": false
+    },
+    "ArtistSummary": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sortName": {
+          "type": "string"
+        },
+        "albumCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "trackCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Artwork"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "sortName",
+        "albumCount",
+        "trackCount",
+        "image"
+      ],
+      "additionalProperties": false
+    },
+    "Artist": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sortName": {
+          "type": "string"
+        },
+        "albumCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "trackCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Artwork"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "musicbrainzId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "disambiguation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "person",
+                "group",
+                "orchestra",
+                "choir",
+                "character",
+                "other"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "area": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "activeYears": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "biography": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "biographySource": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExternalLink"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "genres": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "banner": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Artwork"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ExternalLink"
+          }
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BandMember"
+          }
+        },
+        "enrichment": {
+          "$ref": "#/definitions/EnrichmentState"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "sortName",
+        "albumCount",
+        "trackCount",
+        "image",
+        "musicbrainzId",
+        "disambiguation",
+        "kind",
+        "area",
+        "activeYears",
+        "biography",
+        "biographySource",
+        "genres",
+        "banner",
+        "links",
+        "members",
+        "enrichment"
+      ],
+      "additionalProperties": false
+    },
+    "AlbumSummary": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "title": {
+          "type": "string"
+        },
+        "artistId": {
+          "$ref": "#/definitions/Id"
+        },
+        "artistName": {
+          "type": "string"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trackCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cover": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Artwork"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "artistId",
+        "artistName",
+        "year",
+        "trackCount",
+        "durationMs",
+        "cover"
+      ],
+      "additionalProperties": false
+    },
+    "AudioFormat": {
+      "type": "object",
+      "properties": {
+        "codec": {
+          "type": "string"
+        },
+        "container": {
+          "type": "string"
+        },
+        "lossless": {
+          "type": "boolean"
+        },
+        "bitrate": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sampleRate": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bitDepth": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "channels": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "codec",
+        "container",
+        "lossless",
+        "bitrate",
+        "sampleRate",
+        "bitDepth",
+        "channels"
+      ],
+      "additionalProperties": false
+    },
+    "Track": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "title": {
+          "type": "string"
+        },
+        "artistId": {
+          "$ref": "#/definitions/Id"
+        },
+        "artistName": {
+          "type": "string"
+        },
+        "albumId": {
+          "$ref": "#/definitions/Id"
+        },
+        "albumTitle": {
+          "type": "string"
+        },
+        "trackNumber": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "discNumber": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "year": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "genres": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "format": {
+          "$ref": "#/definitions/AudioFormat"
+        },
+        "fileSize": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cover": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Artwork"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "artistId",
+        "artistName",
+        "albumId",
+        "albumTitle",
+        "trackNumber",
+        "discNumber",
+        "year",
+        "durationMs",
+        "genres",
+        "format",
+        "fileSize",
+        "cover"
+      ],
+      "additionalProperties": false
+    },
+    "Album": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "title": {
+          "type": "string"
+        },
+        "artistId": {
+          "$ref": "#/definitions/Id"
+        },
+        "artistName": {
+          "type": "string"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trackCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cover": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Artwork"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "genres": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tracks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Track"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "artistId",
+        "artistName",
+        "year",
+        "trackCount",
+        "durationMs",
+        "cover",
+        "genres",
+        "tracks"
+      ],
+      "additionalProperties": false
+    },
+    "CreditCategory": {
+      "type": "string",
+      "enum": [
+        "performance",
+        "composition",
+        "production",
+        "engineering",
+        "other"
+      ]
+    },
+    "Credit": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "artistId": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "musicbrainzId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "category": {
+          "$ref": "#/definitions/CreditCategory"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "track",
+            "album"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "musicbrainz",
+            "tags"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "artistId",
+        "musicbrainzId",
+        "roles",
+        "category",
+        "scope",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "TrackCredits": {
+      "type": "object",
+      "properties": {
+        "trackId": {
+          "$ref": "#/definitions/Id"
+        },
+        "credits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Credit"
+          }
+        },
+        "enrichment": {
+          "$ref": "#/definitions/EnrichmentState"
+        }
+      },
+      "required": [
+        "trackId",
+        "credits",
+        "enrichment"
+      ],
+      "additionalProperties": false
+    },
+    "NowPlaying": {
+      "type": "object",
+      "properties": {
+        "track": {
+          "$ref": "#/definitions/Track"
+        },
+        "album": {
+          "$ref": "#/definitions/AlbumSummary"
+        },
+        "artist": {
+          "$ref": "#/definitions/Artist"
+        },
+        "moreFromArtist": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AlbumSummary"
+          }
+        },
+        "credits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Credit"
+          }
+        },
+        "enrichment": {
+          "$ref": "#/definitions/EnrichmentState"
+        }
+      },
+      "required": [
+        "track",
+        "album",
+        "artist",
+        "moreFromArtist",
+        "credits",
+        "enrichment"
+      ],
+      "additionalProperties": false
+    },
+    "ArtistPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ArtistSummary"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "items",
+        "total",
+        "offset",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "AlbumPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AlbumSummary"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "items",
+        "total",
+        "offset",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "TrackPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Track"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "items",
+        "total",
+        "offset",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "AlbumList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/AlbumSummary"
+      }
+    },
+    "SearchResults": {
+      "type": "object",
+      "properties": {
+        "artists": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ArtistSummary"
+          }
+        },
+        "albums": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AlbumSummary"
+          }
+        },
+        "tracks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Track"
+          }
+        }
+      },
+      "required": [
+        "artists",
+        "albums",
+        "tracks"
+      ],
+      "additionalProperties": false
+    },
+    "LibraryStatus": {
+      "type": "object",
+      "properties": {
+        "scanning": {
+          "type": "boolean"
+        },
+        "lastScanAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artists": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "albums": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "tracks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "enrichmentQueue": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "scanning",
+        "lastScanAt",
+        "artists",
+        "albums",
+        "tracks",
+        "enrichmentQueue"
+      ],
+      "additionalProperties": false
+    },
+    "StreamFormat": {
+      "type": "string",
+      "enum": [
+        "original",
+        "opus",
+        "aac",
+        "mp3",
+        "flac"
+      ]
+    },
+    "ApiError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "error",
+        "message"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
