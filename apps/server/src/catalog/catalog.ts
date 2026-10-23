@@ -18,6 +18,7 @@ import type {
   TrackPage,
 } from "@hyperplayer/schemas";
 import type { Db } from "../db.ts";
+import { SEARCH_WEIGHTS, toFtsQuery } from "./searchIndex.ts";
 
 type Row = Record<string, unknown>;
 
@@ -282,6 +283,21 @@ export class Catalog {
     return { items: rows.map(this.#track), total: this.#count("tracks"), offset, limit };
   }
 
+  /** Tracks by id (any order); ids not in the library are absent from the map. */
+  tracksByIds(ids: string[]): Map<string, Track> {
+    const out = new Map<string, Track>();
+    const unique = [...new Set(ids)];
+    // SQLite caps bound parameters; stay well below it.
+    for (let i = 0; i < unique.length; i += 500) {
+      const chunk = unique.slice(i, i + 500);
+      const rows = this.#db
+        .prepare(`${TRACK_SELECT} WHERE t.id IN (${chunk.map(() => "?").join(",")})`)
+        .all(...chunk) as Row[];
+      for (const r of rows) out.set(String(r.id), this.#track(r));
+    }
+    return out;
+  }
+
   getTrack(id: string): Track | null {
     const r = this.#db.prepare(`${TRACK_SELECT} WHERE t.id = ?`).get(id) as Row | undefined;
     return r ? this.#track(r) : null;
@@ -357,23 +373,35 @@ export class Catalog {
     };
   }
 
+  /** Ranked full-text search: an entity's own name counts most, then artist/album, then credits. */
   search(q: string, limit: number): SearchResults {
-    const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    const artists = this.#db
-      .prepare(
-        `${ARTIST_SELECT} WHERE ar.name LIKE ? ESCAPE '\\' ORDER BY ar.sort_name COLLATE NOCASE LIMIT ?`,
-      )
-      .all(like, limit) as Row[];
-    const albums = this.#db
-      .prepare(`${ALBUM_SELECT} WHERE al.title LIKE ? ESCAPE '\\' ORDER BY al.title COLLATE NOCASE LIMIT ?`)
-      .all(like, limit) as Row[];
-    const tracks = this.#db
-      .prepare(`${TRACK_SELECT} WHERE t.title LIKE ? ESCAPE '\\' ORDER BY t.title COLLATE NOCASE LIMIT ?`)
-      .all(like, limit) as Row[];
+    const query = toFtsQuery(q);
+    if (!query) return { artists: [], albums: [], tracks: [] };
+    const ids = (kind: string) =>
+      (
+        this.#db
+          .prepare(
+            `SELECT ref FROM search_index WHERE search_index MATCH ? AND kind = ?
+             ORDER BY bm25(search_index, ${SEARCH_WEIGHTS}) LIMIT ?`,
+          )
+          .all(query, kind, limit) as Row[]
+      ).map((r) => String(r.ref));
+    const fetch = (select: string, alias: string, refs: string[]): Row[] => {
+      if (!refs.length) return [];
+      const rows = this.#db
+        .prepare(`${select} WHERE ${alias}.id IN (${refs.map(() => "?").join(",")})`)
+        .all(...refs) as Row[];
+      const byId = new Map(rows.map((r) => [String(r.id), r]));
+      // Keep the relevance order from the index.
+      return refs.flatMap((id): Row[] => {
+        const row = byId.get(id);
+        return row ? [row] : [];
+      });
+    };
     return {
-      artists: artists.map(this.#artistSummary),
-      albums: albums.map(this.#albumSummary),
-      tracks: tracks.map(this.#track),
+      artists: fetch(ARTIST_SELECT, "ar", ids("artist")).map(this.#artistSummary),
+      albums: fetch(ALBUM_SELECT, "al", ids("album")).map(this.#albumSummary),
+      tracks: fetch(TRACK_SELECT, "t", ids("track")).map(this.#track),
     };
   }
 }

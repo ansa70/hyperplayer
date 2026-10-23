@@ -4,6 +4,7 @@ import { basename, dirname, extname, join } from "node:path";
 import { parseFile, type IAudioMetadata } from "music-metadata";
 import type { Db } from "../db.ts";
 import type { ArtworkStore } from "./artwork.ts";
+import { rebuildSearchIndex } from "../catalog/searchIndex.ts";
 import { creditsFromTags } from "./tagCredits.ts";
 
 export const AUDIO_EXTENSIONS = new Set([
@@ -72,6 +73,10 @@ export class Scanner {
 
   async scan(root: string): Promise<ScanStats> {
     const db = this.#db;
+    // A missing root is far more likely an unmounted network share than a deleted library:
+    // refuse to scan rather than remove every track (and empty queues along with them).
+    const rootStat = await stat(root).catch(() => null);
+    if (!rootStat?.isDirectory()) throw new Error(`library folder ${root} is not available`);
     const generation =
       Number(
         (db.prepare("SELECT value FROM meta WHERE key = 'scan_generation'").get()?.value as string) ?? 0,
@@ -104,7 +109,13 @@ export class Scanner {
 
     db.exec("BEGIN");
     try {
-      stats.removed = Number(db.prepare("DELETE FROM tracks WHERE seen_scan <> ?").run(generation).changes);
+      const known = Number((db.prepare("SELECT COUNT(*) AS n FROM tracks").get() as { n: number }).n);
+      if (stats.scanned === 0 && known > 0) {
+        // Same reasoning for a root that exists but reads as empty (e.g. a mount point without its share).
+        console.warn(`scan: ${root} contains no audio but the library has ${known} tracks; keeping them`);
+      } else {
+        stats.removed = Number(db.prepare("DELETE FROM tracks WHERE seen_scan <> ?").run(generation).changes);
+      }
       db.exec("DELETE FROM albums WHERE id NOT IN (SELECT album_id FROM tracks)");
       db.exec(`DELETE FROM artists WHERE id NOT IN (SELECT artist_id FROM tracks)
                                      AND id NOT IN (SELECT artist_id FROM albums)`);
@@ -116,6 +127,7 @@ export class Scanner {
       db.exec("ROLLBACK");
       throw err;
     }
+    rebuildSearchIndex(db);
     return stats;
   }
 

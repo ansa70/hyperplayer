@@ -1,5 +1,6 @@
 import type { BandMember, ExternalLink } from "@hyperplayer/schemas";
 import type { FastifyBaseLogger } from "fastify";
+import { rebuildSearchIndex } from "../catalog/searchIndex.ts";
 import type { Db } from "../db.ts";
 import type { ArtworkStore } from "../library/artwork.ts";
 import type { CreditRow } from "../library/tagCredits.ts";
@@ -223,6 +224,8 @@ export class Enricher {
         }
         this.#queue.splice(this.#queue.indexOf(job), 1);
       }
+      // Artists may have been renamed to their canonical names.
+      if (!this.#stopped) rebuildSearchIndex(this.#db);
     } finally {
       this.#running = false;
     }

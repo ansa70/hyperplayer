@@ -22,3 +22,18 @@ test("pagination coerces query strings and applies defaults", () => {
 test("tracks reject unknown shapes", () => {
   expect(Track.safeParse({ id: "x" }).success).toBe(false);
 });
+
+test("only the sign-in endpoints are public", () => {
+  // Widening this list must be a deliberate, reviewed change.
+  const open = Object.entries(api)
+    .filter(([, e]) => e.access === "public")
+    .map(([name]) => name)
+    .sort();
+  expect(open).toEqual(["authStatus", "login"]);
+  // Reachable while a default password is still in place: just enough to replace it.
+  const session = Object.entries(api)
+    .filter(([, e]) => e.access === "session")
+    .map(([name]) => name)
+    .sort();
+  expect(session).toEqual(["changePassword", "logout", "me"]);
+});

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { api, type Endpoint } from "./api.ts";
+import { api, NoBody, type Endpoint } from "./api.ts";
 import { registry } from "./models.ts";
 
 type JsonSchema = Record<string, unknown>;
@@ -29,7 +29,7 @@ const inline = (schema: z.ZodType): JsonSchema =>
 /** Reference to a registered model; every JSON response must be one. */
 function ref(schema: z.ZodType): JsonSchema {
   const id = registry.get(schema)?.id;
-  if (!id) throw new Error("JSON endpoint responses must be registered models");
+  if (!id) throw new Error("JSON request and response bodies must be registered models");
   return { $ref: `#/components/schemas/${id}` };
 }
 
@@ -87,6 +87,10 @@ export function openApiDocument(version = "0.0.0"): JsonSchema {
       operationId,
       summary: e.summary,
       parameters: parameters(e),
+      security: e.access === "public" ? [] : [{ bearer: [] }, { session: [] }],
+      ...(e.kind === "json" && e.body !== NoBody
+        ? { requestBody: { required: true, content: { "application/json": { schema: ref(e.body) } } } }
+        : {}),
       responses: responses(e),
     };
   }
@@ -99,6 +103,10 @@ export function openApiDocument(version = "0.0.0"): JsonSchema {
     info: { title: "HyperPlayer", version },
     paths,
     components: {
+      securitySchemes: {
+        bearer: { type: "http", scheme: "bearer", description: "Device token from /api/auth/login" },
+        session: { type: "apiKey", in: "cookie", name: "hp_session", description: "Browser session cookie" },
+      },
       schemas: Object.fromEntries(Object.entries(schemas).map(([name, s]) => [name, clean(s as JsonSchema)])),
     },
   };

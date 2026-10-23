@@ -4,7 +4,8 @@
 //! like a sound card would, while the adaptive monitor watches the stream.
 //!
 //! ```sh
-//! HP_SERVER=http://127.0.0.1:4533 cargo run --example stream_probe -- "Freddie Freeloader" 30 [original]
+//! HP_SERVER=http://127.0.0.1:4533 HP_USERNAME=… HP_PASSWORD=… \
+//!     cargo run --example stream_probe -- "Freddie Freeloader" 30 [original]
 //! ```
 //! The optional third argument forces the first stream to the original file,
 //! skipping the prebuffer check, to simulate a link that degrades mid-track.
@@ -28,8 +29,12 @@ fn main() -> anyhow::Result<()> {
     let query = args.first().map(String::as_str).unwrap_or("So What");
     let seconds: u64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(30);
     let force_original = args.get(2).is_some_and(|s| s == "original");
-    let api =
-        Api::new(std::env::var("HP_SERVER").unwrap_or_else(|_| "http://127.0.0.1:4533".into()));
+    let server = std::env::var("HP_SERVER").unwrap_or_else(|_| "http://127.0.0.1:4533".into());
+    // The API requires a session: sign in with HP_USERNAME / HP_PASSWORD.
+    let (user, password) = (std::env::var("HP_USERNAME")?, std::env::var("HP_PASSWORD")?);
+    let session =
+        Api::new(server.clone()).login(&user, &password, "stream probe", "stream-probe-device")?;
+    let api = Api::with_token(server, Some(&session.token));
 
     let track = api
         .search(query, 1)?

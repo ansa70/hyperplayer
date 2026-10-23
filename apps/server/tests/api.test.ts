@@ -5,39 +5,12 @@ import { join } from "node:path";
 import { Album, ArtistPage, LibraryStatus, NowPlaying } from "@hyperplayer/schemas";
 import { afterAll, beforeAll, expect, test } from "vite-plus/test";
 import { buildApp } from "../src/app.ts";
+import { authed, setupAdmin, testConfig, wav } from "./helpers.ts";
 import { parseRange } from "../src/stream/stream.ts";
-
-/** Builds a 16-bit mono PCM WAV with a RIFF INFO tag chunk. */
-function wav(tags: Record<string, string>, seconds = 1, sampleRate = 8000): Buffer {
-  const pcm = Buffer.alloc(seconds * sampleRate * 2);
-  const fmt = Buffer.alloc(16);
-  fmt.writeUInt16LE(1, 0); // PCM
-  fmt.writeUInt16LE(1, 2); // channels
-  fmt.writeUInt32LE(sampleRate, 4);
-  fmt.writeUInt32LE(sampleRate * 2, 8);
-  fmt.writeUInt16LE(2, 12);
-  fmt.writeUInt16LE(16, 14);
-  const chunk = (id: string, body: Buffer) => {
-    const header = Buffer.alloc(8);
-    header.write(id, 0, "ascii");
-    header.writeUInt32LE(body.length, 4);
-    return Buffer.concat([header, body, body.length % 2 ? Buffer.alloc(1) : Buffer.alloc(0)]);
-  };
-  const info = Buffer.concat([
-    Buffer.from("INFO"),
-    ...Object.entries(tags).map(([k, v]) => chunk(k, Buffer.from(`${v}\0`))),
-  ]);
-  const body = Buffer.concat([
-    Buffer.from("WAVE"),
-    chunk("fmt ", fmt),
-    chunk("data", pcm),
-    chunk("LIST", info),
-  ]);
-  return chunk("RIFF", body);
-}
 
 let dir: string;
 let ctx: Awaited<ReturnType<typeof buildApp>>;
+let inject: ReturnType<typeof authed>;
 
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "hyperplayer-test-"));
@@ -61,20 +34,9 @@ beforeAll(async () => {
   track("First", 2, "Closing");
   track("Second", 1, "Return");
 
-  ctx = await buildApp(
-    {
-      libraryPath: lib,
-      dataDir: join(dir, "data"),
-      host: "127.0.0.1",
-      port: 0,
-      ffmpeg: "ffmpeg",
-      validateResponses: true,
-      enrich: { enabled: false, contact: "test", wikiLang: "en", fanartKey: null },
-      debugThrottleKbps: null,
-    },
-    { logger: false },
-  );
+  ctx = await buildApp(testConfig(lib, join(dir, "data")), { logger: false });
   await ctx.startScan();
+  inject = authed(ctx.app, await setupAdmin(ctx.app));
 });
 
 afterAll(async () => {
@@ -83,7 +45,7 @@ afterAll(async () => {
 });
 
 const get = async <T>(url: string, schema: { parse: (v: unknown) => T }) => {
-  const res = await ctx.app.inject({ method: "GET", url });
+  const res = await inject({ method: "GET", url });
   expect(res.statusCode, res.body).toBe(200);
   return schema.parse(res.json());
 };
@@ -100,7 +62,7 @@ test("browse artist → album → now playing", async () => {
   const artist = artists.items[0]!;
   expect(artist).toMatchObject({ name: "Artist A", albumCount: 2, trackCount: 3 });
 
-  const albums = await ctx.app.inject(`/api/artists/${artist.id}/albums`);
+  const albums = await inject(`/api/artists/${artist.id}/albums`);
   const first = (albums.json() as { id: string; title: string }[]).find((a) => a.title === "First")!;
   const album = await get(`/api/albums/${first.id}`, Album);
   expect(album.tracks.map((t) => t.title)).toEqual(["Opening", "Closing"]);
@@ -112,26 +74,26 @@ test("browse artist → album → now playing", async () => {
 });
 
 test("streams originals with range support", async () => {
-  const album = (await ctx.app.inject("/api/albums")).json() as { items: { id: string }[] };
+  const album = (await inject("/api/albums")).json() as { items: { id: string }[] };
   const full = await get(`/api/albums/${album.items[0]!.id}`, Album);
   const id = full.tracks[0]!.id;
 
-  const whole = await ctx.app.inject(`/api/stream/${id}`);
+  const whole = await inject(`/api/stream/${id}`);
   expect(whole.statusCode).toBe(200);
   expect(whole.headers["accept-ranges"]).toBe("bytes");
   expect(whole.rawPayload.subarray(0, 4).toString()).toBe("RIFF");
 
-  const part = await ctx.app.inject({ url: `/api/stream/${id}`, headers: { range: "bytes=8-11" } });
+  const part = await inject({ url: `/api/stream/${id}`, headers: { range: "bytes=8-11" } });
   expect(part.statusCode).toBe(206);
   expect(part.rawPayload.toString()).toBe("WAVE");
   expect(part.headers["content-range"]).toBe(`bytes 8-11/${full.tracks[0]!.fileSize}`);
 });
 
 test("unknown ids and bad queries return typed errors", async () => {
-  const missing = await ctx.app.inject("/api/albums/nope");
+  const missing = await inject("/api/albums/nope");
   expect(missing.statusCode).toBe(404);
   expect(missing.json()).toMatchObject({ error: "not_found" });
-  const bad = await ctx.app.inject("/api/artists?limit=9999");
+  const bad = await inject("/api/artists?limit=9999");
   expect(bad.statusCode).toBe(400);
 });
 
@@ -160,37 +122,44 @@ test("throttle caps throughput", async () => {
 const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
 
 test.skipIf(!hasFfmpeg)("transcodes hi-res sources to every lossy format, with a start offset", async () => {
-  const search = (await ctx.app.inject("/api/search?q=Opening")).json() as { tracks: { id: string }[] };
+  const search = (await inject("/api/search?q=Opening")).json() as { tracks: { id: string }[] };
   const id = search.tracks[0]!.id;
-  for (const format of ["vorbis", "opus", "mp3", "aac", "flac"]) {
-    const res = await ctx.app.inject(`/api/stream/${id}?format=${format}&bitrate=128&start=0.5`);
-    expect(res.statusCode, `${format}: ${res.body}`).toBe(200);
-    expect(res.rawPayload.length, format).toBeGreaterThan(100);
+  // The fixture is mono: 320 kbit/s Vorbis is exactly what libvorbis's bitrate mode refuses.
+  for (const [format, bitrate] of [
+    ["vorbis", 320],
+    ["vorbis", 64],
+    ["opus", 128],
+    ["mp3", 128],
+    ["aac", 128],
+    ["flac", 128],
+  ]) {
+    const res = await inject(`/api/stream/${id}?format=${format}&bitrate=${bitrate}&start=0.5`);
+    expect(res.statusCode, `${format} ${bitrate}: ${res.body}`).toBe(200);
+    expect(res.rawPayload.length, `${format} ${bitrate}`).toBeGreaterThan(100);
   }
 });
 
 test("a failing transcode is an error, not an empty 200", async () => {
   // `false` exits at once without output, like an encoder that rejects its input.
   const broken = await buildApp(
+    testConfig(join(dir, "music"), join(dir, "data-broken"), { ffmpeg: "false" }),
     {
-      libraryPath: join(dir, "music"),
-      dataDir: join(dir, "data-broken"),
-      host: "127.0.0.1",
-      port: 0,
-      ffmpeg: "false",
-      validateResponses: true,
-      enrich: { enabled: false, contact: "test", wikiLang: "en", fanartKey: null },
-      debugThrottleKbps: null,
+      logger: false,
     },
-    { logger: false },
   );
   try {
     await broken.startScan();
-    const search = (await broken.app.inject("/api/search?q=Opening")).json() as { tracks: { id: string }[] };
-    const res = await broken.app.inject(`/api/stream/${search.tracks[0]!.id}?format=vorbis`);
+    const brokenInject = authed(broken.app, await setupAdmin(broken.app));
+    const search = (await brokenInject("/api/search?q=Opening")).json() as { tracks: { id: string }[] };
+    const res = await brokenInject(`/api/stream/${search.tracks[0]!.id}?format=vorbis`);
     expect(res.statusCode).toBe(502);
     expect(res.json()).toMatchObject({ error: "transcode_failed" });
   } finally {
     await broken.app.close();
   }
+});
+
+test("vorbis quality mapping", async () => {
+  const { vorbisQuality } = await import("../src/stream/stream.ts");
+  expect([320, 192, 128, 96, 64, 32].map(vorbisQuality)).toEqual([9, 6, 4, 2, 0, -1]);
 });

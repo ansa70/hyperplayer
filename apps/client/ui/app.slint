@@ -1,4 +1,4 @@
-import { ListView, Slider, ScrollView } from "std-widgets.slint";
+import { LineEdit, ListView, Slider, ScrollView } from "std-widgets.slint";
 
 export struct ArtistItem {
     id: string,
@@ -20,6 +20,21 @@ export struct TrackItem {
     artist: string,
     duration: string,
     playing: bool,
+    /// False for playlist entries whose file is currently missing.
+    available: bool,
+}
+
+export struct PlaylistItem {
+    id: string,
+    name: string,
+    subtitle: string,
+}
+
+export struct PlaylistView {
+    id: string,
+    name: string,
+    meta: string,
+    cover: image,
 }
 
 export struct ArtistView {
@@ -69,7 +84,32 @@ export struct NowPlayingView {
     accent: color,
 }
 
-export enum Page { welcome, artist, album }
+export struct LoginState {
+    /// The built-in admin still has its default password: hint at it on the sign-in form.
+    default-admin: bool,
+    /// Signed in with a default password: a new one must be chosen before anything else.
+    changing-password: bool,
+    /// The current password isn't known (e.g. the app restarted mid-change), so ask for it.
+    need-current: bool,
+    /// First run, admin password set: register the person who'll actually listen.
+    onboarding: bool,
+    busy: bool,
+    error: string,
+}
+
+export enum Page { welcome, artist, album, search, playlist, queue }
+
+export enum RepeatMode { off, all, one }
+
+// Icon outlines from Lucide (https://lucide.dev, ISC licence), 24×24 viewbox.
+global Icons {
+    out property <string> shuffle: "M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22 M18 2l4 4-4 4 M2 6h1.9c1.5 0 2.9.9 3.6 2.2 M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8 M18 14l4 4-4 4";
+    out property <string> repeat: "M17 2l4 4-4 4 M3 11v-1a4 4 0 0 1 4-4h14 M7 22l-4-4 4-4 M21 13v1a4 4 0 0 1-4 4H3";
+    out property <string> repeat-one: "M17 2l4 4-4 4 M3 11v-1a4 4 0 0 1 4-4h14 M7 22l-4-4 4-4 M21 13v1a4 4 0 0 1-4 4H3 M11 10h1v4";
+    out property <string> queue: "M16 5H3 M16 12H3 M11 19H3 M21 16v6 M18 19h6";
+    out property <string> more: "M12 12h.01 M19 12h.01 M5 12h.01";
+    out property <string> plus: "M5 12h14 M12 5v14";
+}
 
 global Theme {
     out property <color> bg: #0c0d10;
@@ -115,6 +155,44 @@ component IconButton inherits Rectangle {
         vertical-alignment: center;
     }
     ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+/// Toggle with a vector icon; an accent dot underneath marks it active.
+component ToggleIcon inherits Rectangle {
+    in property <string> commands;
+    in property <bool> active;
+    in property <color> accent: #1ed760;
+    in property <string> tooltip;
+    callback clicked;
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+    background: ta.has-hover ? Theme.surface-hi : transparent;
+    animate background { duration: 120ms; }
+    Path {
+        x: 9px;
+        y: 8px;
+        width: 18px;
+        height: 18px;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: root.commands;
+        fill: transparent;
+        stroke: root.active ? root.accent : (ta.has-hover ? Theme.text : Theme.muted);
+        stroke-width: 1.6px;
+    }
+    if root.active: Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - 5px;
+        width: 4px;
+        height: 4px;
+        border-radius: 2px;
+        background: root.accent;
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
 }
 
 component Chip inherits Rectangle {
@@ -178,11 +256,146 @@ component CreditList inherits VerticalLayout {
     }
 }
 
+component MenuItem inherits Rectangle {
+    in property <string> text;
+    callback clicked;
+    height: 30px;
+    border-radius: 4px;
+    background: ta.has-hover ? Theme.surface.brighter(0.6) : transparent;
+    Text {
+        x: 10px;
+        width: parent.width - 20px;
+        text: root.text;
+        color: Theme.text;
+        font-size: 12px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+/// Actions on a track (or a whole album): queue it, add it to a playlist, and,
+/// where the list allows, remove or move it.
+component ActionMenu inherits PopupWindow {
+    in property <[PlaylistItem]> playlists;
+    in property <bool> removable;
+    in property <bool> movable;
+    in property <string> remove-label: "Remove";
+    callback action(string, string);
+    width: 230px;
+    Rectangle {
+        background: Theme.surface-hi;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: Theme.surface.brighter(0.8);
+        drop-shadow-blur: 18px;
+        drop-shadow-color: #000000b0;
+        VerticalLayout {
+            padding: 6px;
+            spacing: 1px;
+            MenuItem { text: "Play next"; clicked => { root.action("next", ""); } }
+            MenuItem { text: "Add to queue"; clicked => { root.action("end", ""); } }
+            if root.movable: MenuItem { text: "Move up"; clicked => { root.action("up", ""); } }
+            if root.movable: MenuItem { text: "Move down"; clicked => { root.action("down", ""); } }
+            if root.removable: MenuItem { text: root.remove-label; clicked => { root.action("remove", ""); } }
+            Rectangle { height: 9px; Rectangle { height: 1px; background: Theme.surface.brighter(0.8); } }
+            Text {
+                text: "ADD TO PLAYLIST";
+                color: Theme.faint;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                height: 22px;
+                vertical-alignment: center;
+            }
+            for p in root.playlists: MenuItem { text: p.name; clicked => { root.action("playlist", p.id); } }
+            MenuItem { text: "New playlist…"; clicked => { root.action("new-playlist", ""); } }
+        }
+    }
+}
+
+/// One track row; shared by album, search, playlist and queue lists.
+component TrackRow inherits Rectangle {
+    in property <TrackItem> track;
+    in property <[PlaylistItem]> playlists;
+    in property <bool> removable;
+    in property <bool> movable;
+    in property <string> remove-label: "Remove";
+    callback play();
+    callback action(string, string);
+    height: 44px;
+    border-radius: 6px;
+    background: ta.has-hover || more-ta.has-hover ? Theme.surface-hi : transparent;
+    ta := TouchArea { clicked => { if root.track.available { root.play(); } } }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 6px;
+        spacing: 16px;
+        Text {
+            width: 28px;
+            text: track.playing ? "♪" : track.number;
+            color: track.playing ? #1ed760 : Theme.faint;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+        VerticalLayout {
+            alignment: center;
+            Text {
+                text: track.title;
+                color: !track.available ? Theme.faint : track.playing ? #1ed760 : Theme.text;
+                font-size: 14px;
+                overflow: elide;
+            }
+            Text { text: track.available ? track.artist : track.artist + " · missing"; color: Theme.muted; font-size: 11px; overflow: elide; }
+        }
+        Text { text: track.duration; color: Theme.muted; font-size: 12px; vertical-alignment: center; horizontal-alignment: right; }
+        Rectangle {
+            width: 32px;
+            Path {
+                width: 18px;
+                height: 18px;
+                viewbox-width: 24;
+                viewbox-height: 24;
+                commands: Icons.more;
+                fill: transparent;
+                stroke: more-ta.has-hover ? Theme.text : (ta.has-hover ? Theme.muted : Theme.faint.with-alpha(0.5));
+                stroke-width: 2.5px;
+                stroke-line-cap: round;
+            }
+            more-ta := TouchArea { mouse-cursor: pointer; clicked => { menu.show(); } }
+        }
+    }
+    menu := ActionMenu {
+        x: root.width - self.width - 8px;
+        y: root.height - 4px;
+        playlists: root.playlists;
+        removable: root.removable;
+        movable: root.movable;
+        remove-label: root.remove-label;
+        action(kind, id) => { root.action(kind, id); }
+    }
+}
+
 component Sidebar inherits Rectangle {
     in property <[ArtistItem]> artists;
     in property <string> selected-id;
     in property <string> status;
+    in property <[PlaylistItem]> playlists;
+    in property <string> selected-playlist-id;
     callback select(string);
+    callback search-changed(string);
+    callback select-playlist(string);
+    callback new-playlist();
+    in property <string> account;
+    callback sign-out();
+    public function focus-search() { search.focus(); }
+    /// Empties the search box (and its results); returns whether there was anything to clear.
+    public function clear-search() -> bool {
+        if search.text == "" { return false; }
+        search.text = "";
+        root.search-changed("");
+        return true;
+    }
     background: Theme.surface;
     VerticalLayout {
         padding: 16px;
@@ -193,6 +406,45 @@ component Sidebar inherits Rectangle {
             font-size: 20px;
             font-weight: 800;
             letter-spacing: -0.5px;
+        }
+        search := LineEdit {
+            placeholder-text: "Search artists, albums, tracks   ( / )";
+            edited(text) => { root.search-changed(text); }
+        }
+        HorizontalLayout {
+            Text { text: "PLAYLISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; vertical-alignment: center; }
+            Rectangle {
+                width: 22px;
+                height: 22px;
+                border-radius: 11px;
+                background: plus-ta.has-hover ? Theme.surface-hi : transparent;
+                Path {
+                    width: 14px;
+                    height: 14px;
+                    viewbox-width: 24;
+                    viewbox-height: 24;
+                    commands: Icons.plus;
+                    fill: transparent;
+                    stroke: plus-ta.has-hover ? Theme.text : Theme.muted;
+                    stroke-width: 2px;
+                }
+                plus-ta := TouchArea { mouse-cursor: pointer; clicked => { root.new-playlist(); } }
+            }
+        }
+        VerticalLayout {
+            spacing: 2px;
+            for p in root.playlists: Rectangle {
+                height: 30px;
+                border-radius: 6px;
+                background: p.id == root.selected-playlist-id ? Theme.surface-hi : (pl-ta.has-hover ? Theme.surface-hi.with-alpha(0.5) : transparent);
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    Text { text: p.name; color: Theme.text; font-size: 13px; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                    Text { text: p.subtitle; color: Theme.faint; font-size: 11px; vertical-alignment: center; }
+                }
+                pl-ta := TouchArea { clicked => { root.select-playlist(p.id); } }
+            }
         }
         Text { text: "ARTISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
         ListView {
@@ -221,6 +473,17 @@ component Sidebar inherits Rectangle {
             }
         }
         Text { text: root.status; color: Theme.faint; font-size: 11px; wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: root.account; color: Theme.muted; font-size: 12px; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+            Text {
+                text: "Sign out";
+                color: out-ta.has-hover ? Theme.text : Theme.faint;
+                font-size: 12px;
+                vertical-alignment: center;
+                out-ta := TouchArea { mouse-cursor: pointer; clicked => { root.sign-out(); } }
+            }
+        }
     }
 }
 
@@ -311,8 +574,11 @@ component ArtistPage inherits Rectangle {
 component AlbumPage inherits Rectangle {
     in property <AlbumView> album;
     in property <[TrackItem]> tracks;
+    in property <[PlaylistItem]> playlists;
     callback play(int);
     callback back();
+    callback album-action(string, string);
+    callback track-action(int, string, string);
     VerticalLayout {
         padding: 28px;
         spacing: 20px;
@@ -342,34 +608,221 @@ component AlbumPage inherits Rectangle {
                 HorizontalLayout {
                     alignment: start;
                     padding-top: 8px;
+                    spacing: 12px;
                     IconButton { glyph: "▶"; primary: true; size: 48px; clicked => { root.play(0); } }
+                    IconButton { glyph: "⋯"; size: 48px; clicked => { album-menu.show(); } }
                 }
             }
         }
         ListView {
-            for track[i] in root.tracks: Rectangle {
-                height: 44px;
-                border-radius: 6px;
-                background: ta.has-hover ? Theme.surface-hi : transparent;
+            for track[i] in root.tracks: TrackRow {
+                track: track;
+                playlists: root.playlists;
+                play => { root.play(i); }
+                action(kind, id) => { root.track-action(i, kind, id); }
+            }
+        }
+    }
+    album-menu := ActionMenu {
+        x: 290px;
+        y: 250px;
+        playlists: root.playlists;
+        action(kind, id) => { root.album-action(kind, id); }
+    }
+}
+
+component SearchPage inherits Rectangle {
+    in property <string> query;
+    in property <[ArtistItem]> artists;
+    in property <[AlbumItem]> albums;
+    in property <[TrackItem]> tracks;
+    in property <[PlaylistItem]> playlists;
+    callback select-artist(string);
+    callback select-album(string);
+    callback play(int);
+    callback track-action(int, string, string);
+    ScrollView {
+        VerticalLayout {
+            alignment: start;
+            padding: 28px;
+            spacing: 18px;
+            Text { text: "Results for “" + root.query + "”"; color: Theme.text; font-size: 24px; font-weight: 800; }
+            if artists.length + albums.length + tracks.length == 0: Text {
+                text: "Nothing matches. Every word must appear in a title, artist or album name.";
+                color: Theme.faint;
+                font-size: 13px;
+            }
+            if tracks.length > 0: Text { text: "Tracks"; color: Theme.text; font-size: 18px; font-weight: 700; }
+            for track[i] in root.tracks: TrackRow {
+                track: track;
+                playlists: root.playlists;
+                play => { root.play(i); }
+                action(kind, id) => { root.track-action(i, kind, id); }
+            }
+            if artists.length > 0: Text { text: "Artists"; color: Theme.text; font-size: 18px; font-weight: 700; }
+            if artists.length > 0: HorizontalLayout {
+                alignment: start;
+                spacing: 20px;
+                for artist in root.artists: VerticalLayout {
+                    width: 120px;
+                    spacing: 6px;
+                    Rectangle {
+                        width: 120px;
+                        height: 120px;
+                        border-radius: 60px;
+                        clip: true;
+                        background: Theme.surface-hi;
+                        Image { width: 120px; height: 120px; source: artist.image; image-fit: cover; }
+                        TouchArea { mouse-cursor: pointer; clicked => { root.select-artist(artist.id); } }
+                    }
+                    Text { text: artist.name; color: Theme.text; font-size: 13px; font-weight: 600; horizontal-alignment: center; overflow: elide; }
+                }
+            }
+            if albums.length > 0: Text { text: "Albums"; color: Theme.text; font-size: 18px; font-weight: 700; }
+            if albums.length > 0: AlbumGrid {
+                albums: root.albums;
+                select(id) => { root.select-album(id); }
+            }
+        }
+    }
+}
+
+component PlaylistPage inherits Rectangle {
+    in property <PlaylistView> playlist;
+    in property <[TrackItem]> tracks;
+    in property <[PlaylistItem]> playlists;
+    callback play(int);
+    callback shuffle-play();
+    callback rename(string);
+    callback delete();
+    callback track-action(int, string, string);
+    property <bool> confirm-delete;
+    VerticalLayout {
+        padding: 28px;
+        spacing: 20px;
+        HorizontalLayout {
+            spacing: 24px;
+            alignment: start;
+            Cover {
+                source: playlist.cover;
+                size: 200px;
+                drop-shadow-blur: 30px;
+                drop-shadow-color: #000000a0;
+            }
+            VerticalLayout {
+                alignment: end;
+                spacing: 6px;
+                Text { text: "PLAYLIST"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+                LineEdit {
+                    text: playlist.name;
+                    font-size: 24px;
+                    min-width: 360px;
+                    accepted(text) => { root.rename(text); }
+                }
+                Text { text: playlist.meta + "  ·  edit the name and press Enter to rename"; color: Theme.muted; font-size: 12px; }
                 HorizontalLayout {
-                    padding-left: 12px;
-                    padding-right: 12px;
-                    spacing: 16px;
-                    Text {
-                        width: 28px;
-                        text: track.playing ? "♪" : track.number;
-                        color: track.playing ? #1ed760 : Theme.faint;
-                        vertical-alignment: center;
-                        horizontal-alignment: right;
+                    alignment: start;
+                    padding-top: 8px;
+                    spacing: 12px;
+                    IconButton { glyph: "▶"; primary: true; size: 48px; clicked => { root.play(0); } }
+                    VerticalLayout {
+                        alignment: center;
+                        ToggleIcon { commands: Icons.shuffle; clicked => { root.shuffle-play(); } }
                     }
                     VerticalLayout {
                         alignment: center;
-                        Text { text: track.title; color: track.playing ? #1ed760 : Theme.text; font-size: 14px; overflow: elide; }
-                        Text { text: track.artist; color: Theme.muted; font-size: 11px; overflow: elide; }
+                        Rectangle {
+                            width: delete-label.preferred-width + 24px;
+                            height: 32px;
+                            border-radius: 16px;
+                            border-width: 1px;
+                            border-color: root.confirm-delete ? #e5484d : (delete-ta.has-hover ? Theme.text : Theme.faint);
+                            delete-label := Text {
+                                text: root.confirm-delete ? "Click again to delete" : "Delete";
+                                color: root.confirm-delete ? #e5484d : Theme.muted;
+                                font-size: 12px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                            delete-ta := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    if root.confirm-delete { root.delete(); }
+                                    root.confirm-delete = !root.confirm-delete;
+                                }
+                            }
+                        }
                     }
-                    Text { text: track.duration; color: Theme.muted; font-size: 12px; vertical-alignment: center; horizontal-alignment: right; }
                 }
-                ta := TouchArea { double-clicked => { root.play(i); } clicked => { root.play(i); } }
+            }
+        }
+        if tracks.length == 0: Text {
+            text: "Empty. Add tracks from any album or search result with the ⋯ menu.";
+            color: Theme.faint;
+            font-size: 13px;
+        }
+        ListView {
+            for track[i] in root.tracks: TrackRow {
+                track: track;
+                playlists: root.playlists;
+                removable: true;
+                movable: true;
+                remove-label: "Remove from this playlist";
+                play => { root.play(i); }
+                action(kind, id) => { root.track-action(i, kind, id); }
+            }
+        }
+    }
+}
+
+component QueuePage inherits Rectangle {
+    in property <string> origin;
+    in property <[TrackItem]> now;
+    in property <[TrackItem]> next;
+    in property <[PlaylistItem]> playlists;
+    callback jump(int);
+    callback clear();
+    callback track-action(int, string, string);
+    ScrollView {
+        VerticalLayout {
+            alignment: start;
+            padding: 28px;
+            spacing: 14px;
+            HorizontalLayout {
+                Text { text: "Queue"; color: Theme.text; font-size: 28px; font-weight: 800; }
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: clear-label.preferred-width + 24px;
+                        height: 30px;
+                        border-radius: 15px;
+                        border-width: 1px;
+                        border-color: clear-ta.has-hover ? Theme.text : Theme.faint;
+                        clear-label := Text { text: "Clear"; color: Theme.muted; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                        clear-ta := TouchArea { mouse-cursor: pointer; clicked => { root.clear(); } }
+                    }
+                }
+            }
+            if origin != "": Text { text: "Playing from " + root.origin; color: Theme.muted; font-size: 13px; }
+            if now.length == 0 && next.length == 0: Text {
+                text: "Nothing queued. Use the ⋯ menu on any track or album to add music.";
+                color: Theme.faint;
+                font-size: 13px;
+            }
+            if now.length > 0: Text { text: "NOW PLAYING"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
+            for track in root.now: TrackRow {
+                track: track;
+                playlists: root.playlists;
+                action(kind, id) => { root.track-action(-1, kind, id); }
+            }
+            if next.length > 0: Text { text: "NEXT UP"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
+            for track[i] in root.next: TrackRow {
+                track: track;
+                playlists: root.playlists;
+                removable: true;
+                remove-label: "Remove from queue";
+                play => { root.jump(i); }
+                action(kind, id) => { root.track-action(i, kind, id); }
             }
         }
     }
@@ -484,7 +937,15 @@ component TransportBar inherits Rectangle {
     in-out property <float> volume;
     in property <string> stream-info;
     in property <string> quality-mode;
+    in property <bool> shuffle;
+    in property <RepeatMode> repeat;
+    // Same green as the playing-track marker, so "active" reads the same everywhere.
+    in property <color> accent: #1ed760;
+    in property <bool> queue-open;
     callback toggle();
+    callback toggle-shuffle();
+    callback cycle-repeat();
+    callback show-queue();
     callback next();
     callback prev();
     callback seek(float);
@@ -517,9 +978,21 @@ component TransportBar inherits Rectangle {
             HorizontalLayout {
                 alignment: center;
                 spacing: 12px;
+                ToggleIcon {
+                    commands: Icons.shuffle;
+                    active: root.shuffle;
+                    accent: root.accent;
+                    clicked => { root.toggle-shuffle(); }
+                }
                 IconButton { glyph: "⏮"; clicked => { root.prev(); } }
                 IconButton { glyph: root.playing ? "⏸" : "▶"; primary: true; size: 40px; clicked => { root.toggle(); } }
                 IconButton { glyph: "⏭"; clicked => { root.next(); } }
+                ToggleIcon {
+                    commands: root.repeat == RepeatMode.one ? Icons.repeat-one : Icons.repeat;
+                    active: root.repeat != RepeatMode.off;
+                    accent: root.accent;
+                    clicked => { root.cycle-repeat(); }
+                }
             }
             HorizontalLayout {
                 spacing: 10px;
@@ -557,6 +1030,12 @@ component TransportBar inherits Rectangle {
                     vertical-alignment: center;
                     overflow: elide;
                 }
+                ToggleIcon {
+                    commands: Icons.queue;
+                    active: root.queue-open;
+                    accent: root.accent;
+                    clicked => { root.show-queue(); }
+                }
                 Rectangle {
                     width: mode-label.preferred-width + 14px;
                     height: 20px;
@@ -581,6 +1060,211 @@ component TransportBar inherits Rectangle {
     }
 }
 
+component Field inherits VerticalLayout {
+    in property <string> label;
+    spacing: 4px;
+    Text { text: root.label; color: Theme.faint; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+    @children
+}
+
+component PrimaryButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> busy;
+    callback clicked;
+    height: 40px;
+    border-radius: 20px;
+    background: root.busy ? Theme.surface-hi : (ta.has-hover ? #ffffff : #e8e9ec);
+    Text {
+        text: root.busy ? "Please wait…" : root.text;
+        color: root.busy ? Theme.muted : Theme.bg;
+        font-size: 14px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    ta := TouchArea {
+        enabled: !root.busy;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component LoginScreen inherits Rectangle {
+    in property <LoginState> state;
+    in-out property <string> server;
+    in-out property <string> username;
+    in-out property <string> password;
+    in-out property <string> new-password;
+    in-out property <string> confirm-password;
+    in-out property <string> full-name;
+    callback submit();
+    callback check-server();
+    callback change-password();
+    callback onboard();
+    callback skip-onboarding();
+    background: Theme.bg;
+    // Swallow clicks so nothing behind the screen reacts.
+    TouchArea { }
+    // Centred card, sized by its contents (fields come and go with the step and errors).
+    VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 400px;
+                border-radius: 14px;
+                background: Theme.surface;
+                drop-shadow-blur: 40px;
+                drop-shadow-color: #00000090;
+                // A layout (unlike the Rectangle itself) sizes to whichever step is shown.
+                VerticalLayout {
+                    if !root.state.changing-password && !root.state.onboarding: VerticalLayout {
+                        padding: 32px;
+                        spacing: 14px;
+                        Text { text: "HyperPlayer"; color: Theme.text; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+                        Text {
+                            text: root.state.default-admin
+                                ? "First time on this server? Sign in as admin with the password “hyperplayer”, then choose your own."
+                                : "Sign in to your server.";
+                            color: Theme.muted;
+                            font-size: 13px;
+                            wrap: word-wrap;
+                        }
+                        Field {
+                            label: "SERVER";
+                            LineEdit {
+                                text <=> root.server;
+                                placeholder-text: "http://127.0.0.1:4533";
+                                accepted => { root.check-server(); }
+                            }
+                        }
+                        Field {
+                            label: "USERNAME";
+                            LineEdit { text <=> root.username; placeholder-text: "Username"; }
+                        }
+                        Field {
+                            label: "PASSWORD";
+                            LineEdit {
+                                text <=> root.password;
+                                input-type: InputType.password;
+                                placeholder-text: "Password";
+                                accepted => { root.submit(); }
+                            }
+                        }
+                        if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
+                        PrimaryButton { text: "Sign in"; busy: root.state.busy; clicked => { root.submit(); } }
+                    }
+                    if root.state.changing-password: VerticalLayout {
+                        padding: 32px;
+                        spacing: 14px;
+                        Text { text: "Choose your password"; color: Theme.text; font-size: 22px; font-weight: 800; }
+                        Text {
+                            text: "You signed in with the default password. Pick your own to continue; the default stops working once you do.";
+                            color: Theme.muted;
+                            font-size: 13px;
+                            wrap: word-wrap;
+                        }
+                        if root.state.need-current: Field {
+                            label: "CURRENT PASSWORD";
+                            LineEdit { text <=> root.password; input-type: InputType.password; }
+                        }
+                        Field {
+                            label: "NEW PASSWORD (AT LEAST 8 CHARACTERS)";
+                            LineEdit { text <=> root.new-password; input-type: InputType.password; }
+                        }
+                        Field {
+                            label: "REPEAT IT";
+                            LineEdit {
+                                text <=> root.confirm-password;
+                                input-type: InputType.password;
+                                accepted => { root.change-password(); }
+                            }
+                        }
+                        if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
+                        PrimaryButton { text: "Save and continue"; busy: root.state.busy; clicked => { root.change-password(); } }
+                    }
+                    if root.state.onboarding: VerticalLayout {
+                        padding: 32px;
+                        spacing: 14px;
+                        Text { text: "Who's listening?"; color: Theme.text; font-size: 22px; font-weight: 800; }
+                        Text {
+                            text: "Create your own account for everyday listening, with your playlists and preferences. The admin account stays for managing the server.";
+                            color: Theme.muted;
+                            font-size: 13px;
+                            wrap: word-wrap;
+                        }
+                        Field {
+                            label: "FULL NAME (OPTIONAL)";
+                            LineEdit { text <=> root.full-name; placeholder-text: "Your name"; }
+                        }
+                        Field {
+                            label: "USERNAME";
+                            LineEdit { text <=> root.username; placeholder-text: "Username"; }
+                        }
+                        Field {
+                            label: "PASSWORD (AT LEAST 8 CHARACTERS)";
+                            LineEdit { text <=> root.new-password; input-type: InputType.password; }
+                        }
+                        Field {
+                            label: "REPEAT IT";
+                            LineEdit {
+                                text <=> root.confirm-password;
+                                input-type: InputType.password;
+                                accepted => { root.onboard(); }
+                            }
+                        }
+                        if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
+                        PrimaryButton { text: "Create my account"; busy: root.state.busy; clicked => { root.onboard(); } }
+                        Text {
+                            text: "Skip: keep using the admin account";
+                            color: skip-ta.has-hover ? Theme.text : Theme.faint;
+                            font-size: 12px;
+                            horizontal-alignment: center;
+                            skip-ta := TouchArea { mouse-cursor: pointer; clicked => { root.skip-onboarding(); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ShortcutHelp inherits Rectangle {
+    callback close();
+    background: #000000a0;
+    TouchArea { clicked => { root.close(); } }
+    Rectangle {
+        width: 420px;
+        height: rows.preferred-height + 48px;
+        border-radius: 12px;
+        background: Theme.surface-hi;
+        drop-shadow-blur: 30px;
+        drop-shadow-color: #000000c0;
+        rows := VerticalLayout {
+            x: 24px;
+            y: 24px;
+            width: parent.width - 48px;
+            spacing: 8px;
+            Text { text: "Keyboard shortcuts"; color: Theme.text; font-size: 18px; font-weight: 800; }
+            for row in [
+                { key: "Space", what: "Play / pause" },
+                { key: "← / →", what: "Seek back / forward 10 s" },
+                { key: "Ctrl+← / Ctrl+→", what: "Previous / next track" },
+                { key: "↑ / ↓", what: "Volume up / down" },
+                { key: "M", what: "Mute" },
+                { key: "S / R", what: "Shuffle / repeat" },
+                { key: "Q", what: "Queue" },
+                { key: "/  or  Ctrl+F", what: "Search" },
+                { key: "Esc", what: "Leave search / close" },
+                { key: "?", what: "This help" },
+            ]: HorizontalLayout {
+                Text { width: 150px; text: row.key; color: Theme.text; font-size: 13px; font-weight: 700; }
+                Text { text: row.what; color: Theme.muted; font-size: 13px; }
+            }
+        }
+    }
+}
+
 export component AppWindow inherits Window {
     title: np.active ? np.title + " — " + np.artist : "HyperPlayer";
     preferred-width: 1400px;
@@ -598,6 +1282,17 @@ export component AppWindow inherits Window {
     in property <[AlbumItem]> artist-albums;
     in property <AlbumView> album;
     in property <[TrackItem]> album-tracks;
+    in property <string> search-query;
+    in property <[ArtistItem]> search-artists;
+    in property <[AlbumItem]> search-albums;
+    in property <[TrackItem]> search-tracks;
+    in property <[PlaylistItem]> playlists;
+    in property <string> selected-playlist-id;
+    in property <PlaylistView> playlist;
+    in property <[TrackItem]> playlist-tracks;
+    in property <string> queue-origin;
+    in property <[TrackItem]> queue-now;
+    in property <[TrackItem]> queue-next;
     in property <NowPlayingView> np;
     in property <[AlbumItem]> more-from;
     in property <[CreditItem]> credits;
@@ -611,10 +1306,45 @@ export component AppWindow inherits Window {
     in-out property <float> volume: 0.8;
     in property <string> stream-info;
     in property <string> quality-mode: "AUTO";
+    in property <bool> shuffle;
+    in property <RepeatMode> repeat;
 
     callback select-artist(string);
     callback select-album(string);
     callback play-track(int);
+    callback play-search-track(int);
+    callback search-changed(string);
+    callback select-playlist(string);
+    callback new-playlist();
+    callback play-playlist(int);
+    callback shuffle-playlist();
+    callback rename-playlist(string);
+    callback delete-playlist();
+    callback album-action(string, string);
+    /// (list, index, action, playlist id); list is "album", "search", "playlist" or "queue".
+    callback track-action(string, int, string, string);
+    callback show-queue();
+    callback jump-in-queue(int);
+    callback clear-queue();
+    /// Keyboard actions handled in Rust: "seek-back", "seek-forward", "toggle-mute".
+    callback shortcut(string);
+    in property <bool> signed-in;
+    in property <LoginState> login;
+    in-out property <string> login-server;
+    in-out property <string> login-username;
+    in-out property <string> login-password;
+    in-out property <string> login-new-password;
+    in-out property <string> login-confirm-password;
+    in-out property <string> login-full-name;
+    in property <string> account;
+    callback login-submit();
+    callback login-check-server();
+    callback login-change-password();
+    callback login-onboard();
+    callback login-skip-onboarding();
+    callback sign-out();
+    property <bool> show-help;
+    init => { keys.focus(); }
     callback back-to-artist();
     callback toggle();
     callback next();
@@ -622,15 +1352,62 @@ export component AppWindow inherits Window {
     callback seek(float);
     callback volume-changed(float);
     callback cycle-quality-mode();
+    callback toggle-shuffle();
+    callback cycle-repeat();
 
+    keys := FocusScope {
+    key-pressed(event) => {
+        if event.text == Key.Escape {
+            if root.show-help { root.show-help = false; }
+            else if sidebar.clear-search() { }
+            else if root.page == Page.queue { root.show-queue(); }
+            keys.focus();
+            return accept;
+        }
+        // Everything else is ignored while modifier combos other than Ctrl are held.
+        if event.modifiers.alt || event.modifiers.meta { return reject; }
+        if event.modifiers.control {
+            if event.text == Key.LeftArrow { root.prev(); return accept; }
+            if event.text == Key.RightArrow { root.next(); return accept; }
+            if event.text == "f" { sidebar.focus-search(); return accept; }
+            return reject;
+        }
+        if event.text == " " { root.toggle(); return accept; }
+        if event.text == Key.LeftArrow { root.shortcut("seek-back"); return accept; }
+        if event.text == Key.RightArrow { root.shortcut("seek-forward"); return accept; }
+        if event.text == Key.UpArrow {
+            root.volume = min(1.0, root.volume + 0.05);
+            root.volume-changed(root.volume);
+            return accept;
+        }
+        if event.text == Key.DownArrow {
+            root.volume = max(0.0, root.volume - 0.05);
+            root.volume-changed(root.volume);
+            return accept;
+        }
+        if event.text == "m" || event.text == "M" { root.shortcut("toggle-mute"); return accept; }
+        if event.text == "s" || event.text == "S" { root.toggle-shuffle(); return accept; }
+        if event.text == "r" || event.text == "R" { root.cycle-repeat(); return accept; }
+        if event.text == "q" || event.text == "Q" { root.show-queue(); return accept; }
+        if event.text == "/" { sidebar.focus-search(); return accept; }
+        if event.text == "?" { root.show-help = !root.show-help; return accept; }
+        return reject;
+    }
     VerticalLayout {
         HorizontalLayout {
-            Sidebar {
+            sidebar := Sidebar {
                 width: 260px;
                 artists: root.artists;
                 selected-id: root.selected-artist-id;
                 status: root.status;
                 select(id) => { root.select-artist(id); }
+                search-changed(text) => { root.search-changed(text); }
+                playlists: root.playlists;
+                selected-playlist-id: root.page == Page.playlist ? root.selected-playlist-id : "";
+                select-playlist(id) => { root.select-playlist(id); }
+                new-playlist => { root.new-playlist(); }
+                account: root.account;
+                sign-out => { root.sign-out(); }
             }
             Rectangle {
                 horizontal-stretch: 1;
@@ -648,11 +1425,44 @@ export component AppWindow inherits Window {
                     select-album(id) => { root.select-album(id); }
                     select-artist(id) => { root.select-artist(id); }
                 }
+                if root.page == Page.search: SearchPage {
+                    query: root.search-query;
+                    artists: root.search-artists;
+                    albums: root.search-albums;
+                    tracks: root.search-tracks;
+                    playlists: root.playlists;
+                    select-artist(id) => { root.select-artist(id); }
+                    select-album(id) => { root.select-album(id); }
+                    play(i) => { root.play-search-track(i); }
+                    track-action(i, kind, id) => { root.track-action("search", i, kind, id); }
+                }
+                if root.page == Page.playlist: PlaylistPage {
+                    playlist: root.playlist;
+                    tracks: root.playlist-tracks;
+                    playlists: root.playlists;
+                    play(i) => { root.play-playlist(i); }
+                    shuffle-play => { root.shuffle-playlist(); }
+                    rename(name) => { root.rename-playlist(name); }
+                    delete => { root.delete-playlist(); }
+                    track-action(i, kind, id) => { root.track-action("playlist", i, kind, id); }
+                }
+                if root.page == Page.queue: QueuePage {
+                    origin: root.queue-origin;
+                    now: root.queue-now;
+                    next: root.queue-next;
+                    playlists: root.playlists;
+                    jump(i) => { root.jump-in-queue(i); }
+                    clear => { root.clear-queue(); }
+                    track-action(i, kind, id) => { root.track-action("queue", i, kind, id); }
+                }
                 if root.page == Page.album: AlbumPage {
                     album: root.album;
                     tracks: root.album-tracks;
+                    playlists: root.playlists;
                     play(i) => { root.play-track(i); }
                     back => { root.back-to-artist(); }
+                    album-action(kind, id) => { root.album-action(kind, id); }
+                    track-action(i, kind, id) => { root.track-action("album", i, kind, id); }
                 }
             }
             NowPlayingPanel {
@@ -681,6 +1491,30 @@ export component AppWindow inherits Window {
             stream-info: root.stream-info;
             quality-mode: root.quality-mode;
             cycle-quality-mode => { root.cycle-quality-mode(); }
+            shuffle: root.shuffle;
+            repeat: root.repeat;
+            toggle-shuffle => { root.toggle-shuffle(); }
+            cycle-repeat => { root.cycle-repeat(); }
+            queue-open: root.page == Page.queue;
+            show-queue => { root.show-queue(); }
         }
+    }
+    }
+    if root.show-help: ShortcutHelp {
+        close => { root.show-help = false; keys.focus(); }
+    }
+    if !root.signed-in: LoginScreen {
+        state: root.login;
+        server <=> root.login-server;
+        username <=> root.login-username;
+        password <=> root.login-password;
+        new-password <=> root.login-new-password;
+        confirm-password <=> root.login-confirm-password;
+        submit => { root.login-submit(); }
+        check-server => { root.login-check-server(); }
+        change-password => { root.login-change-password(); }
+        full-name <=> root.login-full-name;
+        onboard => { root.login-onboard(); }
+        skip-onboarding => { root.login-skip-onboarding(); }
     }
 }

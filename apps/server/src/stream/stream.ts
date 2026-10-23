@@ -75,12 +75,36 @@ const TRANSCODE: Record<
     defaultKbps: 320,
   },
   vorbis: {
-    args: (k) => ["-c:a", "libvorbis", "-b:a", `${k}k`, ...LOSSY_RATE, "-f", "ogg"],
+    args: (k) => ["-c:a", "libvorbis", "-q:a", String(vorbisQuality(k)), ...LOSSY_RATE, "-f", "ogg"],
     mime: "audio/ogg",
     defaultKbps: 192,
   },
   flac: { args: () => ["-c:a", "flac", "-f", "flac"], mime: "audio/flac", defaultKbps: 0 },
 };
+
+/**
+ * libvorbis's bitrate mode has per-channel limits (320 kbit/s fails outright on
+ * mono sources), so map the requested rate onto its quality scale instead, which
+ * works for any channel count. Nominal stereo rates per quality level:
+ */
+const VORBIS_QUALITY: [kbps: number, q: number][] = [
+  [500, 10],
+  [320, 9],
+  [256, 8],
+  [224, 7],
+  [192, 6],
+  [160, 5],
+  [128, 4],
+  [112, 3],
+  [96, 2],
+  [80, 1],
+  [64, 0],
+];
+
+/** Highest quality whose nominal bitrate doesn't exceed `kbps`. */
+export function vorbisQuality(kbps: number): number {
+  return VORBIS_QUALITY.find(([rate]) => rate <= kbps)?.[1] ?? -1;
+}
 
 export class TranscodeError extends Error {}
 

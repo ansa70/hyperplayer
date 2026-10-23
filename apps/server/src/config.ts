@@ -21,6 +21,14 @@ const Env = z.object({
   HP_FANART_KEY: z.string().optional(),
   /** Development only: cap every audio stream at this many kbit/s. */
   HP_DEBUG_THROTTLE_KBPS: z.coerce.number().int().positive().optional(),
+  /** Browser origins allowed to call the API cross-origin (comma-separated); none by default. */
+  HP_CORS_ORIGINS: z.string().default(""),
+  /** Set when behind a reverse proxy, so client IPs (for sign-in rate limits) come from X-Forwarded-For. */
+  HP_TRUST_PROXY: z.stringbool().default(false),
+  /** Mark session cookies Secure (HTTPS only). Turn off only for plain-HTTP development. */
+  HP_SECURE_COOKIES: z.stringbool().default(true),
+  /** Initial password of the built-in `admin` account; it must be changed at first sign-in. */
+  HP_DEFAULT_ADMIN_PASSWORD: z.string().min(8).default("hyperplayer"),
 });
 
 export type Config = {
@@ -32,6 +40,10 @@ export type Config = {
   validateResponses: boolean;
   enrich: EnrichConfig;
   debugThrottleKbps: number | null;
+  corsOrigins: string[];
+  trustProxy: boolean;
+  secureCookies: boolean;
+  defaultAdminPassword: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -50,5 +62,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       fanartKey: e.HP_FANART_KEY ?? null,
     },
     debugThrottleKbps: e.HP_DEBUG_THROTTLE_KBPS ?? null,
+    corsOrigins: e.HP_CORS_ORIGINS.split(",")
+      .map((o) => o.trim())
+      .filter(Boolean),
+    trustProxy: e.HP_TRUST_PROXY,
+    secureCookies: e.HP_SECURE_COOKIES,
+    defaultAdminPassword: e.HP_DEFAULT_ADMIN_PASSWORD,
   };
 }

@@ -8,7 +8,7 @@ import { z } from "zod";
  */
 export const registry = z.registry<{ id: string; description?: string }>();
 
-const named = <T extends z.ZodType>(id: string, schema: T, description?: string): T => {
+export const named = <T extends z.ZodType>(id: string, schema: T, description?: string): T => {
   registry.add(schema, { id, description });
   return schema;
 };

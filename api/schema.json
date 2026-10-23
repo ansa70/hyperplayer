@@ -979,6 +979,845 @@
         "message"
       ],
       "additionalProperties": false
+    },
+    "TrackSnapshot": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "artistName": {
+          "type": "string"
+        },
+        "albumTitle": {
+          "type": "string"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "title",
+        "artistName",
+        "albumTitle",
+        "durationMs"
+      ],
+      "additionalProperties": false
+    },
+    "PlaylistEntry": {
+      "type": "object",
+      "properties": {
+        "entryId": {
+          "$ref": "#/definitions/Id"
+        },
+        "track": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Track"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "snapshot": {
+          "$ref": "#/definitions/TrackSnapshot"
+        },
+        "addedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        }
+      },
+      "required": [
+        "entryId",
+        "track",
+        "snapshot",
+        "addedAt"
+      ],
+      "additionalProperties": false
+    },
+    "PlaylistSummary": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trackCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "covers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Artwork"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "trackCount",
+        "durationMs",
+        "covers",
+        "createdAt",
+        "updatedAt"
+      ],
+      "additionalProperties": false
+    },
+    "Playlist": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trackCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "covers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Artwork"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PlaylistEntry"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "trackCount",
+        "durationMs",
+        "covers",
+        "createdAt",
+        "updatedAt",
+        "entries"
+      ],
+      "additionalProperties": false
+    },
+    "PlaylistList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/PlaylistSummary"
+      }
+    },
+    "CreatePlaylist": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 2000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trackIds": {
+          "maxItems": 10000,
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Id"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "UpdatePlaylist": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 2000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "TrackSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "tracks"
+            },
+            "trackIds": {
+              "minItems": 1,
+              "maxItems": 10000,
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Id"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "trackIds"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "album"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "playlist"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "artist"
+            },
+            "id": {
+              "$ref": "#/definitions/Id"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "AddToPlaylist": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/definitions/TrackSource"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "MoveEntry": {
+      "type": "object",
+      "properties": {
+        "toIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "toIndex"
+      ],
+      "additionalProperties": false
+    },
+    "Ok": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "additionalProperties": false
+    },
+    "RepeatMode": {
+      "type": "string",
+      "enum": [
+        "off",
+        "all",
+        "one"
+      ]
+    },
+    "QueueEntry": {
+      "type": "object",
+      "properties": {
+        "entryId": {
+          "$ref": "#/definitions/Id"
+        },
+        "track": {
+          "$ref": "#/definitions/Track"
+        }
+      },
+      "required": [
+        "entryId",
+        "track"
+      ],
+      "additionalProperties": false
+    },
+    "QueueOrigin": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "tracks",
+            "album",
+            "playlist",
+            "artist"
+          ]
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "QueueState": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QueueEntry"
+          }
+        },
+        "index": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shuffle": {
+          "type": "boolean"
+        },
+        "repeat": {
+          "$ref": "#/definitions/RepeatMode"
+        },
+        "positionMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/QueueOrigin"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        }
+      },
+      "required": [
+        "entries",
+        "index",
+        "shuffle",
+        "repeat",
+        "positionMs",
+        "origin",
+        "updatedAt"
+      ],
+      "additionalProperties": false
+    },
+    "SetQueue": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/definitions/TrackSource"
+        },
+        "start": {
+          "default": 0,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "shuffle": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source",
+        "start"
+      ],
+      "additionalProperties": false
+    },
+    "AddToQueue": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/definitions/TrackSource"
+        },
+        "placement": {
+          "default": "end",
+          "type": "string",
+          "enum": [
+            "next",
+            "end"
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "placement"
+      ],
+      "additionalProperties": false
+    },
+    "Advance": {
+      "type": "object",
+      "properties": {
+        "auto": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "auto"
+      ],
+      "additionalProperties": false
+    },
+    "Jump": {
+      "type": "object",
+      "properties": {
+        "entryId": {
+          "$ref": "#/definitions/Id"
+        }
+      },
+      "required": [
+        "entryId"
+      ],
+      "additionalProperties": false
+    },
+    "UpdateQueue": {
+      "type": "object",
+      "properties": {
+        "shuffle": {
+          "type": "boolean"
+        },
+        "repeat": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/RepeatMode"
+            }
+          ]
+        },
+        "positionMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "additionalProperties": false
+    },
+    "User": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Id"
+        },
+        "username": {
+          "type": "string"
+        },
+        "fullName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "admin": {
+          "type": "boolean"
+        },
+        "mustChangePassword": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "fullName",
+        "admin",
+        "mustChangePassword",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "Device": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{8,64}$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "lastSeenAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "current": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "createdAt",
+        "lastSeenAt",
+        "current"
+      ],
+      "additionalProperties": false
+    },
+    "DeviceList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Device"
+      }
+    },
+    "UserList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/User"
+      }
+    },
+    "AuthStatus": {
+      "type": "object",
+      "properties": {
+        "defaultAdmin": {
+          "type": "boolean"
+        },
+        "serverVersion": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "defaultAdmin",
+        "serverVersion"
+      ],
+      "additionalProperties": false
+    },
+    "Login": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "password": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "deviceName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "deviceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{8,64}$"
+        },
+        "cookie": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "username",
+        "password",
+        "deviceName",
+        "cookie"
+      ],
+      "additionalProperties": false
+    },
+    "Session": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string"
+        },
+        "user": {
+          "$ref": "#/definitions/User"
+        },
+        "device": {
+          "$ref": "#/definitions/Device"
+        }
+      },
+      "required": [
+        "token",
+        "user",
+        "device"
+      ],
+      "additionalProperties": false
+    },
+    "Me": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/User"
+        },
+        "device": {
+          "$ref": "#/definitions/Device"
+        }
+      },
+      "required": [
+        "user",
+        "device"
+      ],
+      "additionalProperties": false
+    },
+    "ChangePassword": {
+      "type": "object",
+      "properties": {
+        "currentPassword": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "newPassword": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "currentPassword",
+        "newPassword"
+      ],
+      "additionalProperties": false
+    },
+    "CreateUser": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "pattern": "^[\\p{L}\\p{N}._-]+$"
+        },
+        "password": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 1024
+        },
+        "fullName": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "admin": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "username",
+        "password",
+        "admin"
+      ],
+      "additionalProperties": false
+    },
+    "Onboard": {
+      "type": "object",
+      "properties": {
+        "fullName": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "username": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "pattern": "^[\\p{L}\\p{N}._-]+$"
+        },
+        "password": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "username",
+        "password"
+      ],
+      "additionalProperties": false
+    },
+    "Preferences": {
+      "type": "object",
+      "properties": {
+        "quality": {
+          "default": "auto",
+          "type": "string",
+          "enum": [
+            "auto",
+            "original",
+            "data-saver"
+          ]
+        }
+      },
+      "required": [
+        "quality"
+      ],
+      "additionalProperties": false
+    },
+    "UpdatePreferences": {
+      "type": "object",
+      "properties": {
+        "quality": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "original",
+            "data-saver"
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
