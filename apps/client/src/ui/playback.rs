@@ -104,7 +104,7 @@ pub fn play_current(start: Duration) {
         app.resume_at = Duration::ZERO;
         adaptive::choose(&track, app.mode, app.bandwidth.get())
     });
-    start_stream(track.clone(), quality, start);
+    start_stream(track.clone(), quality, start, false);
     with_app(|app| app.np_polls = 0);
     fetch_now_playing(track.id.to_string());
 }
@@ -203,8 +203,10 @@ pub fn save_position(app: &mut App) {
     });
 }
 
-/// Opens `track` at `quality` from `start` and swaps it in when ready.
-pub fn start_stream(track: types::Track, quality: Quality, start: Duration) {
+/// Opens `track` at `quality` from `start` and swaps it in when ready. With
+/// `follow`, the stream replaces one of the same track that kept playing while it
+/// opened, and resumes from wherever that one got to rather than jumping back.
+pub fn start_stream(track: types::Track, quality: Quality, start: Duration, follow: bool) {
     let (api, mode, generation) = with_app(|app| {
         app.generation += 1;
         app.loading = true;
@@ -229,6 +231,12 @@ pub fn start_stream(track: types::Track, quality: Quality, start: Duration) {
                 };
                 if let Some(kbps) = opened.measured_kbps {
                     app.bandwidth.update(kbps);
+                }
+                if follow
+                    && let Some(old) = app.session.as_ref().filter(|s| s.track.id == track.id)
+                {
+                    let new = opened.offset + opened.pipeline.position();
+                    opened.pipeline.skip(old.position().saturating_sub(new));
                 }
                 audio.play(opened.source);
                 app.monitor.reset();
@@ -308,7 +316,7 @@ pub fn seek_to(target: Duration) {
             // May wait for the network: never on the UI thread.
             thread::spawn(move || pipeline.seek(target, Duration::from_secs(15)));
         }
-        Some(Ok((track, quality))) => start_stream(track, quality, target),
+        Some(Ok((track, quality))) => start_stream(track, quality, target, false),
         None => {}
     }
 }
@@ -362,7 +370,7 @@ pub fn tick() {
         (finished, adapt(app))
     });
     if let Some((track, quality, at)) = switch {
-        start_stream(track, quality, at);
+        start_stream(track, quality, at, true);
     } else if finished {
         with_app(|app| app.session = None);
         next(true);

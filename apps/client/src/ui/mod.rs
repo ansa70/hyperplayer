@@ -265,7 +265,7 @@ pub fn run() -> anyhow::Result<()> {
             (q != s.quality).then(|| (s.track.clone(), q, s.position()))
         });
         if let Some((track, quality, at)) = switch {
-            playback::start_stream(track, quality, at);
+            playback::start_stream(track, quality, at, true);
         }
     });
     ui.on_cycle_replaygain(|| {

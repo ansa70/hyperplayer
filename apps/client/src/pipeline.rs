@@ -47,6 +47,8 @@ struct Shared {
     replace: AtomicBool,
     /// Linear gain (ReplayGain), as f32 bits so the audio callback reads it without locking.
     gain: AtomicU32,
+    /// Frames the audio side should drop before playing on (see `PipelineHandle::skip`).
+    skip_frames: AtomicU64,
 }
 
 impl Shared {
@@ -106,6 +108,13 @@ impl PipelineHandle {
         self.0.gain.store(linear.to_bits(), Ordering::Relaxed);
     }
 
+    /// Drops the next `by` of audio without playing it (counted as played). Used to
+    /// pick up exactly where a stream being replaced got to while this one opened.
+    pub fn skip(&self, by: Duration) {
+        let frames = (by.as_secs_f64() * self.0.sample_rate.get() as f64) as u64;
+        self.0.skip_frames.store(frames, Ordering::Relaxed);
+    }
+
     pub fn stop(&self) {
         self.0.control().stopped = true;
         self.0.cond.notify_all();
@@ -138,6 +147,7 @@ where
         replacement: Mutex::new(None),
         replace: AtomicBool::new(false),
         gain: AtomicU32::new(1.0f32.to_bits()),
+        skip_frames: AtomicU64::new(0),
     });
     let (producer, consumer) = RingBuffer::new(shared.capacity());
     let worker = shared.clone();
@@ -217,6 +227,7 @@ impl Iterator for BufferedSource {
             self.channel = 0;
             self.shared.replace.store(false, Ordering::Release);
         }
+        let skipping = self.skip();
         let popped = self.ring.pop().ok();
         if popped.is_none()
             && self.shared.decoded_all.load(Ordering::Relaxed)
@@ -238,12 +249,34 @@ impl Iterator for BufferedSource {
             }
             None => {
                 // Silence before the first sample is the initial fill, not an underrun.
-                if last_in_frame && self.started {
+                if last_in_frame && self.started && !skipping {
                     self.shared.underrun_frames.fetch_add(1, Ordering::Relaxed);
                 }
                 Some(0.0)
             }
         }
+    }
+}
+
+impl BufferedSource {
+    /// Discards whole frames of a pending skip that are already decoded; returns
+    /// whether some of the skip is still outstanding.
+    fn skip(&mut self) -> bool {
+        let pending = self.shared.skip_frames.load(Ordering::Relaxed);
+        // Only at a frame boundary, so channels stay aligned.
+        if pending == 0 || self.channel != 0 {
+            return pending > 0;
+        }
+        let channels = self.shared.channels.get() as usize;
+        let frames = pending.min((self.ring.slots() / channels) as u64);
+        if frames > 0
+            && let Ok(chunk) = self.ring.read_chunk(frames as usize * channels)
+        {
+            chunk.commit_all();
+            self.shared.frames_played.fetch_add(frames, Ordering::Relaxed);
+            self.shared.skip_frames.fetch_sub(frames, Ordering::Relaxed);
+        }
+        pending > frames
     }
 }
 
@@ -360,6 +393,19 @@ mod tests {
         // The very next sample comes from the seek target, not from the old buffer.
         assert_eq!(src.next(), Some((3 * RAMP_RATE) as Sample));
         assert_eq!(src.count() as u32, 2 * RAMP_RATE - 1);
+    }
+
+    #[test]
+    fn skipping_drops_audio_but_counts_it_as_played() {
+        let (mut src, handle) = spawn(Ramp {
+            pos: 0,
+            len: RAMP_RATE * 5,
+        });
+        settle();
+        handle.skip(Duration::from_millis(500));
+        assert_eq!(src.next(), Some((RAMP_RATE / 2) as Sample));
+        assert_eq!(handle.position(), Duration::from_millis(500) + Duration::from_micros(125));
+        assert_eq!(handle.take_underrun(), Duration::ZERO);
     }
 
     #[test]
