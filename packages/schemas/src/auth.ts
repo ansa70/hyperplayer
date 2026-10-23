@@ -126,6 +126,13 @@ export const Preferences = named(
   z.object({
     /** Streaming quality mode; see the client's adaptive streaming. */
     quality: z.enum(["auto", "original", "data-saver"]).default("auto"),
+    /**
+     * Loudness normalisation: `auto` uses album gain while an album plays in order and
+     * track gain otherwise (shuffle, playlists, mixed queues).
+     */
+    replayGain: z.enum(["auto", "track", "album", "off"]).default("auto"),
+    /** Extra gain in dB applied on top of ReplayGain (still limited by the peak). */
+    replayGainPreamp: z.number().min(-15).max(15).default(0),
   }),
   "Per-user settings that follow the account to every device.",
 );
@@ -134,6 +141,8 @@ export const UpdatePreferences = named(
   "UpdatePreferences",
   z.object({
     quality: z.enum(["auto", "original", "data-saver"]).optional(),
+    replayGain: z.enum(["auto", "track", "album", "off"]).optional(),
+    replayGainPreamp: z.number().min(-15).max(15).optional(),
   }),
 );
 

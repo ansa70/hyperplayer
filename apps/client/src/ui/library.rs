@@ -379,6 +379,8 @@ fn run_action(list: &str, index: i32, action: &str, playlist_id: &str, target: T
 
 /// Mirrors the server's queue state into the transport controls, queue page and now-playing marks.
 pub fn sync_queue_ui(app: &mut App) {
+    // Shuffle or a new queue can change which ReplayGain (album or track) applies.
+    super::playback::apply_replaygain(app);
     let Some(ui) = app.ui.upgrade() else { return };
     let Some(q) = &app.queue else { return };
     ui.set_shuffle(q.shuffle);

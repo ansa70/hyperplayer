@@ -177,6 +177,12 @@ export class Catalog {
       bitDepth: num(r.bit_depth),
       channels: num(r.channels),
     },
+    replayGain: {
+      trackGain: num(r.rg_track_gain),
+      trackPeak: num(r.rg_track_peak),
+      albumGain: num(r.rg_album_gain),
+      albumPeak: num(r.rg_album_peak),
+    },
     fileSize: Number(r.file_size),
     cover: artwork(r, "c_"),
   });

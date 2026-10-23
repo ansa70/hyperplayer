@@ -496,17 +496,20 @@ pub fn handle_error(err: &anyhow::Error) -> bool {
 
 /// Applies the account's preferences (unless overridden with HP_QUALITY for this run).
 fn load_preferences() {
-    if std::env::var_os("HP_QUALITY").is_some() {
-        return;
-    }
     let api = with_app(|app| app.api.clone());
     super::background(
         move || api.preferences(),
         |prefs| {
             with_app(|app| {
-                app.mode = super::mode_from(&prefs.quality.to_string());
-                app.settings.quality = prefs.quality.to_string();
-                playback::update_stream_info(app);
+                // HP_QUALITY overrides the stored quality mode for this run.
+                if std::env::var_os("HP_QUALITY").is_none() {
+                    app.mode = super::mode_from(&prefs.quality.to_string());
+                    app.settings.quality = prefs.quality.to_string();
+                }
+                app.rg_mode =
+                    hyperplayer::replaygain::Mode::from_name(&prefs.replay_gain.to_string());
+                app.rg_preamp = prefs.replay_gain_preamp as f32;
+                playback::apply_replaygain(app);
             })
         },
     );

@@ -136,6 +136,20 @@ export const AudioFormat = named(
   "Technical properties of the source file.",
 );
 
+export const ReplayGain = named(
+  "ReplayGain",
+  z.object({
+    /** Gain in dB that brings the track to the ReplayGain reference loudness. */
+    trackGain: z.number().nullable(),
+    /** Highest sample amplitude, linear (1.0 = full scale); used to avoid clipping when boosting. */
+    trackPeak: z.number().nonnegative().nullable(),
+    /** The same for the whole album, preserving loudness differences between its tracks. */
+    albumGain: z.number().nullable(),
+    albumPeak: z.number().nonnegative().nullable(),
+  }),
+  "Loudness normalisation data from the file's tags; all null when untagged.",
+);
+
 export const Track = named(
   "Track",
   z.object({
@@ -151,6 +165,7 @@ export const Track = named(
     durationMs: DurationMs,
     genres: z.array(z.string()),
     format: AudioFormat,
+    replayGain: ReplayGain,
     fileSize: z.int().nonnegative(),
     cover: Artwork.nullable(),
   }),
@@ -274,6 +289,7 @@ export type Artist = z.infer<typeof Artist>;
 export type AlbumSummary = z.infer<typeof AlbumSummary>;
 export type AudioFormat = z.infer<typeof AudioFormat>;
 export type Track = z.infer<typeof Track>;
+export type ReplayGain = z.infer<typeof ReplayGain>;
 export type Album = z.infer<typeof Album>;
 export type NowPlaying = z.infer<typeof NowPlaying>;
 export type ArtistPage = z.infer<typeof ArtistPage>;

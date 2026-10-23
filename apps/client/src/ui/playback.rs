@@ -9,7 +9,7 @@ use hyperplayer::{
     adaptive::{self, Mode, Quality},
     api::{Api, types},
     pipeline::PipelineHandle,
-    playback,
+    playback, replaygain,
     stream::StreamHandle,
 };
 
@@ -30,6 +30,8 @@ pub struct Session {
     pub stream: StreamHandle,
     /// Position of the pipeline's zero point within the track.
     pub offset: Duration,
+    /// The ReplayGain currently applied.
+    pub gain: replaygain::Applied,
 }
 
 impl Session {
@@ -236,8 +238,9 @@ pub fn start_stream(track: types::Track, quality: Quality, start: Duration) {
                     pipeline: opened.pipeline,
                     stream: opened.stream,
                     offset: opened.offset,
+                    gain: replaygain::Applied::UNITY,
                 });
-                update_stream_info(app);
+                apply_replaygain(app);
             })
         });
     });
@@ -251,14 +254,36 @@ pub fn fmt_kbps(kbps: f64) -> String {
     }
 }
 
+/// (Re)computes the current track's ReplayGain from the mode and queue context, and applies it.
+pub fn apply_replaygain(app: &mut App) {
+    // "Album in order": the queue was started from an album and isn't shuffled.
+    let in_album_order = app.queue.as_ref().is_some_and(|q| {
+        !q.shuffle
+            && q.origin
+                .as_ref()
+                .is_some_and(|o| o.kind == types::QueueOriginKind::Album)
+    });
+    let (mode, preamp) = (app.rg_mode, app.rg_preamp);
+    if let Some(s) = app.session.as_mut() {
+        s.gain = replaygain::compute(&s.track.replay_gain, mode, in_album_order, preamp);
+        s.pipeline.set_gain(s.gain.linear);
+    }
+    update_stream_info(app);
+}
+
 pub fn update_stream_info(app: &App) {
     let Some(ui) = app.ui.upgrade() else { return };
     ui.set_quality_mode(app.mode.label().into());
+    ui.set_replaygain_mode(format!("RG {}", app.rg_mode.name().to_uppercase()).into());
     let info = match &app.session {
         Some(s) => {
             let mut parts = vec![s.quality.label(&s.track)];
             if let Some(kbps) = s.stream.stats().throughput_kbps.or(app.bandwidth.get()) {
                 parts.push(fmt_kbps(kbps));
+            }
+            let rg = s.gain.label();
+            if !rg.is_empty() {
+                parts.push(rg);
             }
             parts.join(" · ")
         }

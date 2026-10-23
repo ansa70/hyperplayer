@@ -167,6 +167,10 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ["queues", "user_id", "TEXT REFERENCES users(id) ON DELETE CASCADE"],
   ["users", "must_change_password", "INTEGER NOT NULL DEFAULT 0"],
   ["users", "full_name", "TEXT"],
+  ["tracks", "rg_track_gain", "REAL"],
+  ["tracks", "rg_track_peak", "REAL"],
+  ["tracks", "rg_album_gain", "REAL"],
+  ["tracks", "rg_album_peak", "REAL"],
 ];
 
 function migrate(db: DatabaseSync) {

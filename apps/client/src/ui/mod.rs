@@ -70,6 +70,9 @@ pub struct App {
     pending: Option<account::Pending>,
     /// Media keys and the desktop's media widget (MPRIS on Linux).
     desktop: Option<desktop::Desktop>,
+    /// ReplayGain mode and pre-amplification (dB), from the user's preferences.
+    rg_mode: hyperplayer::replaygain::Mode,
+    rg_preamp: f32,
 }
 
 thread_local! {
@@ -189,6 +192,8 @@ pub fn run() -> anyhow::Result<()> {
             unmuted_volume: None,
             pending: None,
             desktop: None,
+            rg_mode: hyperplayer::replaygain::Mode::Auto,
+            rg_preamp: 0.0,
         })
     });
     ui.set_status(format!("Connecting to {server}…").into());
@@ -262,6 +267,18 @@ pub fn run() -> anyhow::Result<()> {
         if let Some((track, quality, at)) = switch {
             playback::start_stream(track, quality, at);
         }
+    });
+    ui.on_cycle_replaygain(|| {
+        with_app(|app| {
+            app.rg_mode = app.rg_mode.next();
+            playback::apply_replaygain(app);
+            let (api, mode) = (app.api.clone(), app.rg_mode.name());
+            thread::spawn(move || {
+                if let Err(e) = api.set_replaygain_preference(mode) {
+                    eprintln!("saving preference: {e:#}");
+                }
+            });
+        })
     });
     ui.on_volume_changed(|v| {
         with_app(|app| {

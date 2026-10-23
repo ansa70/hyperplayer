@@ -7,5 +7,6 @@ pub mod credentials;
 pub mod pipeline;
 pub mod playback;
 pub mod player;
+pub mod replaygain;
 pub mod settings;
 pub mod stream;

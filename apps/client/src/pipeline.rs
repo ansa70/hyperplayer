@@ -8,7 +8,7 @@
 use std::{
     sync::{
         Arc, Condvar, Mutex, MutexGuard,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
     },
     thread,
     time::Duration,
@@ -45,6 +45,8 @@ struct Shared {
     /// After a seek, the decode thread parks a fresh ring here for the audio side to adopt.
     replacement: Mutex<Option<Consumer<Sample>>>,
     replace: AtomicBool,
+    /// Linear gain (ReplayGain), as f32 bits so the audio callback reads it without locking.
+    gain: AtomicU32,
 }
 
 impl Shared {
@@ -98,6 +100,12 @@ impl PipelineHandle {
         c.seek_result.take().unwrap_or(false)
     }
 
+    /// Linear gain applied to every sample from now on (takes effect immediately,
+    /// not after the buffered audio).
+    pub fn set_gain(&self, linear: f32) {
+        self.0.gain.store(linear.to_bits(), Ordering::Relaxed);
+    }
+
     pub fn stop(&self) {
         self.0.control().stopped = true;
         self.0.cond.notify_all();
@@ -129,6 +137,7 @@ where
         ended: AtomicBool::new(false),
         replacement: Mutex::new(None),
         replace: AtomicBool::new(false),
+        gain: AtomicU32::new(1.0f32.to_bits()),
     });
     let (producer, consumer) = RingBuffer::new(shared.capacity());
     let worker = shared.clone();
@@ -221,6 +230,7 @@ impl Iterator for BufferedSource {
         match popped {
             Some(sample) => {
                 self.started = true;
+                let sample = sample * f32::from_bits(self.shared.gain.load(Ordering::Relaxed));
                 if last_in_frame {
                     self.shared.frames_played.fetch_add(1, Ordering::Relaxed);
                 }
@@ -350,6 +360,20 @@ mod tests {
         // The very next sample comes from the seek target, not from the old buffer.
         assert_eq!(src.next(), Some((3 * RAMP_RATE) as Sample));
         assert_eq!(src.count() as u32, 2 * RAMP_RATE - 1);
+    }
+
+    #[test]
+    fn gain_scales_samples_immediately() {
+        let (mut src, handle) = spawn(Ramp {
+            pos: 0,
+            len: RAMP_RATE,
+        });
+        settle();
+        assert_eq!(src.next(), Some(0.0));
+        assert_eq!(src.next(), Some(1.0));
+        handle.set_gain(0.5);
+        assert_eq!(src.next(), Some(1.0)); // sample 2 × 0.5
+        assert_eq!(src.next(), Some(1.5)); // sample 3 × 0.5
     }
 
     #[test]

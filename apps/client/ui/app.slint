@@ -937,6 +937,8 @@ component TransportBar inherits Rectangle {
     in-out property <float> volume;
     in property <string> stream-info;
     in property <string> quality-mode;
+    in property <string> replaygain-mode;
+    callback cycle-replaygain();
     in property <bool> shuffle;
     in property <RepeatMode> repeat;
     // Same green as the playing-track marker, so "active" reads the same everywhere.
@@ -1007,7 +1009,7 @@ component TransportBar inherits Rectangle {
             }
         }
         VerticalLayout {
-            width: 280px;
+            width: 320px;
             alignment: center;
             spacing: 4px;
             HorizontalLayout {
@@ -1023,18 +1025,30 @@ component TransportBar inherits Rectangle {
             HorizontalLayout {
                 spacing: 8px;
                 alignment: end;
-                Text {
-                    text: root.stream-info;
-                    color: Theme.faint;
-                    font-size: 11px;
-                    vertical-alignment: center;
-                    overflow: elide;
-                }
                 ToggleIcon {
                     commands: Icons.queue;
                     active: root.queue-open;
                     accent: root.accent;
                     clicked => { root.show-queue(); }
+                }
+                Rectangle {
+                    width: rg-label.preferred-width + 14px;
+                    height: 20px;
+                    border-radius: 10px;
+                    border-width: 1px;
+                    border-color: rg-ta.has-hover ? Theme.text : Theme.faint;
+                    rg-label := Text {
+                        text: root.replaygain-mode;
+                        color: Theme.muted;
+                        font-size: 10px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                    rg-ta := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.cycle-replaygain(); }
+                    }
                 }
                 Rectangle {
                     width: mode-label.preferred-width + 14px;
@@ -1055,6 +1069,14 @@ component TransportBar inherits Rectangle {
                         clicked => { root.cycle-quality-mode(); }
                     }
                 }
+            }
+            // Its own line: quality, measured speed and ReplayGain don't fit beside the chips.
+            Text {
+                text: root.stream-info;
+                color: Theme.faint;
+                font-size: 11px;
+                horizontal-alignment: right;
+                overflow: elide;
             }
         }
     }
@@ -1306,6 +1328,8 @@ export component AppWindow inherits Window {
     in-out property <float> volume: 0.8;
     in property <string> stream-info;
     in property <string> quality-mode: "AUTO";
+    in property <string> replaygain-mode: "RG AUTO";
+    callback cycle-replaygain();
     in property <bool> shuffle;
     in property <RepeatMode> repeat;
 
@@ -1491,6 +1515,8 @@ export component AppWindow inherits Window {
             stream-info: root.stream-info;
             quality-mode: root.quality-mode;
             cycle-quality-mode => { root.cycle-quality-mode(); }
+            replaygain-mode: root.replaygain-mode;
+            cycle-replaygain => { root.cycle-replaygain(); }
             shuffle: root.shuffle;
             repeat: root.repeat;
             toggle-shuffle => { root.toggle-shuffle(); }

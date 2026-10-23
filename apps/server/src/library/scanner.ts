@@ -33,7 +33,7 @@ const IMAGE_EXTENSIONS: Record<string, string> = {
  * Bumped when the way metadata maps to the catalog changes; a mismatch makes the
  * next scan re-read every file instead of skipping unchanged ones.
  */
-const SCAN_VERSION = "2";
+const SCAN_VERSION = "3"; // 3: ReplayGain
 
 export const stableId = (...parts: string[]) =>
   createHash("sha1").update(parts.join("\u0000").toLowerCase()).digest("hex").slice(0, 16);
@@ -193,8 +193,8 @@ export class Scanner {
       INSERT INTO tracks (
         id, path, mtime_ms, title, artist_id, album_id, track_number, disc_number, year, duration_ms, genres,
         codec, container, lossless, bitrate, sample_rate, bit_depth, channels, file_size, cover_id, seen_scan,
-        musicbrainz_recording_id, artist_credit
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        musicbrainz_recording_id, artist_credit, rg_track_gain, rg_track_peak, rg_album_gain, rg_album_peak
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         mtime_ms = excluded.mtime_ms, title = excluded.title, artist_id = excluded.artist_id,
         album_id = excluded.album_id, track_number = excluded.track_number, disc_number = excluded.disc_number,
@@ -202,7 +202,9 @@ export class Scanner {
         container = excluded.container, lossless = excluded.lossless, bitrate = excluded.bitrate,
         sample_rate = excluded.sample_rate, bit_depth = excluded.bit_depth, channels = excluded.channels,
         file_size = excluded.file_size, cover_id = excluded.cover_id, seen_scan = excluded.seen_scan,
-        musicbrainz_recording_id = excluded.musicbrainz_recording_id, artist_credit = excluded.artist_credit`).run(
+        musicbrainz_recording_id = excluded.musicbrainz_recording_id, artist_credit = excluded.artist_credit,
+        rg_track_gain = excluded.rg_track_gain, rg_track_peak = excluded.rg_track_peak,
+        rg_album_gain = excluded.rg_album_gain, rg_album_peak = excluded.rg_album_peak`).run(
       trackId,
       path,
       mtimeMs,
@@ -226,6 +228,11 @@ export class Scanner {
       generation,
       common.musicbrainz_recordingid ?? null,
       artistCredit,
+      // Gains are stored in dB, peaks as linear amplitude.
+      common.replaygain_track_gain?.dB ?? null,
+      common.replaygain_track_peak?.ratio ?? null,
+      common.replaygain_album_gain?.dB ?? null,
+      common.replaygain_album_peak?.ratio ?? null,
     );
 
     db.prepare("DELETE FROM credits WHERE track_id = ? AND source = 'tags'").run(trackId);

@@ -110,3 +110,11 @@ backend: media keys, headset buttons, KDE Connect/GSConnect and the GNOME/KDE me
 and seek, and show title, artist, album, duration and cover. Covers are cached as JPEG under
 `~/.cache/hyperplayer/covers` because desktop shells can't fetch the authenticated artwork URLs. The same crate
 provides the macOS and Windows media controls.
+
+## ReplayGain
+
+The scanner reads ReplayGain track/album gain and peak tags and serves them with every track. The client applies
+the gain in its audio pipeline (instantly, not after the buffer), capped by the tagged peak so boosts never clip.
+Modes, a per-user preference cycled by the **RG** chip: _Auto_ (album gain while an album plays in order, track
+gain when shuffling or mixing), _Track_, _Album_, _Off_; plus a pre-amp (`replayGainPreamp`, ±15 dB). Untagged
+files play unchanged.

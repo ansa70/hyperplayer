@@ -292,6 +292,7 @@ mod tests {
                 bitrate: None, sample_rate: None, bit_depth: None, channels: None,
             }).unwrap(),
             "fileSize": (kbps * 1000.0 / 8.0 * 100.0) as i64, "cover": null,
+            "replayGain": { "trackGain": null, "trackPeak": null, "albumGain": null, "albumPeak": null },
         }))
         .unwrap()
     }

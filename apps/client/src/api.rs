@@ -169,6 +169,11 @@ impl Api {
         self.get("/api/me/preferences")
     }
 
+    pub fn set_replaygain_preference(&self, mode: &str) -> Result<Preferences> {
+        let body = serde_json::json!({ "replayGain": mode });
+        self.send(Method::PATCH, "/api/me/preferences", Some(&body))
+    }
+
     pub fn set_quality_preference(&self, quality: &str) -> Result<Preferences> {
         let body = serde_json::json!({ "quality": quality });
         self.send(Method::PATCH, "/api/me/preferences", Some(&body))

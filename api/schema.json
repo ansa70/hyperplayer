@@ -463,6 +463,52 @@
       ],
       "additionalProperties": false
     },
+    "ReplayGain": {
+      "type": "object",
+      "properties": {
+        "trackGain": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "trackPeak": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "albumGain": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "albumPeak": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "trackGain",
+        "trackPeak",
+        "albumGain",
+        "albumPeak"
+      ],
+      "additionalProperties": false
+    },
     "Track": {
       "type": "object",
       "properties": {
@@ -534,6 +580,9 @@
         "format": {
           "$ref": "#/definitions/AudioFormat"
         },
+        "replayGain": {
+          "$ref": "#/definitions/ReplayGain"
+        },
         "fileSize": {
           "type": "integer",
           "minimum": 0,
@@ -563,6 +612,7 @@
         "durationMs",
         "genres",
         "format",
+        "replayGain",
         "fileSize",
         "cover"
       ],
@@ -1798,10 +1848,28 @@
             "original",
             "data-saver"
           ]
+        },
+        "replayGain": {
+          "default": "auto",
+          "type": "string",
+          "enum": [
+            "auto",
+            "track",
+            "album",
+            "off"
+          ]
+        },
+        "replayGainPreamp": {
+          "default": 0,
+          "type": "number",
+          "minimum": -15,
+          "maximum": 15
         }
       },
       "required": [
-        "quality"
+        "quality",
+        "replayGain",
+        "replayGainPreamp"
       ],
       "additionalProperties": false
     },
@@ -1815,6 +1883,20 @@
             "original",
             "data-saver"
           ]
+        },
+        "replayGain": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "track",
+            "album",
+            "off"
+          ]
+        },
+        "replayGainPreamp": {
+          "type": "number",
+          "minimum": -15,
+          "maximum": 15
         }
       },
       "additionalProperties": false

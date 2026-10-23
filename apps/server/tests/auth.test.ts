@@ -240,14 +240,14 @@ test("first-run onboarding hands the device, its queue and the playlists to the 
 
 test("preferences are per user and fill in defaults", async () => {
   const admin = authed(ctx.app, await setupAdmin(ctx.app));
-  expect((await admin("/api/me/preferences")).json()).toEqual({ quality: "auto" });
+  expect((await admin("/api/me/preferences")).json()).toMatchObject({ quality: "auto" });
   const res = await admin({
     method: "PATCH",
     url: "/api/me/preferences",
     payload: { quality: "data-saver" },
   });
-  expect(res.json()).toEqual({ quality: "data-saver" });
-  expect((await admin("/api/me/preferences")).json()).toEqual({ quality: "data-saver" });
+  expect(res.json()).toMatchObject({ quality: "data-saver" });
+  expect((await admin("/api/me/preferences")).json()).toMatchObject({ quality: "data-saver" });
 
   await admin({
     method: "POST",
@@ -255,7 +255,7 @@ test("preferences are per user and fill in defaults", async () => {
     payload: { username: "guest", password: "guest password" },
   });
   const guest = authed(ctx.app, ((await login("guest", "guest password")).json() as { token: string }).token);
-  expect((await guest("/api/me/preferences")).json()).toEqual({ quality: "auto" });
+  expect((await guest("/api/me/preferences")).json()).toMatchObject({ quality: "auto" });
   expect(
     (await guest({ method: "PATCH", url: "/api/me/preferences", payload: { quality: "loud" } })).statusCode,
   ).toBe(400);
