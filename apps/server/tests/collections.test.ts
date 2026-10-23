@@ -150,6 +150,26 @@ test("queue: repeat one replays only on auto-advance; repeat all wraps both ways
   expect(current(await previous())).toBe("Five");
 });
 
+test("queue: upNext says where the current track's end will advance to", async () => {
+  const upNext = (q: QueueState) => (q.upNext === null ? null : q.entries[q.upNext]!.track.title);
+  let q = await playAlbum(4);
+  expect(upNext(q)).toBe("Six");
+  q = await next(true);
+  expect(upNext(q)).toBeNull(); // last track, no repeat
+  q = await update({ repeat: "all" });
+  expect(upNext(q)).toBe("One");
+  q = await update({ repeat: "one" });
+  expect(upNext(q)).toBe("Six");
+  q = await update({ repeat: "all", shuffle: true });
+  // Mid-lap the shuffled order is known; at the lap's end it isn't yet.
+  while (q.index! + 1 < q.entries.length) {
+    expect(upNext(q)).toBe(q.entries[q.index! + 1]!.track.title);
+    expect(current(await next(true))).toBe(upNext(q));
+    q = await call("GET", DEVICE, QueueState);
+  }
+  expect(q.upNext).toBeNull();
+});
+
 test("queue: shuffle keeps the current track first; turning it off restores album order", async () => {
   await playAlbum(2);
   let q = await update({ shuffle: true });

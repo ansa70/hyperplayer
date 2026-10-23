@@ -41,6 +41,15 @@ function shuffled<T>(items: T[]): T[] {
   return out;
 }
 
+/** Where `advance(auto: true)` from `index` will go, if that's already decided. */
+function upNext(index: number, length: number, q: Loaded): number | null {
+  if (q.repeat === "one") return index;
+  if (index + 1 < length) return index + 1;
+  // Wrapping around: a shuffled lap gets its new order only when it starts.
+  if (q.repeat === "all" && !q.shuffle) return 0;
+  return null;
+}
+
 /**
  * Per-device play queues with shuffle and repeat. Clients never reorder
  * locally: every navigation goes through here, so any client behaves alike.
@@ -269,6 +278,7 @@ export class Queues {
     return {
       entries: visible.map((e) => ({ entryId: e.entryId, track: tracks.get(e.trackId)! })),
       index: index >= 0 ? index : null,
+      upNext: index >= 0 ? upNext(index, visible.length, q) : null,
       shuffle: q.shuffle,
       repeat: q.repeat,
       positionMs: q.positionMs,

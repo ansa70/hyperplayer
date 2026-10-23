@@ -183,8 +183,24 @@ function migrate(db: DatabaseSync) {
 
 export type Db = DatabaseSync;
 
+/**
+ * How a displayed name sorts: case- and accent-insensitive, ignoring a leading
+ * article ("The Beatles" under B). Deliberately not MusicBrainz's sort names
+ * ("Davis, Miles"), which would file artists under letters their shown name
+ * doesn't start with.
+ */
+export function sortKey(name: string): string {
+  return name
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/^(the|a|an)\s+/, "")
+    .trim();
+}
+
 export function openDb(path: string): Db {
   const db = new DatabaseSync(path);
+  db.function("sort_key", { deterministic: true }, (name) => sortKey(String(name ?? "")));
   db.exec(SCHEMA);
   migrate(db);
   ensureSearchIndex(db);

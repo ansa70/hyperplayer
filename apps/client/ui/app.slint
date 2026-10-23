@@ -388,7 +388,16 @@ component Sidebar inherits Rectangle {
     callback new-playlist();
     in property <string> account;
     callback sign-out();
+    callback search-accepted(string);
     public function focus-search() { search.focus(); }
+    /// Scrolls the artist list so row `index` is in view (centred if it was off-screen).
+    public function reveal-artist(index: int) {
+        let row = 52px;
+        let top = index * row;
+        if top < -artist-list.content-y || top + row > -artist-list.content-y + artist-list.visible-height {
+            artist-list.content-y = min(0px, max(artist-list.visible-height - artist-list.content-height, artist-list.visible-height / 2 - top - row / 2));
+        }
+    }
     /// Empties the search box (and its results); returns whether there was anything to clear.
     public function clear-search() -> bool {
         if search.text == "" { return false; }
@@ -410,6 +419,7 @@ component Sidebar inherits Rectangle {
         search := LineEdit {
             placeholder-text: "Search artists, albums, tracks   ( / )";
             edited(text) => { root.search-changed(text); }
+            accepted(text) => { root.search-accepted(text); }
         }
         HorizontalLayout {
             Text { text: "PLAYLISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; vertical-alignment: center; }
@@ -447,7 +457,7 @@ component Sidebar inherits Rectangle {
             }
         }
         Text { text: "ARTISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
-        ListView {
+        artist-list := ListView {
             for artist in root.artists: Rectangle {
                 height: 52px;
                 border-radius: 8px;
@@ -652,13 +662,6 @@ component SearchPage inherits Rectangle {
                 color: Theme.faint;
                 font-size: 13px;
             }
-            if tracks.length > 0: Text { text: "Tracks"; color: Theme.text; font-size: 18px; font-weight: 700; }
-            for track[i] in root.tracks: TrackRow {
-                track: track;
-                playlists: root.playlists;
-                play => { root.play(i); }
-                action(kind, id) => { root.track-action(i, kind, id); }
-            }
             if artists.length > 0: Text { text: "Artists"; color: Theme.text; font-size: 18px; font-weight: 700; }
             if artists.length > 0: HorizontalLayout {
                 alignment: start;
@@ -682,6 +685,13 @@ component SearchPage inherits Rectangle {
             if albums.length > 0: AlbumGrid {
                 albums: root.albums;
                 select(id) => { root.select-album(id); }
+            }
+            if tracks.length > 0: Text { text: "Tracks"; color: Theme.text; font-size: 18px; font-weight: 700; }
+            for track[i] in root.tracks: TrackRow {
+                track: track;
+                playlists: root.playlists;
+                play => { root.play(i); }
+                action(kind, id) => { root.track-action(i, kind, id); }
             }
         }
     }
@@ -953,6 +963,11 @@ component TransportBar inherits Rectangle {
     callback seek(float);
     callback volume-changed(float);
     callback cycle-quality-mode();
+    changed position => {
+        if !seek-bar.dragging {
+            seek-bar.value = root.position;
+        }
+    }
     height: 84px;
     background: Theme.bg;
     Rectangle { y: 0; height: 1px; background: Theme.surface-hi; }
@@ -999,11 +1014,17 @@ component TransportBar inherits Rectangle {
             HorizontalLayout {
                 spacing: 10px;
                 Text { text: root.position-text; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
-                Slider {
+                seek-bar := Slider {
+                    // Dragging assigns `value`, which would break a `value: root.position`
+                    // binding for good: the position is pushed in below instead.
+                    property <bool> dragging;
                     minimum: 0;
                     maximum: max(1, root.duration);
-                    value: root.position;
-                    released(v) => { root.seek(v); }
+                    changed(v) => { self.dragging = true; }
+                    released(v) => {
+                        self.dragging = false;
+                        root.seek(v);
+                    }
                 }
                 Text { text: root.duration-text; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
             }
@@ -1338,6 +1359,8 @@ export component AppWindow inherits Window {
     callback play-track(int);
     callback play-search-track(int);
     callback search-changed(string);
+    callback search-accepted(string);
+    public function reveal-artist(index: int) { sidebar.reveal-artist(index); }
     callback select-playlist(string);
     callback new-playlist();
     callback play-playlist(int);
@@ -1426,6 +1449,7 @@ export component AppWindow inherits Window {
                 status: root.status;
                 select(id) => { root.select-artist(id); }
                 search-changed(text) => { root.search-changed(text); }
+                search-accepted(text) => { root.search-accepted(text); }
                 playlists: root.playlists;
                 selected-playlist-id: root.page == Page.playlist ? root.selected-playlist-id : "";
                 select-playlist(id) => { root.select-playlist(id); }

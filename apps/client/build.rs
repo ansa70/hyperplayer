@@ -27,8 +27,10 @@ fn main() {
         .expect("converting schema.json to Rust types");
 
     let file = syn::parse2::<syn::File>(types.to_stream()).expect("parsing generated types");
+    // Zod marks objects closed, but a client must accept fields added by a newer server.
+    let code = prettyplease::unparse(&file).replace("#[serde(deny_unknown_fields)]\n", "");
     let out = Path::new(&env::var("OUT_DIR").unwrap()).join("api_types.rs");
-    fs::write(out, prettyplease::unparse(&file)).unwrap();
+    fs::write(out, code).unwrap();
 
     let config = slint_build::CompilerConfiguration::new().with_style("fluent-dark".into());
     slint_build::compile_with_config("ui/app.slint", config).expect("compiling Slint UI");

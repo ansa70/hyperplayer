@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use hyperplayer::api::types;
-use slint::{Image, SharedString, Timer};
+use slint::{Image, Model, SharedString, Timer};
 
 use super::{
     AlbumView, App, ArtistView, NowPlayingView, Page, background, current_track,
@@ -91,10 +91,32 @@ pub fn search_changed(text: SharedString) {
     });
 }
 
+/// Enter in the search box: opens the best-matching artist, if any.
+pub fn search_accepted(text: SharedString) {
+    let query = text.trim().to_string();
+    if query.is_empty() {
+        return;
+    }
+    let api = with_app(|app| app.api.clone());
+    // Searches again rather than using the shown results, which may still be debouncing.
+    background(
+        move || api.search(&query, 1),
+        |results| {
+            if let Some(artist) = results.artists.first() {
+                select_artist(artist.id.to_string().into());
+            }
+        },
+    );
+}
+
 pub fn select_artist(id: SharedString) {
     let api = with_app(|app| app.api.clone());
     if let Some(ui) = with_app(|app| app.ui.upgrade()) {
         ui.set_selected_artist_id(id.clone());
+        // Picked from search or a link: show where it is in the sidebar too.
+        if let Some(i) = ui.get_artists().iter().position(|a| a.id == id) {
+            ui.invoke_reveal_artist(i as i32);
+        }
     }
     let artist_id = id.to_string();
     background(

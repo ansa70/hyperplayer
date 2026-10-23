@@ -137,6 +137,12 @@ export const QueueState = named(
     entries: z.array(QueueEntry),
     /** Index of the current entry in `entries`; null when the queue is empty or finished. */
     index: z.int().nonnegative().nullable(),
+    /**
+     * Index of the entry the current track's end will advance to (honouring repeat), so
+     * clients can preload it for gapless playback; null when nothing follows, or when
+     * it isn't known yet (a shuffled repeat lap is reshuffled as it starts).
+     */
+    upNext: z.int().nonnegative().nullable(),
     shuffle: z.boolean(),
     repeat: RepeatMode,
     /** Playback position in the current track, saved by the client for resuming. */

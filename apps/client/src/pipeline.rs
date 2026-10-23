@@ -128,6 +128,8 @@ pub struct BufferedSource {
     /// Sample index within the current frame, to count frames.
     channel: u16,
     started: bool,
+    /// Plays silence (not counted as played or underrun) until this pipeline has ended.
+    after: Option<Arc<Shared>>,
 }
 
 /// Starts decoding `source` on a background thread.
@@ -160,6 +162,7 @@ where
         ring: consumer,
         channel: 0,
         started: false,
+        after: None,
     };
     (source, PipelineHandle(shared))
 }
@@ -219,6 +222,12 @@ impl Iterator for BufferedSource {
     type Item = Sample;
 
     fn next(&mut self) -> Option<Sample> {
+        if let Some(previous) = &self.after {
+            if !previous.ended.load(Ordering::Acquire) {
+                return Some(0.0);
+            }
+            self.after = None;
+        }
         if self.shared.replace.load(Ordering::Acquire)
             && let Ok(mut slot) = self.shared.replacement.try_lock()
             && let Some(ring) = slot.take()
@@ -233,7 +242,7 @@ impl Iterator for BufferedSource {
             && self.shared.decoded_all.load(Ordering::Relaxed)
             && self.ring.is_empty()
         {
-            self.shared.ended.store(true, Ordering::Relaxed);
+            self.shared.ended.store(true, Ordering::Release);
             return None;
         }
         let last_in_frame = self.channel + 1 == self.shared.channels.get();
@@ -259,6 +268,12 @@ impl Iterator for BufferedSource {
 }
 
 impl BufferedSource {
+    /// Holds this source back until `previous` has played its last sample, so the two
+    /// play back to back (gapless) even though they're separate sources in the mixer.
+    pub fn play_after(&mut self, previous: &PipelineHandle) {
+        self.after = Some(previous.0.clone());
+    }
+
     /// Discards whole frames of a pending skip that are already decoded; returns
     /// whether some of the skip is still outstanding.
     fn skip(&mut self) -> bool {
@@ -406,6 +421,32 @@ mod tests {
         assert_eq!(src.next(), Some((RAMP_RATE / 2) as Sample));
         assert_eq!(handle.position(), Duration::from_millis(500) + Duration::from_micros(125));
         assert_eq!(handle.take_underrun(), Duration::ZERO);
+    }
+
+    #[test]
+    fn a_source_played_after_another_starts_on_the_sample_it_ends() {
+        let (mut first, first_handle) = spawn(Ramp { pos: 0, len: 3 });
+        let (mut second, second_handle) = spawn(Ramp { pos: 100, len: 103 });
+        second.play_after(&first_handle);
+        settle();
+        // Pulled together, like the mixer does: the second stays silent until the first ends.
+        let mut out = Vec::new();
+        for _ in 0..6 {
+            out.push((first.next(), second.next()));
+        }
+        assert_eq!(
+            out,
+            [
+                (Some(0.0), Some(0.0)),
+                (Some(1.0), Some(0.0)),
+                (Some(2.0), Some(0.0)),
+                (None, Some(100.0)),
+                (None, Some(101.0)),
+                (None, Some(102.0)),
+            ]
+        );
+        assert_eq!(second_handle.take_underrun(), Duration::ZERO);
+        assert_eq!(second_handle.position(), Duration::from_secs(3) / RAMP_RATE);
     }
 
     #[test]

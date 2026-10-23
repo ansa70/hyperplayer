@@ -381,6 +381,7 @@ fn run_action(list: &str, index: i32, action: &str, playlist_id: &str, target: T
 pub fn sync_queue_ui(app: &mut App) {
     // Shuffle or a new queue can change which ReplayGain (album or track) applies.
     super::playback::apply_replaygain(app);
+    super::playback::revalidate_preload(app);
     let Some(ui) = app.ui.upgrade() else { return };
     let Some(q) = &app.queue else { return };
     ui.set_shuffle(q.shuffle);

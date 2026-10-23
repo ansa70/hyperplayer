@@ -58,6 +58,10 @@ pub struct App {
     /// Bumped whenever a new stream is requested; results for older ones are discarded.
     generation: u64,
     session: Option<playback::Session>,
+    /// The queue's next track, opened and waiting behind the current one (gapless).
+    preload: Option<playback::Preload>,
+    /// Which (generation, entry) a preload was started for, so it's attempted once.
+    preload_tried: Option<(u64, String)>,
     mode: Mode,
     bandwidth: Bandwidth,
     monitor: Monitor,
@@ -184,6 +188,8 @@ pub fn run() -> anyhow::Result<()> {
             loading: false,
             generation: 0,
             session: None,
+            preload: None,
+            preload_tried: None,
             mode,
             bandwidth: Bandwidth::default(),
             monitor: Monitor::default(),
@@ -210,6 +216,7 @@ pub fn run() -> anyhow::Result<()> {
         })
     });
     ui.on_search_changed(browse::search_changed);
+    ui.on_search_accepted(browse::search_accepted);
 
     // Starting playback from a list: the server builds the queue.
     ui.on_play_track(|i| {

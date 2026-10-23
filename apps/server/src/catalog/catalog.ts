@@ -80,7 +80,7 @@ const TRACK_SELECT = `
 
 const ALBUM_ORDER: Record<AlbumSort, string> = {
   title: "al.title COLLATE NOCASE",
-  artist: "ar.sort_name COLLATE NOCASE, al.year, al.title COLLATE NOCASE",
+  artist: "sort_key(ar.name), al.year, al.title COLLATE NOCASE",
   year: "al.year DESC, al.title COLLATE NOCASE",
   added: "al.added_at DESC",
 };
@@ -234,7 +234,7 @@ export class Catalog {
 
   listArtists(offset: number, limit: number): ArtistPage {
     const rows = this.#db
-      .prepare(`${ARTIST_SELECT} ORDER BY ar.sort_name COLLATE NOCASE LIMIT ? OFFSET ?`)
+      .prepare(`${ARTIST_SELECT} ORDER BY sort_key(ar.name), ar.name LIMIT ? OFFSET ?`)
       .all(limit, offset) as Row[];
     return { items: rows.map(this.#artistSummary), total: this.#count("artists"), offset, limit };
   }
@@ -283,7 +283,7 @@ export class Catalog {
   listTracks(offset: number, limit: number): TrackPage {
     const rows = this.#db
       .prepare(
-        `${TRACK_SELECT} ORDER BY ar.sort_name COLLATE NOCASE, al.title COLLATE NOCASE, t.disc_number, t.track_number LIMIT ? OFFSET ?`,
+        `${TRACK_SELECT} ORDER BY sort_key(ar.name), al.title COLLATE NOCASE, t.disc_number, t.track_number LIMIT ? OFFSET ?`,
       )
       .all(limit, offset) as Row[];
     return { items: rows.map(this.#track), total: this.#count("tracks"), offset, limit };
