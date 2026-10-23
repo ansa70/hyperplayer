@@ -9,23 +9,18 @@ pub mod types {
     include!(concat!(env!("OUT_DIR"), "/api_types.rs"));
 }
 
-use types::{Album, AlbumList, ApiError, Artist, ArtistPage, NowPlaying, StreamFormat};
+use std::time::Duration;
 
-/// Codecs the client can decode natively; everything else is transcoded to FLAC.
-const NATIVE_CODECS: &[&str] = &[
-    "mpeg 1 layer 3",
-    "mp3",
-    "flac",
-    "vorbis",
-    "aac",
-    "mpeg-4/aac",
-    "pcm",
-];
+use types::{Album, AlbumList, ApiError, Artist, ArtistPage, NowPlaying, SearchResults};
+
+use crate::adaptive::Quality;
 
 #[derive(Clone)]
 pub struct Api {
     base: String,
     http: reqwest::blocking::Client,
+    /// No overall timeout: an audio stream legitimately stays open for the whole track.
+    stream_http: reqwest::blocking::Client,
 }
 
 impl Api {
@@ -33,6 +28,11 @@ impl Api {
         Self {
             base: base.into().trim_end_matches('/').to_owned(),
             http: reqwest::blocking::Client::new(),
+            stream_http: reqwest::blocking::Client::builder()
+                .timeout(None)
+                .connect_timeout(Duration::from_secs(10))
+                .build()
+                .expect("building HTTP client"),
         }
     }
 
@@ -85,18 +85,37 @@ impl Api {
         self.get(&format!("/api/tracks/{track_id}/now-playing"))
     }
 
+    pub fn search(&self, query: &str, limit: u32) -> Result<SearchResults> {
+        let q: String = url_encode(query);
+        self.get(&format!("/api/search?q={q}&limit={limit}"))
+    }
+
     pub fn artwork(&self, id: &str, size: u32) -> Result<Vec<u8>> {
         self.bytes(&format!("/api/artwork/{id}?size={size}"))
     }
 
-    /// Downloads a track in a format the local decoder understands.
-    pub fn audio(&self, track: &types::Track) -> Result<Vec<u8>> {
-        let codec = track.format.codec.to_lowercase();
-        let format = if NATIVE_CODECS.iter().any(|c| codec.contains(c)) {
-            StreamFormat::Original
-        } else {
-            StreamFormat::Flac
-        };
-        self.bytes(&format!("/api/stream/{}?format={format}", *track.id))
+    pub fn stream_client(&self) -> reqwest::blocking::Client {
+        self.stream_http.clone()
     }
+
+    /// Stream endpoint URL for a track at a quality, optionally resuming a transcode at `start`.
+    pub fn stream_url(&self, track_id: &str, quality: Quality, start: Option<Duration>) -> String {
+        let mut url = format!("{}/api/stream/{track_id}?{}", self.base, quality.query());
+        if let Some(start) = start {
+            url.push_str(&format!("&start={:.3}", start.as_secs_f64()));
+        }
+        url
+    }
+}
+
+/// Percent-encodes a query-string value.
+fn url_encode(s: &str) -> String {
+    s.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (b as char).to_string()
+            }
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
 }

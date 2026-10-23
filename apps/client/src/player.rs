@@ -1,9 +1,11 @@
-//! Audio output: a single rodio player fed with fully downloaded tracks.
+//! Audio output: one rodio player, fed a single buffered pipeline at a time.
 
-use std::{io::Cursor, sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use anyhow::Result;
-use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
+use rodio::{DeviceSinkBuilder, MixerDeviceSink, Player};
+
+use crate::pipeline::BufferedSource;
 
 pub struct Audio {
     // Dropping the device sink stops all output, so it lives as long as the player.
@@ -22,17 +24,11 @@ impl Audio {
         })
     }
 
-    pub fn play_bytes(&self, data: Vec<u8>) -> Result<()> {
-        let len = data.len() as u64;
-        let source = Decoder::builder()
-            .with_data(Cursor::new(data))
-            .with_byte_len(len)
-            .with_seekable(true)
-            .build()?;
+    /// Replaces whatever is playing with `source`.
+    pub fn play(&self, source: BufferedSource) {
         self.player.clear();
         self.player.append(source);
         self.player.play();
-        Ok(())
     }
 
     pub fn toggle(&self) {
@@ -43,21 +39,8 @@ impl Audio {
         }
     }
 
-    pub fn is_playing(&self) -> bool {
-        !self.player.is_paused() && !self.player.empty()
-    }
-
-    /// True once the current track has played to the end.
-    pub fn finished(&self) -> bool {
-        self.player.empty()
-    }
-
-    pub fn position(&self) -> Duration {
-        self.player.get_pos()
-    }
-
-    pub fn seek(&self, to: Duration) {
-        let _ = self.player.try_seek(to);
+    pub fn is_paused(&self) -> bool {
+        self.player.is_paused()
     }
 
     pub fn set_volume(&self, v: f32) {

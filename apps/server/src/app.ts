@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { mkdirSync } from "node:fs";
+import type { Readable } from "node:stream";
 import { join } from "node:path";
 import cors from "@fastify/cors";
 import { api, openApiDocument, type ApiError, type LibraryStatus } from "@hyperplayer/schemas";
@@ -12,7 +13,14 @@ import { openDb } from "./db.ts";
 import { binaryRoute, HttpError, jsonRoute, notFound } from "./http/contract.ts";
 import { ArtworkStore } from "./library/artwork.ts";
 import { Scanner } from "./library/scanner.ts";
-import { mimeForContainer, openFile, parseRange, transcode } from "./stream/stream.ts";
+import {
+  mimeForContainer,
+  openFile,
+  parseRange,
+  throttle,
+  transcode,
+  TranscodeError,
+} from "./stream/stream.ts";
 
 export async function buildApp(config: Config, opts: { logger?: boolean } = {}) {
   mkdirSync(config.dataDir, { recursive: true });
@@ -102,13 +110,18 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
   );
   jsonRoute(app, api.search, ({ query }) => catalog.search(query.q, query.limit), v);
 
-  binaryRoute(app, api.stream, ({ params, query, request }, reply) => {
+  binaryRoute(app, api.stream, async ({ params, query, request }, reply) => {
     const track = catalog.trackPath(params.id);
     if (!track) throw notFound("Track");
+    const limit = (s: Readable) => (config.debugThrottleKbps ? throttle(s, config.debugThrottleKbps) : s);
     if (query.format !== "original") {
-      const t = transcode(config.ffmpeg, track.path, query.format, query.bitrate);
+      const t = await transcode(config.ffmpeg, track.path, query.format, query.bitrate, query.start).catch(
+        (err: unknown) => {
+          throw err instanceof TranscodeError ? new HttpError(502, "transcode_failed", err.message) : err;
+        },
+      );
       request.raw.on("close", t.kill);
-      return reply.header("Content-Type", t.mime).header("Cache-Control", "no-store").send(t.stream);
+      return reply.header("Content-Type", t.mime).header("Cache-Control", "no-store").send(limit(t.stream));
     }
     const range = parseRange(request.headers.range, track.fileSize);
     reply.header("Accept-Ranges", "bytes").header("Content-Type", mimeForContainer(track.container));
@@ -120,9 +133,9 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
         .status(206)
         .header("Content-Range", `bytes ${range.start}-${range.end}/${track.fileSize}`)
         .header("Content-Length", range.end - range.start + 1)
-        .send(openFile(track.path, range));
+        .send(limit(openFile(track.path, range)));
     }
-    return reply.header("Content-Length", track.fileSize).send(openFile(track.path));
+    return reply.header("Content-Length", track.fileSize).send(limit(openFile(track.path)));
   });
 
   binaryRoute(app, api.artwork, async ({ params, query }, reply) => {

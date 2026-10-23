@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -48,7 +49,15 @@ beforeAll(async () => {
       join(lib, "Artist A", album, `${n}.wav`),
       wav({ INAM: title, IART: "Artist A", IPRD: album, ITRK: String(n), ICRD: "2020", IGNR: "Ambient" }),
     );
-  track("First", 1, "Opening");
+  // Hi-res source: lossy encoders must resample it (libvorbis rejects 192 kHz).
+  writeFileSync(
+    join(lib, "Artist A", "First", "1.wav"),
+    wav(
+      { INAM: "Opening", IART: "Artist A", IPRD: "First", ITRK: "1", ICRD: "2020", IGNR: "Ambient" },
+      1,
+      192_000,
+    ),
+  );
   track("First", 2, "Closing");
   track("Second", 1, "Return");
 
@@ -61,6 +70,7 @@ beforeAll(async () => {
       ffmpeg: "ffmpeg",
       validateResponses: true,
       enrich: { enabled: false, contact: "test", wikiLang: "en", fanartKey: null },
+      debugThrottleKbps: null,
     },
     { logger: false },
   );
@@ -94,7 +104,7 @@ test("browse artist → album → now playing", async () => {
   const first = (albums.json() as { id: string; title: string }[]).find((a) => a.title === "First")!;
   const album = await get(`/api/albums/${first.id}`, Album);
   expect(album.tracks.map((t) => t.title)).toEqual(["Opening", "Closing"]);
-  expect(album.tracks[0]!.format).toMatchObject({ lossless: true, sampleRate: 8000, channels: 1 });
+  expect(album.tracks[0]!.format).toMatchObject({ lossless: true, sampleRate: 192_000, channels: 1 });
 
   const np = await get(`/api/tracks/${album.tracks[0]!.id}/now-playing`, NowPlaying);
   expect(np.artist.genres).toEqual(["Ambient"]);
@@ -132,4 +142,55 @@ test("parseRange", () => {
   expect(parseRange("bytes=-10", 100)).toEqual({ start: 90, end: 99 });
   expect(parseRange("bytes=0-500", 100)).toEqual({ start: 0, end: 99 });
   expect(parseRange("bytes=100-", 100)).toBe("unsatisfiable");
+});
+
+test("throttle caps throughput", async () => {
+  const { Readable } = await import("node:stream");
+  const { throttle } = await import("../src/stream/stream.ts");
+  const started = Date.now();
+  let bytes = 0;
+  // 64 KB at 1024 kbit/s (128 KB/s) should take about half a second.
+  for await (const chunk of throttle(Readable.from([Buffer.alloc(64 * 1024)]), 1024)) {
+    bytes += (chunk as Buffer).length;
+  }
+  expect(bytes).toBe(64 * 1024);
+  expect(Date.now() - started).toBeGreaterThanOrEqual(400);
+});
+
+const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
+
+test.skipIf(!hasFfmpeg)("transcodes hi-res sources to every lossy format, with a start offset", async () => {
+  const search = (await ctx.app.inject("/api/search?q=Opening")).json() as { tracks: { id: string }[] };
+  const id = search.tracks[0]!.id;
+  for (const format of ["vorbis", "opus", "mp3", "aac", "flac"]) {
+    const res = await ctx.app.inject(`/api/stream/${id}?format=${format}&bitrate=128&start=0.5`);
+    expect(res.statusCode, `${format}: ${res.body}`).toBe(200);
+    expect(res.rawPayload.length, format).toBeGreaterThan(100);
+  }
+});
+
+test("a failing transcode is an error, not an empty 200", async () => {
+  // `false` exits at once without output, like an encoder that rejects its input.
+  const broken = await buildApp(
+    {
+      libraryPath: join(dir, "music"),
+      dataDir: join(dir, "data-broken"),
+      host: "127.0.0.1",
+      port: 0,
+      ffmpeg: "false",
+      validateResponses: true,
+      enrich: { enabled: false, contact: "test", wikiLang: "en", fanartKey: null },
+      debugThrottleKbps: null,
+    },
+    { logger: false },
+  );
+  try {
+    await broken.startScan();
+    const search = (await broken.app.inject("/api/search?q=Opening")).json() as { tracks: { id: string }[] };
+    const res = await broken.app.inject(`/api/stream/${search.tracks[0]!.id}?format=vorbis`);
+    expect(res.statusCode).toBe(502);
+    expect(res.json()).toMatchObject({ error: "transcode_failed" });
+  } finally {
+    await broken.app.close();
+  }
 });

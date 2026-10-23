@@ -1,11 +1,14 @@
-mod api;
-mod player;
-
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::mpsc, thread, time::Duration};
 
-use api::{Api, types};
+use hyperplayer::{
+    adaptive::{self, Bandwidth, Mode, Monitor, Quality},
+    api::{Api, types},
+    pipeline::PipelineHandle,
+    playback,
+    player::Audio,
+    stream::StreamHandle,
+};
 use image::imageops::FilterType;
-use player::Audio;
 use slint::{
     Image, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, Timer, TimerMode, VecModel,
 };
@@ -14,6 +17,29 @@ slint::include_modules!();
 
 /// Applies a decoded image to the UI; runs on the UI thread.
 type ApplyImage = Box<dyn FnOnce(&AppWindow, Image) + Send>;
+
+/// The stream currently feeding the audio device.
+struct Session {
+    track: types::Track,
+    quality: Quality,
+    pipeline: PipelineHandle,
+    stream: StreamHandle,
+    /// Position of the pipeline's zero point within the track.
+    offset: Duration,
+}
+
+impl Session {
+    fn position(&self) -> Duration {
+        self.offset + self.pipeline.position()
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        self.pipeline.stop();
+        self.stream.cancel();
+    }
+}
 
 struct ImageJob {
     artwork_id: String,
@@ -32,9 +58,14 @@ struct App {
     album_tracks: Vec<types::Track>,
     queue: Vec<types::Track>,
     index: usize,
-    /// True between asking the server for a track and handing it to the decoder.
+    /// True while a stream is being opened (prebuffering).
     loading: bool,
-    started: bool,
+    /// Bumped whenever a new stream is requested; results for older ones are discarded.
+    generation: u64,
+    session: Option<Session>,
+    mode: Mode,
+    bandwidth: Bandwidth,
+    monitor: Monitor,
     /// Now-playing refreshes done for the current track while enrichment is pending.
     np_polls: u32,
     np_had_banner: bool,
@@ -478,39 +509,118 @@ fn track_model(tracks: &[types::Track], playing: Option<&str>) -> ModelRc<TrackI
 // ---------------------------------------------------------------- playback
 
 fn play_index(index: usize) {
-    let (api, track) = with_app(|app| {
+    let track = with_app(|app| {
         app.index = index;
-        app.loading = true;
-        app.started = false;
-        (app.api.clone(), app.queue.get(index).cloned())
+        app.queue.get(index).cloned()
     });
     let Some(track) = track else { return };
     refresh_playing_marks();
+    let quality = with_app(|app| adaptive::choose(&track, app.mode, app.bandwidth.get()));
+    start_stream(track.clone(), quality, Duration::ZERO);
+    with_app(|app| app.np_polls = 0);
+    fetch_now_playing(track.id.to_string());
+}
 
-    let id = (*track.id).clone();
-    let (audio_api, audio_track) = (api.clone(), track.clone());
-    background(
-        move || audio_api.audio(&audio_track),
-        move |bytes| {
+/// Opens `track` at `quality` from `start` and swaps it in when ready.
+fn start_stream(track: types::Track, quality: Quality, start: Duration) {
+    let (api, mode, generation) = with_app(|app| {
+        app.generation += 1;
+        app.loading = true;
+        (app.api.clone(), app.mode, app.generation)
+    });
+    let title = track.title.clone();
+    thread::spawn(move || {
+        let opened = playback::open(&api, &track, mode, quality, start);
+        let _ = slint::invoke_from_event_loop(move || {
             with_app(|app| {
-                // Ignore downloads that finished after the user moved on to another track.
-                if app.queue.get(app.index).map(|t| t.id.as_str()) != Some(id.as_str()) {
+                if app.generation != generation {
+                    // Superseded by a newer request; dropping `opened` stops its threads.
                     return;
                 }
                 app.loading = false;
-                match app.audio.as_ref().map(|a| a.play_bytes(bytes)) {
-                    Some(Ok(())) => app.started = true,
-                    Some(Err(err)) => {
-                        set_status(app, &format!("Cannot play {}: {err:#}", track.title))
-                    }
-                    None => set_status(app, "No audio output device"),
+                let opened = match opened {
+                    Ok(o) => o,
+                    Err(err) => return set_status(app, &format!("Cannot play {title}: {err:#}")),
+                };
+                let Some(audio) = &app.audio else {
+                    return set_status(app, "No audio output device");
+                };
+                if let Some(kbps) = opened.measured_kbps {
+                    app.bandwidth.update(kbps);
                 }
+                audio.play(opened.source);
+                app.monitor.reset();
+                app.session = Some(Session {
+                    track,
+                    quality: opened.quality,
+                    pipeline: opened.pipeline,
+                    stream: opened.stream,
+                    offset: opened.offset,
+                });
+                update_stream_info(app);
             })
-        },
-    );
+        });
+    });
+}
 
-    with_app(|app| app.np_polls = 0);
-    fetch_now_playing(track.id.to_string());
+fn fmt_kbps(kbps: f64) -> String {
+    if kbps >= 1000.0 {
+        format!("{:.1} Mbit/s", kbps / 1000.0)
+    } else {
+        format!("{kbps:.0} kbit/s")
+    }
+}
+
+fn update_stream_info(app: &App) {
+    let Some(ui) = app.ui.upgrade() else { return };
+    ui.set_quality_mode(app.mode.label().into());
+    let info = match &app.session {
+        Some(s) => {
+            let mut parts = vec![s.quality.label(&s.track)];
+            if let Some(kbps) = s.stream.stats().throughput_kbps.or(app.bandwidth.get()) {
+                parts.push(fmt_kbps(kbps));
+            }
+            parts.join(" · ")
+        }
+        None => String::new(),
+    };
+    ui.set_stream_info(info.into());
+}
+
+/// Seeks within the current track: a byte-range seek for originals, a restarted
+/// transcode for everything else.
+fn seek_to(target: Duration) {
+    let action = with_app(|app| {
+        let s = app.session.as_ref()?;
+        Some(if s.quality.seekable() {
+            Err(s.pipeline.clone())
+        } else {
+            Ok((s.track.clone(), s.quality))
+        })
+    });
+    match action {
+        Some(Err(pipeline)) => {
+            // May wait for the network: never on the UI thread.
+            thread::spawn(move || pipeline.seek(target, Duration::from_secs(15)));
+        }
+        Some(Ok((track, quality))) => start_stream(track, quality, target),
+        None => {}
+    }
+}
+
+/// Feeds the adaptive monitor and returns a switch to perform, if any.
+fn adapt(app: &mut App) -> Option<(types::Track, Quality, Duration)> {
+    let s = app.session.as_ref()?;
+    let stats = s.stream.stats();
+    let underrun = s.pipeline.take_underrun();
+    let auto = app.mode == Mode::Auto && !app.loading;
+    let target = app
+        .monitor
+        .check(&s.track, s.quality, auto, &stats, underrun)?;
+    if let Some(k) = stats.throughput_kbps {
+        app.bandwidth.update(k);
+    }
+    Some((s.track.clone(), target, s.position()))
 }
 
 /// How often, and for how long, to re-fetch now-playing data while the server is still enriching it.
@@ -638,23 +748,31 @@ fn refresh_playing_marks() {
 }
 
 fn tick() {
-    let next = with_app(|app| {
-        let (Some(ui), Some(audio)) = (app.ui.upgrade(), app.audio.as_ref()) else {
-            return false;
+    let (finished, switch) = with_app(|app| {
+        let Some(ui) = app.ui.upgrade() else {
+            return (false, None);
         };
-        let pos = audio.position();
-        ui.set_playing(audio.is_playing() || app.loading);
+        let paused = app.audio.as_ref().is_none_or(|a| a.is_paused());
+        ui.set_playing((app.session.is_some() && !paused) || app.loading);
+        let Some(s) = &app.session else {
+            return (false, None);
+        };
+        let pos = s.position();
         ui.set_position(pos.as_secs_f32());
         ui.set_position_text(fmt_duration(pos.as_millis() as i64).into());
-        app.started && !app.loading && audio.finished()
+        let finished = !app.loading && s.pipeline.finished();
+        update_stream_info(app);
+        (finished, adapt(app))
     });
-    if next {
-        let more = with_app(|app| {
-            app.started = false;
-            app.index + 1 < app.queue.len()
+    if let Some((track, quality, at)) = switch {
+        start_stream(track, quality, at);
+    } else if finished {
+        let next = with_app(|app| {
+            app.session = None;
+            (app.index + 1 < app.queue.len()).then_some(app.index + 1)
         });
-        if more {
-            play_index(with_app(|app| app.index + 1));
+        if let Some(i) = next {
+            play_index(i);
         }
     }
 }
@@ -687,12 +805,21 @@ fn main() -> anyhow::Result<()> {
             queue: Vec::new(),
             index: 0,
             loading: false,
-            started: false,
+            generation: 0,
+            session: None,
+            mode: match std::env::var("HP_QUALITY").as_deref() {
+                Ok("original") => Mode::Original,
+                Ok("data-saver") => Mode::DataSaver,
+                _ => Mode::Auto,
+            },
+            bandwidth: Bandwidth::default(),
+            monitor: Monitor::default(),
             np_polls: 0,
             np_had_banner: false,
         })
     });
     ui.set_status(format!("Connecting to {server}…").into());
+    with_app(|app| update_stream_info(app));
 
     ui.on_select_artist(select_artist);
     ui.on_select_album(select_album);
@@ -709,7 +836,7 @@ fn main() -> anyhow::Result<()> {
     });
     ui.on_toggle(|| {
         let idle = with_app(|app| match &app.audio {
-            Some(a) if app.started => {
+            Some(a) if app.session.is_some() => {
                 a.toggle();
                 false
             }
@@ -729,27 +856,29 @@ fn main() -> anyhow::Result<()> {
     ui.on_prev(|| {
         // Like most players: restart the track unless we're at its very beginning.
         let restart = with_app(|app| {
-            app.audio
+            app.session
                 .as_ref()
-                .is_some_and(|a| a.position() > Duration::from_secs(3))
+                .is_some_and(|s| s.position() > Duration::from_secs(3))
         });
-        let i = with_app(|app| app.index.saturating_sub(1));
         if restart {
-            with_app(|app| {
-                if let Some(a) = &app.audio {
-                    a.seek(Duration::ZERO)
-                }
-            });
+            seek_to(Duration::ZERO);
         } else {
-            play_index(i);
+            play_index(with_app(|app| app.index.saturating_sub(1)));
         }
     });
-    ui.on_seek(|secs| {
-        with_app(|app| {
-            if let Some(a) = &app.audio {
-                a.seek(Duration::from_secs_f32(secs.max(0.0)))
-            }
-        })
+    ui.on_seek(|secs| seek_to(Duration::from_secs_f32(secs.max(0.0))));
+    ui.on_cycle_quality_mode(|| {
+        // Apply the new mode right away if it changes what should be streaming.
+        let switch = with_app(|app| {
+            app.mode = app.mode.next();
+            update_stream_info(app);
+            let s = app.session.as_ref()?;
+            let q = adaptive::choose(&s.track, app.mode, app.bandwidth.get());
+            (q != s.quality).then(|| (s.track.clone(), q, s.position()))
+        });
+        if let Some((track, quality, at)) = switch {
+            start_stream(track, quality, at);
+        }
     });
     ui.on_volume_changed(|v| {
         with_app(|app| {

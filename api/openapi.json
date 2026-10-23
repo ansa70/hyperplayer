@@ -542,6 +542,7 @@
               "enum": [
                 "original",
                 "opus",
+                "vorbis",
                 "aac",
                 "mp3",
                 "flac"
@@ -556,6 +557,15 @@
               "type": "integer",
               "minimum": 32,
               "maximum": 512
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0
             }
           }
         ],
@@ -1489,6 +1499,7 @@
         "enum": [
           "original",
           "opus",
+          "vorbis",
           "aac",
           "mp3",
           "flac"

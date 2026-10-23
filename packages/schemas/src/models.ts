@@ -250,7 +250,7 @@ export const LibraryStatus = named(
 
 export const StreamFormat = named(
   "StreamFormat",
-  z.enum(["original", "opus", "aac", "mp3", "flac"]),
+  z.enum(["original", "opus", "vorbis", "aac", "mp3", "flac"]),
   "`original` serves the file untouched (with HTTP range support); others are transcoded with ffmpeg.",
 );
 

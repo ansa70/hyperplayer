@@ -482,11 +482,14 @@ component TransportBar inherits Rectangle {
     in property <string> position-text;
     in property <string> duration-text;
     in-out property <float> volume;
+    in property <string> stream-info;
+    in property <string> quality-mode;
     callback toggle();
     callback next();
     callback prev();
     callback seek(float);
     callback volume-changed(float);
+    callback cycle-quality-mode();
     height: 84px;
     background: Theme.bg;
     Rectangle { y: 0; height: 1px; background: Theme.surface-hi; }
@@ -530,15 +533,49 @@ component TransportBar inherits Rectangle {
                 Text { text: root.duration-text; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
             }
         }
-        HorizontalLayout {
-            width: 180px;
-            spacing: 8px;
-            Text { text: "🔊"; color: Theme.muted; vertical-alignment: center; }
-            Slider {
-                minimum: 0;
-                maximum: 1;
-                value <=> root.volume;
-                changed(v) => { root.volume-changed(v); }
+        VerticalLayout {
+            width: 280px;
+            alignment: center;
+            spacing: 4px;
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "🔊"; color: Theme.muted; vertical-alignment: center; }
+                Slider {
+                    minimum: 0;
+                    maximum: 1;
+                    value <=> root.volume;
+                    changed(v) => { root.volume-changed(v); }
+                }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: end;
+                Text {
+                    text: root.stream-info;
+                    color: Theme.faint;
+                    font-size: 11px;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                Rectangle {
+                    width: mode-label.preferred-width + 14px;
+                    height: 20px;
+                    border-radius: 10px;
+                    border-width: 1px;
+                    border-color: mode-ta.has-hover ? Theme.text : Theme.faint;
+                    mode-label := Text {
+                        text: root.quality-mode;
+                        color: Theme.muted;
+                        font-size: 10px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                    mode-ta := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.cycle-quality-mode(); }
+                    }
+                }
             }
         }
     }
@@ -572,6 +609,8 @@ export component AppWindow inherits Window {
     in property <string> position-text: "0:00";
     in property <string> duration-text: "0:00";
     in-out property <float> volume: 0.8;
+    in property <string> stream-info;
+    in property <string> quality-mode: "AUTO";
 
     callback select-artist(string);
     callback select-album(string);
@@ -582,6 +621,7 @@ export component AppWindow inherits Window {
     callback prev();
     callback seek(float);
     callback volume-changed(float);
+    callback cycle-quality-mode();
 
     VerticalLayout {
         HorizontalLayout {
@@ -638,6 +678,9 @@ export component AppWindow inherits Window {
             prev => { root.prev(); }
             seek(v) => { root.seek(v); }
             volume-changed(v) => { root.volume-changed(v); }
+            stream-info: root.stream-info;
+            quality-mode: root.quality-mode;
+            cycle-quality-mode => { root.cycle-quality-mode(); }
         }
     }
 }

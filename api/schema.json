@@ -958,6 +958,7 @@
       "enum": [
         "original",
         "opus",
+        "vorbis",
         "aac",
         "mp3",
         "flac"

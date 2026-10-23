@@ -52,3 +52,18 @@ jumps the queue):
 
 Settings: `HP_ENRICH` (default `true`), `HP_CONTACT` (sent in the User-Agent as MusicBrainz requests),
 `HP_WIKI_LANG` (biography language, falls back to English), `HP_FANART_KEY`.
+
+## Streaming
+
+The client plays while it downloads (bounded read-ahead; seeks in originals use HTTP Range requests) and
+decodes on its own thread, so a slow network never blocks the audio device.
+
+In **Auto** mode it measures throughput while prebuffering and picks the best stream the link sustains:
+the original file, or an ffmpeg transcode to Ogg Vorbis at 320/192/128/96/64 kbit/s (lossy sources are never
+re-encoded upwards). During playback it steps down, resuming at the same position, when the download lags
+the bitrate or audio underruns. The mode chip in the player cycles Auto → Original → Data saver (≤128 kbit/s).
+
+- Client: `HP_QUALITY=original|data-saver` sets the initial mode.
+- Server: `HP_DEBUG_THROTTLE_KBPS` caps every stream, to exercise adaptation on a fast network.
+- `cargo run --example stream_probe -- "<title>" <seconds> [original]` (in `apps/client`) plays a track
+  headlessly and logs quality decisions, throughput, memory and underruns.

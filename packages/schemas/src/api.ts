@@ -176,6 +176,11 @@ export const api = {
       format: StreamFormat.default("original"),
       /** Target bitrate in kbit/s for lossy transcodes. */
       bitrate: z.coerce.number().int().min(32).max(512).optional(),
+      /**
+       * Start offset in seconds for transcoded streams, used to resume after a quality
+       * switch or to seek. Originals seek with HTTP Range requests instead.
+       */
+      start: z.coerce.number().min(0).optional(),
     }),
     contentTypes: ["audio/*"],
   }),

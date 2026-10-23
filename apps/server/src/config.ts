@@ -19,6 +19,8 @@ const Env = z.object({
     .regex(/^[a-z-]{2,12}$/)
     .default("en"),
   HP_FANART_KEY: z.string().optional(),
+  /** Development only: cap every audio stream at this many kbit/s. */
+  HP_DEBUG_THROTTLE_KBPS: z.coerce.number().int().positive().optional(),
 });
 
 export type Config = {
@@ -29,6 +31,7 @@ export type Config = {
   ffmpeg: string;
   validateResponses: boolean;
   enrich: EnrichConfig;
+  debugThrottleKbps: number | null;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -46,5 +49,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       wikiLang: e.HP_WIKI_LANG,
       fanartKey: e.HP_FANART_KEY ?? null,
     },
+    debugThrottleKbps: e.HP_DEBUG_THROTTLE_KBPS ?? null,
   };
 }
