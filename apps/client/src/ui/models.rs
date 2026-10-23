@@ -1,6 +1,11 @@
 //! Turning API data into Slint models, plus the background image pipeline.
 
-use std::{collections::HashMap, rc::Rc, sync::mpsc, thread};
+use std::{
+    collections::{HashMap, VecDeque},
+    rc::Rc,
+    sync::mpsc,
+    thread,
+};
 
 use hyperplayer::api::{Api, types};
 use image::imageops::FilterType;
@@ -18,17 +23,71 @@ pub struct ImageJob {
     size: u32,
     blur: bool,
     apply: ApplyImage,
+    /// Checked just before fetching: false skips a job that is no longer needed
+    /// (e.g. a cover scrolled out of view while queued).
+    wanted: Option<Box<dyn Fn() -> bool + Send>>,
+}
+
+/// Decoded images kept for reuse. Big enough for a few screens of covers; the
+/// least recently used go first beyond it.
+const CACHE_BYTES: usize = 160 << 20;
+
+type CacheKey = (String, u32, bool);
+
+/// Pixel buffers by artwork, size and blur, evicting the least recently used past `capacity` bytes.
+struct ImageCache {
+    entries: HashMap<CacheKey, SharedPixelBuffer<Rgba8Pixel>>,
+    /// Least recently used first.
+    order: VecDeque<CacheKey>,
+    bytes: usize,
+    capacity: usize,
+}
+
+impl ImageCache {
+    fn new(capacity: usize) -> Self {
+        Self {
+            entries: HashMap::new(),
+            order: VecDeque::new(),
+            bytes: 0,
+            capacity,
+        }
+    }
+
+    fn get(&mut self, key: &CacheKey) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+        let hit = self.entries.get(key)?.clone();
+        if let Some(i) = self.order.iter().position(|k| k == key) {
+            let k = self.order.remove(i).expect("position is in range");
+            self.order.push_back(k);
+        }
+        Some(hit)
+    }
+
+    fn insert(&mut self, key: CacheKey, buffer: SharedPixelBuffer<Rgba8Pixel>) {
+        self.bytes += buffer.as_bytes().len();
+        self.order.push_back(key.clone());
+        if let Some(old) = self.entries.insert(key, buffer) {
+            self.bytes -= old.as_bytes().len();
+        }
+        while self.bytes > self.capacity
+            && let Some(k) = self.order.pop_front()
+        {
+            if let Some(b) = self.entries.remove(&k) {
+                self.bytes -= b.as_bytes().len();
+            }
+        }
+    }
 }
 
 /// Single image worker: fetches, decodes, resizes and caches pixel buffers.
 pub fn spawn_image_worker() -> mpsc::Sender<ImageJob> {
     let (tx, rx) = mpsc::channel::<ImageJob>();
     thread::spawn(move || {
-        let mut cache: HashMap<(String, u32, bool), SharedPixelBuffer<Rgba8Pixel>> = HashMap::new();
+        let mut cache = ImageCache::new(CACHE_BYTES);
         for job in rx {
             let key = (job.artwork_id.clone(), job.size, job.blur);
             let buffer = match cache.get(&key) {
-                Some(b) => b.clone(),
+                Some(b) => b,
+                None if job.wanted.as_ref().is_some_and(|w| !w()) => continue,
                 None => match decode(&job.api, &job) {
                     Ok(b) => {
                         cache.insert(key, b.clone());
@@ -75,6 +134,18 @@ pub fn load_image(
     blur: bool,
     apply: ApplyImage,
 ) {
+    load_image_if(app, artwork, size, blur, apply, None);
+}
+
+/// Like `load_image`, skipped if `wanted` says no by the time the worker gets to it.
+pub fn load_image_if(
+    app: &App,
+    artwork: Option<&types::Artwork>,
+    size: u32,
+    blur: bool,
+    apply: ApplyImage,
+    wanted: Option<Box<dyn Fn() -> bool + Send>>,
+) {
     if let Some(art) = artwork {
         let _ = app.images.send(ImageJob {
             api: app.api.clone(),
@@ -82,6 +153,7 @@ pub fn load_image(
             size,
             blur,
             apply,
+            wanted,
         });
     }
 }
@@ -336,4 +408,26 @@ pub fn track_model(tracks: &[types::Track], playing: Option<&str>) -> ModelRc<Tr
             .collect::<Vec<_>>(),
     ))
     .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn buffer() -> SharedPixelBuffer<Rgba8Pixel> {
+        SharedPixelBuffer::new(10, 10) // 400 bytes
+    }
+
+    #[test]
+    fn image_cache_evicts_the_least_recently_used() {
+        let key = |id: &str| (id.to_string(), 360, false);
+        let mut cache = ImageCache::new(1000); // room for two
+        cache.insert(key("a"), buffer());
+        cache.insert(key("b"), buffer());
+        assert!(cache.get(&key("a")).is_some()); // a is now the most recent
+        cache.insert(key("c"), buffer());
+        assert!(cache.get(&key("b")).is_none());
+        assert!(cache.get(&key("a")).is_some() && cache.get(&key("c")).is_some());
+        assert_eq!(cache.bytes, 800);
+    }
 }

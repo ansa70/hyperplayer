@@ -14,7 +14,7 @@ use std::time::Duration;
 use reqwest::Method;
 use serde::Serialize;
 use types::{
-    AddToPlaylist, AddToQueue, AddToQueuePlacement, Advance, Album, AlbumList, ApiError, Artist,
+    AddToPlaylist, AddToQueue, AddToQueuePlacement, Advance, Album, AlbumList, AlbumPage, ApiError, Artist,
     ArtistPage, AuthStatus, HistoryStats, ListenPage, RecordListen, CreatePlaylist, Jump, Me, MoveEntry, NowPlaying, Ok as OkResponse,
     Lyrics, Playlist, PlaylistList, Preferences, QueueState, RepeatMode, SearchResults, Session, SetQueue,
     TrackSource, UpdatePlaylist, UpdateQueue, UserList,
@@ -230,6 +230,10 @@ impl Api {
 
     pub fn history_stats(&self, days: i64, limit: i64) -> Result<HistoryStats> {
         self.get(&format!("/api/history/stats?days={days}&limit={limit}"))
+    }
+
+    pub fn albums(&self, offset: i64, limit: i64, sort: &str) -> Result<AlbumPage> {
+        self.get(&format!("/api/albums?offset={offset}&limit={limit}&sort={sort}"))
     }
 
     pub fn lyrics(&self, track_id: &str) -> Result<Lyrics> {

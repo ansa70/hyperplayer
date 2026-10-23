@@ -2,6 +2,7 @@
 //! other threads and hands results back via `slint::invoke_from_event_loop`.
 
 mod account;
+mod albums;
 mod browse;
 mod desktop;
 mod history;
@@ -45,6 +46,8 @@ pub struct App {
     page_before_queue: Page,
     page_before_lyrics: Page,
     page_before_history: Page,
+    page_before_albums: Page,
+    albums: albums::AlbumsView,
     playlists: Vec<types::PlaylistSummary>,
     playlist: Option<types::Playlist>,
 
@@ -192,6 +195,8 @@ pub fn run() -> anyhow::Result<()> {
             page_before_queue: Page::Welcome,
             page_before_lyrics: Page::Welcome,
             page_before_history: Page::Welcome,
+            page_before_albums: Page::Welcome,
+            albums: Default::default(),
             listening: None,
             history_top: Vec::new(),
             history_recent: Vec::new(),
@@ -250,6 +255,10 @@ pub fn run() -> anyhow::Result<()> {
         }
     });
     ui.on_show_history(history::toggle_page);
+    ui.on_show_albums(albums::toggle_page);
+    ui.on_albums_sort_by(|key| albums::load(key.to_string()));
+    ui.on_albums_columns(albums::set_columns);
+    ui.on_albums_visible(albums::visible_rows);
     ui.on_play_history_track(|list, i| {
         let ids = with_app(|app| {
             let tracks = if list == "history-top" { &app.history_top } else { &app.history_recent };
