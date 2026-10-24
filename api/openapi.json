@@ -3778,6 +3778,7 @@
             }
           },
           "pathStyle": {
+            "default": "posix",
             "type": "string",
             "enum": [
               "posix",

@@ -586,3 +586,35 @@ fn url_encode(s: &str) -> String {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::types::*;
+
+    /// Replies from a server older than this client lack the fields added since: they
+    /// must still be read, as null or the schema's default.
+    #[test]
+    fn reads_replies_from_older_servers() {
+        let queue: QueueState = serde_json::from_value(serde_json::json!({
+            "entries": [], "index": null, "upNext": null, "shuffle": true, "repeat": "off",
+            "positionMs": 0, "origin": null, "updatedAt": "2026-10-24T12:00:00Z",
+        }))
+        .unwrap();
+        assert_eq!(queue.shuffle_scope, None);
+
+        let prefs: Preferences = serde_json::from_value(serde_json::json!({
+            "quality": "auto", "replayGain": "auto", "replayGainPreamp": 0, "accent": "cover",
+            "coverBackground": true, "visualizer": true,
+        }))
+        .unwrap();
+        assert_eq!(prefs.shuffle_scope, ShuffleScope::Library);
+
+        let library: LibraryStatus = serde_json::from_value(serde_json::json!({
+            "scanning": false, "folders": [], "lastScanAt": null, "artists": 1, "albums": 1,
+            "tracks": 1, "enrichmentQueue": 0,
+        }))
+        .unwrap();
+        assert_eq!(library.path_style, LibraryStatusPathStyle::Posix);
+        assert_eq!(library.scan_progress, None);
+    }
+}

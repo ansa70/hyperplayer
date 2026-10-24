@@ -14,8 +14,10 @@ fn main() {
             schema_path.display()
         )
     });
+    let mut schema: serde_json::Value = serde_json::from_str(&schema).expect("parsing schema.json");
+    optional_defaults(&mut schema);
     let schema: schemars::schema::RootSchema =
-        serde_json::from_str(&schema).expect("parsing schema.json");
+        serde_json::from_value(schema).expect("reading schema.json");
 
     let mut settings = typify::TypeSpaceSettings::default();
     settings
@@ -27,8 +29,14 @@ fn main() {
         .expect("converting schema.json to Rust types");
 
     let file = syn::parse2::<syn::File>(types.to_stream()).expect("parsing generated types");
-    // Zod marks objects closed, but a client must accept fields added by a newer server.
-    let code = prettyplease::unparse(&file).replace("#[serde(deny_unknown_fields)]\n", "");
+    // Zod marks objects closed, but a client must accept fields added by a newer server;
+    // and fields added since an older server: a nullable one it leaves out reads as null.
+    let code = prettyplease::unparse(&file)
+        .replace("#[serde(deny_unknown_fields)]\n", "")
+        .replace(
+            "deserialize_with = \"::std::option::Option::deserialize\"",
+            "default, deserialize_with = \"::std::option::Option::deserialize\"",
+        );
     let out = Path::new(&env::var("OUT_DIR").unwrap()).join("api_types.rs");
     fs::write(out, code).unwrap();
 
@@ -43,4 +51,32 @@ fn main() {
 
     let config = slint_build::CompilerConfiguration::new().with_style("fluent-dark".into());
     slint_build::compile_with_config("ui/app.slint", config).expect("compiling Slint UI");
+}
+
+/// An older server leaves out fields added since: a property with a default may be
+/// missing (it then takes the default), so it isn't required.
+fn optional_defaults(schema: &mut serde_json::Value) {
+    match schema {
+        serde_json::Value::Object(object) => {
+            if let (
+                Some(serde_json::Value::Object(properties)),
+                Some(serde_json::Value::Array(required)),
+            ) = (object.get("properties"), object.get("required"))
+            {
+                let kept: Vec<_> = required
+                    .iter()
+                    .filter(|name| {
+                        name.as_str()
+                            .and_then(|n| properties.get(n))
+                            .is_none_or(|p| p.get("default").is_none())
+                    })
+                    .cloned()
+                    .collect();
+                object.insert("required".into(), kept.into());
+            }
+            object.values_mut().for_each(optional_defaults);
+        }
+        serde_json::Value::Array(items) => items.iter_mut().for_each(optional_defaults),
+        _ => {}
+    }
 }

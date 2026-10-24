@@ -301,7 +301,7 @@ export const LibraryStatus = named(
     /** The music folders, for admins; empty for everyone else. */
     folders: z.array(LibraryFolder),
     /** How paths look on the server (`D:\Music` or `/mnt/music`), for entering a folder. */
-    pathStyle: z.enum(["posix", "windows"]),
+    pathStyle: z.enum(["posix", "windows"]).default("posix"),
     lastScanAt: z.iso.datetime().nullable(),
     artists: Count,
     albums: Count,
