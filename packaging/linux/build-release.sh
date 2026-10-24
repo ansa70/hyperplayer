@@ -31,8 +31,9 @@ vp run @hyperplayer/schemas#generate
 (cd apps/server && vp pack)
 mkdir -p "$STAGE/server"
 cp -a apps/server/dist "$STAGE/server/dist"
-# The Node.js that runs the server, so hosts don't need one.
-NODE=$(command -v node)
+# The Node.js that runs the server, so hosts don't need one. Its real executable, not a
+# version manager's shim (as in CI).
+NODE=$(node -p 'process.execPath')
 "$NODE" -e 'const [a, b] = process.versions.node.split(".").map(Number); process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)' || {
   echo "Node.js >= 22.18 is needed to build the bundle" >&2
   exit 1
