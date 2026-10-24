@@ -277,6 +277,9 @@ pub fn show_now_playing(app: &mut App, np: types::NowPlaying) {
     ui.set_credits(credit_model(&np.credits));
     ui.set_np_members(member_model(&np.artist.members, "MEMBERS"));
     super::appearance::cover_changed(app, cover);
+    if !refresh {
+        super::appearance::backdrop_changed(app, &Image::default());
+    }
 
     if pending && app.np_polls < NP_MAX_POLLS {
         app.np_polls += 1;
@@ -325,8 +328,9 @@ pub fn show_now_playing(app: &mut App, np: types::NowPlaying) {
         Box::new(move |ui, img| {
             let mut v = ui.get_np();
             if v.track_id == track_id {
-                v.backdrop = img;
+                v.backdrop = img.clone();
                 ui.set_np(v);
+                with_app(|app| super::appearance::backdrop_changed(app, &img));
             }
         }),
     );

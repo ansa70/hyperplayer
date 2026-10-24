@@ -139,9 +139,19 @@ export global Theme {
     /// Panels let the window's album-colour gradient show through.
     out property <color> panel: #15171c99;
     out property <color> chrome: #0c0d10a6;
-    out property <color> text: #f2f3f5;
-    out property <color> muted: #9097a3;
-    out property <color> faint: #5c6370;
+    /// The three levels of text as designed, for the plain background.
+    out property <color> text-base: #f2f3f5;
+    out property <color> muted-base: #9097a3;
+    out property <color> faint-base: #5c6370;
+    /// The levels in use: the designed ones, lightened where the album-colour
+    /// gradient would make them hard to read (see appearance.rs).
+    in-out property <color> text: text-base;
+    in-out property <color> muted: muted-base;
+    in-out property <color> faint: faint-base;
+    /// The same for the Now Playing panel, over its artwork backdrop.
+    in-out property <color> art-text: text-base;
+    in-out property <color> art-muted: muted-base;
+    in-out property <color> art-faint: faint-base;
     out property <length> radius: 10px;
 }
 
@@ -241,6 +251,9 @@ component Chip inherits Rectangle {
 component CreditList inherits VerticalLayout {
     in property <[CreditItem]> items;
     in property <color> accent: Theme.muted;
+    in property <color> text-color: Theme.text;
+    in property <color> muted-color: Theme.muted;
+    in property <color> faint-color: Theme.faint;
     callback select-artist(string);
     spacing: 2px;
     for item in root.items: VerticalLayout {
@@ -248,7 +261,7 @@ component CreditList inherits VerticalLayout {
         spacing: 4px;
         if item.heading != "": Text {
             text: item.heading;
-            color: Theme.faint;
+            color: root.faint-color;
             font-size: 10px;
             font-weight: 700;
             letter-spacing: 1.2px;
@@ -257,7 +270,7 @@ component CreditList inherits VerticalLayout {
             spacing: 8px;
             Text {
                 text: item.name;
-                color: item.artist-id != "" && ta.has-hover ? root.accent.brighter(0.4) : Theme.text;
+                color: item.artist-id != "" && ta.has-hover ? root.accent.brighter(0.4) : root.text-color;
                 font-size: 12px;
                 font-weight: 600;
                 min-width: 110px;
@@ -272,7 +285,7 @@ component CreditList inherits VerticalLayout {
             Text {
                 horizontal-stretch: 1;
                 text: item.detail;
-                color: Theme.muted;
+                color: root.muted-color;
                 font-size: 12px;
                 wrap: word-wrap;
             }
@@ -584,6 +597,8 @@ component Sidebar inherits Rectangle {
 component AlbumGrid inherits Rectangle {
     in property <[AlbumItem]> albums;
     in property <length> cell: 180px;
+    in property <color> text-color: Theme.text;
+    in property <color> muted-color: Theme.muted;
     callback select(string);
     property <int> columns: max(1, floor(self.width / (cell + 20px)));
     min-height: ceil(albums.length / columns) * (cell + 64px);
@@ -602,8 +617,8 @@ component AlbumGrid inherits Rectangle {
                 drop-shadow-color: #00000080;
                 animate drop-shadow-blur { duration: 150ms; }
             }
-            Text { text: album.title; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
-            Text { text: album.subtitle; color: Theme.muted; font-size: 11px; overflow: elide; }
+            Text { text: album.title; color: root.text-color; font-size: 13px; font-weight: 600; overflow: elide; }
+            Text { text: album.subtitle; color: root.muted-color; font-size: 11px; overflow: elide; }
         }
         ta := TouchArea { clicked => { root.select(album.id); } }
     }
@@ -1080,6 +1095,7 @@ component NowPlayingPanel inherits Rectangle {
     background: Theme.panel;
     clip: true;
     // Blurred, darkened cover fills the panel; the accent colour tints it.
+    // appearance.rs mirrors these layers to keep the text above legible.
     Image {
         width: parent.width;
         height: parent.height;
@@ -1092,7 +1108,7 @@ component NowPlayingPanel inherits Rectangle {
     }
     if !np.active: Text {
         text: "Nothing playing";
-        color: Theme.faint;
+        color: Theme.art-faint;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
@@ -1101,7 +1117,7 @@ component NowPlayingPanel inherits Rectangle {
             alignment: start;
             padding: 22px;
             spacing: 14px;
-            Text { text: "NOW PLAYING"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+            Text { text: "NOW PLAYING"; color: Theme.art-muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
             Cover {
                 source: np.cover;
                 size: root.width - 44px;
@@ -1122,9 +1138,9 @@ component NowPlayingPanel inherits Rectangle {
             }
             VerticalLayout {
                 spacing: 2px;
-                Text { text: np.title; color: Theme.text; font-size: 22px; font-weight: 800; wrap: word-wrap; }
-                Text { text: np.artist; color: Theme.text; font-size: 15px; font-weight: 600; }
-                Text { text: np.album + (np.year == "" ? "" : "  ·  " + np.year); color: Theme.muted; font-size: 13px; }
+                Text { text: np.title; color: Theme.art-text; font-size: 22px; font-weight: 800; wrap: word-wrap; }
+                Text { text: np.artist; color: Theme.art-text; font-size: 15px; font-weight: 600; }
+                Text { text: np.album + (np.year == "" ? "" : "  ·  " + np.year); color: Theme.art-muted; font-size: 13px; }
             }
             HorizontalLayout {
                 alignment: start;
@@ -1132,17 +1148,20 @@ component NowPlayingPanel inherits Rectangle {
                 Chip { text: np.format; accent: np.accent; }
                 if np.quality != "": Chip { text: np.quality; accent: np.accent; }
             }
-            if np.genres != "": Text { text: np.genres; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+            if np.genres != "": Text { text: np.genres; color: Theme.art-muted; font-size: 12px; wrap: word-wrap; }
             Rectangle { height: 1px; background: Theme.surface-hi; }
-            Text { text: "Credits"; color: Theme.text; font-size: 15px; font-weight: 700; }
+            Text { text: "Credits"; color: Theme.art-text; font-size: 15px; font-weight: 700; }
             if credits.length == 0: Text {
                 text: np.loading-details ? "Looking up musicians…" : "No credits found for this track.";
-                color: Theme.faint;
+                color: Theme.art-faint;
                 font-size: 12px;
             }
             CreditList {
                 items: root.credits;
                 accent: np.accent;
+                text-color: Theme.art-text;
+                muted-color: Theme.art-muted;
+                faint-color: Theme.art-faint;
                 select-artist(id) => { root.select-artist(id); }
             }
             Rectangle { height: 1px; background: Theme.surface-hi; }
@@ -1150,7 +1169,7 @@ component NowPlayingPanel inherits Rectangle {
                 spacing: 2px;
                 Text {
                     text: "About " + np.artist;
-                    color: about-ta.has-hover ? np.accent.brighter(0.4) : Theme.text;
+                    color: about-ta.has-hover ? np.accent.brighter(0.4) : Theme.art-text;
                     font-size: 15px;
                     font-weight: 700;
                     about-ta := TouchArea {
@@ -1158,23 +1177,28 @@ component NowPlayingPanel inherits Rectangle {
                         clicked => { root.select-artist(np.artist-id); }
                     }
                 }
-                if np.artist-meta != "": Text { text: np.artist-meta; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                if np.artist-meta != "": Text { text: np.artist-meta; color: Theme.art-muted; font-size: 12px; wrap: word-wrap; }
             }
             Text {
                 text: np.biography != "" ? np.biography : np.loading-details ? "Fetching biography…" : "No biography available.";
-                color: Theme.muted;
+                color: Theme.art-muted;
                 font-size: 12px;
                 wrap: word-wrap;
             }
             if members.length > 0: CreditList {
                 items: root.members;
                 accent: np.accent;
+                text-color: Theme.art-text;
+                muted-color: Theme.art-muted;
+                faint-color: Theme.art-faint;
                 select-artist(id) => { root.select-artist(id); }
             }
-            if more-from.length > 0: Text { text: "More from " + np.artist; color: Theme.text; font-size: 15px; font-weight: 700; }
+            if more-from.length > 0: Text { text: "More from " + np.artist; color: Theme.art-text; font-size: 15px; font-weight: 700; }
             if more-from.length > 0: AlbumGrid {
                 albums: root.more-from;
                 cell: (root.width - 44px - 20px) / 2;
+                text-color: Theme.art-text;
+                muted-color: Theme.art-muted;
                 select(id) => { root.select-album(id); }
             }
         }

@@ -7,7 +7,10 @@ use std::{
     thread,
 };
 
-use hyperplayer::api::{Api, types};
+use hyperplayer::{
+    api::{Api, types},
+    palette::{self, Rgb},
+};
 use image::imageops::FilterType;
 use slint::{Image, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
 
@@ -119,7 +122,11 @@ fn decode(api: &Api, job: &ImageJob) -> anyhow::Result<SharedPixelBuffer<Rgba8Pi
     if job.blur {
         img = img.resize(48, 48, FilterType::Triangle).blur(5.0);
     }
-    let rgba = img.to_rgba8();
+    let mut rgba = img.to_rgba8();
+    if job.blur {
+        // A backdrop sits behind text: never lighter than white text allows.
+        palette::dim(&mut rgba, palette::TEXT_CONTRAST);
+    }
     Ok(SharedPixelBuffer::clone_from_slice(
         rgba.as_raw(),
         rgba.width(),
@@ -173,11 +180,22 @@ pub fn plural(n: i64, word: &str) -> String {
     format!("{n} {word}{}", if n == 1 { "" } else { "s" })
 }
 
+/// Theme.surface, the panel colour album colours are shown on.
+const SURFACE: Rgb = Rgb(
+    0x15 as f32 / 255.0,
+    0x17 as f32 / 255.0,
+    0x1c as f32 / 255.0,
+);
+
+/// The album's own colour, lightened as needed to show (as text, on hover) on
+/// the panel.
 pub fn accent(art: Option<&types::Artwork>) -> slint::Color {
-    art.and_then(|a| a.dominant_color.as_ref())
-        .and_then(|c| u32::from_str_radix(c.trim_start_matches('#'), 16).ok())
-        .map(|rgb| slint::Color::from_argb_encoded(0xff00_0000 | rgb))
-        .unwrap_or(slint::Color::from_rgb_u8(0x5b, 0x6c, 0xff))
+    let c = art
+        .and_then(|a| a.dominant_color.as_ref())
+        .and_then(|c| Rgb::from_hex(&format!("#{}", c.trim_start_matches('#'))))
+        .unwrap_or(Rgb(0x5b as f32 / 255.0, 0x6c as f32 / 255.0, 1.0));
+    let (r, g, b) = palette::legible(c, SURFACE, palette::MUTED_CONTRAST).to_u8();
+    slint::Color::from_rgb_u8(r, g, b)
 }
 
 pub fn quality(f: &types::AudioFormat) -> String {

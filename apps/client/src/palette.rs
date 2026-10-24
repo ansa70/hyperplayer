@@ -1,5 +1,6 @@
 //! Colours from album artwork: a small palette, and from it the window's
-//! background gradient and an accent colour (Amberol-style).
+//! background gradient and an accent colour (Amberol-style); and text colours
+//! kept legible on whatever those make.
 
 /// A colour as red, green and blue in 0..=1.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -18,6 +19,36 @@ impl Rgb {
     pub fn to_u8(self) -> (u8, u8, u8) {
         let c = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
         (c(self.0), c(self.1), c(self.2))
+    }
+
+    pub const WHITE: Rgb = Rgb(1.0, 1.0, 1.0);
+
+    /// Relative luminance, as WCAG defines it (0 black ..= 1 white).
+    pub fn luminance(self) -> f32 {
+        let lin = |v: f32| {
+            if v <= 0.04045 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * lin(self.0) + 0.7152 * lin(self.1) + 0.0722 * lin(self.2)
+    }
+
+    /// WCAG contrast ratio between two colours, 1..=21.
+    pub fn contrast(self, o: Rgb) -> f32 {
+        let (a, b) = (self.luminance(), o.luminance());
+        (a.max(b) + 0.05) / (a.min(b) + 0.05)
+    }
+
+    /// `self` painted over `under` with the given opacity.
+    pub fn over(self, alpha: f32, under: Rgb) -> Rgb {
+        let mix = |a: f32, b: f32| a * alpha + b * (1.0 - alpha);
+        Rgb(
+            mix(self.0, under.0),
+            mix(self.1, under.1),
+            mix(self.2, under.2),
+        )
     }
 
     fn dist2(self, o: Rgb) -> f32 {
@@ -132,13 +163,91 @@ pub fn extract(rgba: &[u8], k: usize) -> Vec<Rgb> {
     ranked.into_iter().map(|(_, c)| c).collect()
 }
 
+/// `fg` with its lightness moved away from `bg` just enough for a contrast of
+/// at least `ratio` (hue and saturation kept); unchanged if it already has it.
+/// Lighter on a dark background, darker on a light one, and as far as white or
+/// black when the ratio can't be reached.
+pub fn legible(fg: Rgb, bg: Rgb, ratio: f32) -> Rgb {
+    if fg.contrast(bg) >= ratio {
+        return fg;
+    }
+    let (h, s, l) = fg.hsl();
+    let lighten = Rgb::WHITE.contrast(bg) >= Rgb(0.0, 0.0, 0.0).contrast(bg);
+    // Luminance only grows with lightness, so bisect between `l` and the end.
+    let (mut near, mut far) = if lighten { (l, 1.0) } else { (l, 0.0) };
+    for _ in 0..20 {
+        let mid = (near + far) / 2.0;
+        if Rgb::from_hsl(h, s, mid).contrast(bg) >= ratio {
+            far = mid;
+        } else {
+            near = mid;
+        }
+    }
+    Rgb::from_hsl(h, s, far)
+}
+
+/// The three levels of text, brightest first.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TextColours {
+    pub text: Rgb,
+    pub muted: Rgb,
+    pub faint: Rgb,
+}
+
+/// The minimum contrast of each level: WCAG AAA for body text, AA for secondary
+/// text and AA-large for the faintest labels and hints.
+pub const TEXT_CONTRAST: f32 = 7.0;
+pub const MUTED_CONTRAST: f32 = 4.5;
+pub const FAINT_CONTRAST: f32 = 3.0;
+
+/// `base` (the theme's own colours) lightened where needed to read on `bg`, the
+/// lightest colour the text can sit on.
+pub fn text_colours(base: TextColours, bg: Rgb) -> TextColours {
+    TextColours {
+        text: legible(base.text, bg, TEXT_CONTRAST),
+        muted: legible(base.muted, bg, MUTED_CONTRAST),
+        faint: legible(base.faint, bg, FAINT_CONTRAST),
+    }
+}
+
+/// Darkens the pixels of an RGBA image too light for white text at `ratio`.
+pub fn dim(rgba: &mut [u8], ratio: f32) {
+    for p in rgba.as_chunks_mut::<4>().0 {
+        let c = Rgb(
+            p[0] as f32 / 255.0,
+            p[1] as f32 / 255.0,
+            p[2] as f32 / 255.0,
+        );
+        let (r, g, b) = legible(c, Rgb::WHITE, ratio).to_u8();
+        (p[0], p[1], p[2]) = (r, g, b);
+    }
+}
+
+/// The lightest colour of an RGBA image, skipping transparent pixels.
+pub fn lightest(rgba: &[u8]) -> Option<Rgb> {
+    rgba.as_chunks::<4>()
+        .0
+        .iter()
+        .filter(|p| p[3] > 128)
+        .map(|p| {
+            Rgb(
+                p[0] as f32 / 255.0,
+                p[1] as f32 / 255.0,
+                p[2] as f32 / 255.0,
+            )
+        })
+        .max_by(|a, b| a.luminance().total_cmp(&b.luminance()))
+}
+
 /// Three dark, gently saturated colours for the window background, so light text
-/// stays readable on top of them.
+/// stays readable on top of them: each dark enough for white text at the
+/// body-text contrast (so a bright yellow cover gives a darker tone than a blue).
 pub fn background(palette: &[Rgb]) -> [Rgb; 3] {
     let fallback = Rgb(0.05, 0.05, 0.065);
     let tone = |c: Rgb, l: f32| {
         let (h, s, _) = c.hsl();
-        Rgb::from_hsl(h, (s * 0.9).min(0.65), l)
+        let c = Rgb::from_hsl(h, (s * 0.9).min(0.65), l);
+        legible(c, Rgb::WHITE, TEXT_CONTRAST)
     };
     let pick = |i: usize| {
         palette
@@ -208,6 +317,76 @@ mod tests {
         assert!(a.hsl().2 >= 0.55);
         // A grey cover has no accent of its own.
         assert_eq!(accent(&extract(&image(&[((128, 128, 128), 100)]), 2)), None);
+    }
+
+    #[test]
+    fn contrast_matches_wcag() {
+        let black = Rgb(0.0, 0.0, 0.0);
+        assert!((Rgb::WHITE.contrast(black) - 21.0).abs() < 0.01);
+        assert!((black.contrast(black) - 1.0).abs() < 1e-6);
+        // #777777 on white is the classic just-under-4.5:1 grey.
+        let grey = Rgb::from_hex("#777777").unwrap();
+        assert!((grey.contrast(Rgb::WHITE) - 4.48).abs() < 0.01);
+    }
+
+    #[test]
+    fn legible_moves_lightness_only_as_needed() {
+        let bg = Rgb::from_hex("#6e5a17").unwrap();
+        let grey = Rgb::from_hex("#9097a3").unwrap();
+        let fixed = legible(grey, bg, 4.5);
+        assert!(fixed.contrast(bg) >= 4.5);
+        assert!(fixed.contrast(bg) < 4.6, "overshot: {}", fixed.contrast(bg));
+        assert!(fixed.luminance() > grey.luminance());
+        assert!((fixed.hsl().0 - grey.hsl().0).abs() < 0.01, "hue kept");
+        // Already fine: untouched; on a light background, darkened instead.
+        assert_eq!(legible(Rgb::WHITE, bg, 4.5), Rgb::WHITE);
+        let on_light = legible(grey, Rgb::WHITE, 4.5);
+        assert!(on_light.luminance() < grey.luminance());
+        assert!(on_light.contrast(Rgb::WHITE) >= 4.5);
+        // Unreachable: as far as it goes.
+        assert_eq!(
+            legible(grey, Rgb(0.2, 0.2, 0.2), 21.0).to_u8(),
+            (255, 255, 255)
+        );
+    }
+
+    #[test]
+    fn every_cover_gives_legible_text() {
+        let base = TextColours {
+            text: Rgb::from_hex("#f2f3f5").unwrap(),
+            muted: Rgb::from_hex("#9097a3").unwrap(),
+            faint: Rgb::from_hex("#5c6370").unwrap(),
+        };
+        // A sweep of hues and greys, the brightest stop of each gradient.
+        for i in 0..36 {
+            let cover = Rgb::from_hsl(i as f32 / 36.0, 0.9, 0.5);
+            for bg in background(&[cover, Rgb(0.95, 0.95, 0.95)]) {
+                assert!(Rgb::WHITE.contrast(bg) >= TEXT_CONTRAST, "{:?}", bg.to_u8());
+                let t = text_colours(base, bg);
+                assert!(t.text.contrast(bg) >= TEXT_CONTRAST);
+                assert!(t.muted.contrast(bg) >= MUTED_CONTRAST);
+                assert!(t.faint.contrast(bg) >= FAINT_CONTRAST);
+                // Still three distinct levels.
+                assert!(t.text.luminance() > t.muted.luminance());
+                assert!(t.muted.luminance() > t.faint.luminance());
+            }
+        }
+        // On the plain theme background nothing needs to change.
+        assert_eq!(text_colours(base, Rgb::from_hex("#0c0d10").unwrap()), base);
+    }
+
+    #[test]
+    fn dimmed_images_keep_white_text_readable() {
+        let mut img = image(&[
+            ((255, 255, 255), 10),
+            ((250, 220, 40), 10),
+            ((10, 20, 30), 10),
+        ]);
+        dim(&mut img, TEXT_CONTRAST);
+        let top = lightest(&img).unwrap();
+        assert!(Rgb::WHITE.contrast(top) >= TEXT_CONTRAST - 0.05);
+        // Dark pixels are left alone.
+        assert_eq!(&img[img.len() - 4..], &[10, 20, 30, 255]);
     }
 
     #[test]
