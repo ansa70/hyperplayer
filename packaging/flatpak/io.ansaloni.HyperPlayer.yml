@@ -1,0 +1,50 @@
+# The player as a Flatpak (packaging/flatpak/build.sh). Built from this checkout;
+# Cargo fetches crates during the build (fine for our own bundles, not for Flathub).
+id: io.ansaloni.HyperPlayer
+runtime: org.freedesktop.Platform
+runtime-version: "26.08"
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: hyperplayer
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # Audio (ALSA in the sandbox goes through PulseAudio/PipeWire).
+  - --socket=pulseaudio
+  # The device token is kept in the desktop's keyring (Secret Service).
+  - --talk-name=org.freedesktop.secrets
+  # Media keys and the desktop's player controls (MPRIS).
+  - --own-name=org.mpris.MediaPlayer2.hyperplayer
+modules:
+  - name: hyperplayer
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      build-args:
+        - --share=network
+      env:
+        CARGO_HOME: /run/build/hyperplayer/cargo-home
+    build-commands:
+      - cargo build --release --locked -p hyperplayer
+      - install -Dm755 target/release/hyperplayer /app/bin/hyperplayer
+      - install -Dm644 packaging/linux/io.ansaloni.HyperPlayer.desktop /app/share/applications/io.ansaloni.HyperPlayer.desktop
+      - install -Dm644 packaging/flatpak/io.ansaloni.HyperPlayer.metainfo.xml /app/share/metainfo/io.ansaloni.HyperPlayer.metainfo.xml
+      - install -Dm644 apps/client/icons/hyperplayer.svg /app/share/icons/hicolor/scalable/apps/io.ansaloni.HyperPlayer.svg
+      - for size in 16 32 48 64 128 256 512; do install -Dm644 apps/client/icons/hyperplayer-$size.png /app/share/icons/hicolor/${size}x${size}/apps/io.ansaloni.HyperPlayer.png; done
+    sources:
+      - type: dir
+        path: ../..
+        skip:
+          - .git
+          - target
+          - release
+          - node_modules
+          - apps/client/node_modules
+          - apps/server/node_modules
+          - apps/server/dist
+          - apps/server/.data
+          - packages/schemas/node_modules

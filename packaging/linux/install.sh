@@ -468,14 +468,37 @@ install_server() {
 
 install_player() {
   title "Player"
-  local deb
-  deb=$(ls "$HERE"/player/*.deb 2>/dev/null | head -1)
-  if command -v apt-get >/dev/null && [[ -n "$deb" ]]; then
-    apt-get install -y -q "$deb"
-    ok "HyperPlayer is in your applications menu (or run: hyperplayer)"
+  local deb flatpak_bundle kind=""
+  deb=$(ls "$HERE"/player/*.deb 2>/dev/null | head -1 || true)
+  flatpak_bundle=$(ls "$HERE"/player/*.flatpak 2>/dev/null | head -1 || true)
+  local can_deb=0 can_flatpak=0
+  [[ -n "$deb" ]] && command -v apt-get >/dev/null && can_deb=1
+  [[ -n "$flatpak_bundle" ]] && command -v flatpak >/dev/null && can_flatpak=1
+  if ((can_deb && can_flatpak)); then
+    local choice
+    choose choice "Install the player as:" \
+      ".deb package (Ubuntu 26.04 / Debian with the same or newer libraries)" \
+      "Flatpak (any distribution; the runtime is downloaded from Flathub)"
+    kind=$([[ $choice == 1 ]] && echo deb || echo flatpak)
+  elif ((can_deb)); then
+    kind=deb
+  elif ((can_flatpak)); then
+    kind=flatpak
   else
-    warn "This system doesn't use .deb packages; install the player's Flatpak instead."
+    warn "This system has neither apt nor Flatpak; install Flatpak (https://flatpak.org/setup/) and run the installer again."
+    return
   fi
+  if [[ "$kind" == deb ]]; then
+    if apt-get install -y -q "$deb"; then
+      ok "HyperPlayer is in your applications menu (or run: hyperplayer)"
+      return
+    fi
+    warn "The .deb doesn't fit this system's libraries."
+    ((can_flatpak)) && confirm "Install the Flatpak instead?" y || return
+  fi
+  flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+  flatpak install --system -y --noninteractive "$flatpak_bundle"
+  ok "HyperPlayer is in your applications menu (or run: flatpak run io.ansaloni.HyperPlayer)"
 }
 
 # ---------------------------------------------------------------- uninstall
@@ -497,9 +520,14 @@ uninstall() {
       say "Kept $DATA_DIR and $CONFIG_DIR: installing again picks them up."
     fi
   fi
-  if dpkg -s hyperplayer >/dev/null 2>&1 && confirm "Remove the player?" y; then
+  if dpkg -s hyperplayer >/dev/null 2>&1 && confirm "Remove the player (.deb)?" y; then
     apt-get remove -y -q hyperplayer
     ok "Player removed (your sign-in and settings stay in each user's ~/.config/hyperplayer)"
+  fi
+  if command -v flatpak >/dev/null && flatpak info --system io.ansaloni.HyperPlayer >/dev/null 2>&1 &&
+    confirm "Remove the player (Flatpak)?" y; then
+    flatpak uninstall --system -y --noninteractive io.ansaloni.HyperPlayer
+    ok "Player removed (settings stay in each user's ~/.var/app/io.ansaloni.HyperPlayer)"
   fi
 }
 

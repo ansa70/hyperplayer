@@ -86,6 +86,14 @@ mkdir -p "$STAGE/player"
 fakeroot dpkg-deb --build -Zxz "$DEB" "$STAGE/player/hyperplayer_${VERSION}_amd64.deb" >/dev/null
 rm -rf "$DEB"
 
+echo "==> Player (Flatpak)"
+if flatpak info org.flatpak.Builder >/dev/null 2>&1; then
+  packaging/flatpak/build.sh
+  cp "$OUT/hyperplayer-$VERSION-x86_64.flatpak" "$STAGE/player/"
+else
+  echo "Skipped: no org.flatpak.Builder (see packaging/flatpak/build.sh)" >&2
+fi
+
 echo "==> Installer"
 install -m 755 packaging/linux/install.sh "$STAGE/install.sh"
 mkdir -p "$STAGE/docker" "$STAGE/systemd"

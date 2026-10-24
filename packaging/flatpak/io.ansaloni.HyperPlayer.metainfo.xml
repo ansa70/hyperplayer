@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.ansaloni.HyperPlayer</id>
+  <name>HyperPlayer</name>
+  <summary>Play the music on your HyperPlayer server</summary>
+  <developer id="io.ansaloni">
+    <name>Enrico Ansaloni</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <description>
+    <p>
+      The player for a self-hosted HyperPlayer server: browse your library by artist and album,
+      stream in the best quality your connection sustains, with synced lyrics, credits,
+      listening history and scrobbling to ListenBrainz and Last.fm.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.ansaloni.HyperPlayer.desktop</launchable>
+  <url type="homepage">https://gitlab.ansaloni.io/default/hyperplayer</url>
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Player</category>
+  </categories>
+  <releases>
+    <release version="0.1.0" date="2026-10-24"/>
+  </releases>
+</component>

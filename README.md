@@ -53,7 +53,9 @@ the player or both:
 - Running it again upgrades in place (keeping the settings, or changing them); `--uninstall` removes it.
 
 The `.deb` is built against the build machine's libraries, so it installs on that distribution release or
-newer.
+newer. The player is also a Flatpak (`packaging/flatpak/build.sh`, included in the bundle when Flathub's
+`org.flatpak.Builder` is installed), which runs on any distribution: the wizard offers it where there's no
+apt, or the `.deb` doesn't fit. On its own: `flatpak install --user hyperplayer-<version>-x86_64.flatpak`.
 
 ## HTTPS
 
