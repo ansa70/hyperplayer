@@ -215,6 +215,8 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ["tracks", "artist_credit", "TEXT"],
   ["playlists", "owner_id", "TEXT REFERENCES users(id) ON DELETE CASCADE"],
   ["queues", "user_id", "TEXT REFERENCES users(id) ON DELETE CASCADE"],
+  // A smart playlist's rules (JSON); null for an ordinary one.
+  ["playlists", "rules", "TEXT"],
   // The shuffle button's draw (JSON) and the queue it returns to.
   ["queues", "shuffle_context", "TEXT"],
   ["queues", "shuffle_base", "TEXT"],

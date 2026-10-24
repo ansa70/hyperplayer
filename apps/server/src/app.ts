@@ -300,7 +300,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   route.json(api.disconnectLastfm, ({ auth: a }) => scrobbler.disconnect(a.user.id, "lastfm"));
   route.json(api.listPlaylists, ({ auth: a }) => playlists.list(a.user.id));
   route.json(api.createPlaylist, ({ auth: a, body }) =>
-    playlists.create(a.user.id, body.name, body.description ?? null, body.trackIds),
+    playlists.create(a.user.id, body.name, body.description ?? null, body.trackIds, body.rules),
   );
   route.json(api.getPlaylist, ({ auth: a, params }) => playlists.get(a.user.id, params.id));
   route.json(api.updatePlaylist, ({ auth: a, params, body }) => playlists.update(a.user.id, params.id, body));

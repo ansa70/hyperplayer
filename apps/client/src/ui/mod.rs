@@ -12,6 +12,7 @@ mod lyrics;
 mod models;
 mod playback;
 mod settings;
+mod smart;
 mod visuals;
 mod window;
 
@@ -60,6 +61,8 @@ pub struct App {
     visuals: visuals::Visuals,
     playlists: Vec<types::PlaylistSummary>,
     playlist: Option<types::Playlist>,
+    /// A smart playlist's rules being edited on its page.
+    smart: Option<smart::Editing>,
 
     /// The server's queue for this device, as last returned.
     queue: Option<types::QueueState>,
@@ -298,6 +301,7 @@ pub fn run() -> anyhow::Result<()> {
             lyric_line: None,
             playlists: Vec::new(),
             playlist: None,
+            smart: None,
             queue: None,
             queue_seq: 0,
             queue_applied: 0,
@@ -423,6 +427,18 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_new_playlist(library::new_playlist);
     ui.on_playlist_add_search(library::playlist_add_search);
     ui.on_playlist_add(library::playlist_add);
+    ui.on_smart_set_match(smart::set_match);
+    ui.on_smart_rule_field(smart::set_field);
+    ui.on_smart_rule_op(smart::set_op);
+    ui.on_smart_rule_value(smart::set_value);
+    ui.on_smart_rule_value2(smart::set_value2);
+    ui.on_smart_remove_rule(smart::remove_rule);
+    ui.on_smart_add_rule(smart::add_rule);
+    ui.on_smart_set_order(smart::set_order);
+    ui.on_smart_set_descending(smart::set_descending);
+    ui.on_smart_set_limit(smart::set_limit);
+    ui.on_smart_apply(smart::apply);
+    ui.on_smart_save_copy(smart::save_copy);
     ui.on_play_playlist(library::play_playlist);
     ui.on_shuffle_playlist(library::shuffle_playlist);
     ui.on_rename_playlist(library::rename_playlist);

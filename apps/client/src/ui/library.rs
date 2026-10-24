@@ -43,9 +43,12 @@ fn show_playlists(app: &mut App, list: Vec<types::PlaylistSummary>) {
                 id: p.id.to_string().into(),
                 name: p.name.clone().into(),
                 subtitle: p.track_count.to_string().into(),
+                smart: p.rules.is_some(),
             })
             .collect();
+        let editable: Vec<PlaylistItem> = items.iter().filter(|p| !p.smart).cloned().collect();
         ui.set_playlists(Rc::new(VecModel::from(items)).into());
+        ui.set_editable_playlists(Rc::new(VecModel::from(editable)).into());
     }
     app.playlists = list;
 }
@@ -85,15 +88,20 @@ fn show_playlist(app: &mut App, p: types::Playlist, open: bool) {
         .collect();
     let previous_cover = ui.get_playlist();
     let same = previous_cover.id == p.id.as_str();
+    let tracks = match p.matching {
+        Some(all) if all > p.track_count => {
+            format!(
+                "Smart · {} of {all} matching",
+                plural(p.track_count, "track")
+            )
+        }
+        Some(_) => format!("Smart · {}", plural(p.track_count, "track")),
+        None => plural(p.track_count, "track"),
+    };
     ui.set_playlist(PlaylistView {
         id: p.id.to_string().into(),
         name: p.name.clone().into(),
-        meta: format!(
-            "{} · {}",
-            plural(p.track_count, "track"),
-            fmt_duration(p.duration_ms)
-        )
-        .into(),
+        meta: format!("{tracks} · {}", fmt_duration(p.duration_ms)).into(),
         cover: if same {
             previous_cover.cover
         } else {
@@ -112,6 +120,7 @@ fn show_playlist(app: &mut App, p: types::Playlist, open: bool) {
     if open {
         ui.set_page(Page::Playlist);
     }
+    super::smart::show(app, &ui, &p, open && !same);
     let id: SharedString = p.id.to_string().into();
     load_image(
         app,
@@ -283,13 +292,13 @@ pub fn refresh_playlist_playing(app: &App, ui: &super::AppWindow, playing: Optio
 }
 
 /// After a playlist changed on the server: refresh the sidebar and, if open, the page.
-fn playlist_changed(p: types::Playlist, open: bool) {
+pub fn playlist_changed(p: types::Playlist, open: bool) {
     with_app(|app| show_playlist(app, p, open));
     load_playlists();
 }
 
 /// "New playlist", "New playlist 2", … whichever is free.
-fn fresh_name(app: &App, base: &str) -> String {
+pub fn fresh_name(app: &App, base: &str) -> String {
     let taken = |n: &str| app.playlists.iter().any(|p| p.name == n);
     if !taken(base) {
         return base.to_string();
@@ -300,10 +309,16 @@ fn fresh_name(app: &App, base: &str) -> String {
         .expect("a free name")
 }
 
-pub fn new_playlist() {
-    let (api, name) = with_app(|app| (app.api.clone(), fresh_name(app, "New playlist")));
+/// The sidebar's "+": an empty playlist, or a smart one from a template (see smart.rs).
+pub fn new_playlist(kind: SharedString) {
+    let smart = super::smart::template(&kind);
+    let base = smart.as_ref().map_or("New playlist", |(name, _)| name);
+    let (api, name) = with_app(|app| (app.api.clone(), fresh_name(app, base)));
     background(
-        move || api.create_playlist(&name, vec![]),
+        move || match smart {
+            Some((_, rules)) => api.create_smart_playlist(&name, rules),
+            None => api.create_playlist(&name, vec![]),
+        },
         |p| playlist_changed(p, true),
     );
 }

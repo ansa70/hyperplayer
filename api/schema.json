@@ -1692,6 +1692,120 @@
       ],
       "additionalProperties": false
     },
+    "SmartField": {
+      "type": "string",
+      "enum": [
+        "title",
+        "artist",
+        "album",
+        "genre",
+        "format",
+        "year",
+        "duration",
+        "sampleRate",
+        "plays",
+        "lossless",
+        "lastPlayed",
+        "added"
+      ]
+    },
+    "SmartOperator": {
+      "type": "string",
+      "enum": [
+        "contains",
+        "notContains",
+        "is",
+        "isNot",
+        "startsWith",
+        "lessThan",
+        "greaterThan",
+        "between",
+        "inLast",
+        "notInLast",
+        "never"
+      ]
+    },
+    "SmartRule": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "$ref": "#/definitions/SmartField"
+        },
+        "op": {
+          "$ref": "#/definitions/SmartOperator"
+        },
+        "value": {
+          "default": "",
+          "type": "string",
+          "maxLength": 200
+        },
+        "value2": {
+          "default": "",
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "field",
+        "op",
+        "value",
+        "value2"
+      ],
+      "additionalProperties": false
+    },
+    "SmartRules": {
+      "type": "object",
+      "properties": {
+        "match": {
+          "default": "all",
+          "type": "string",
+          "enum": [
+            "all",
+            "any"
+          ]
+        },
+        "rules": {
+          "default": [],
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SmartRule"
+          }
+        },
+        "order": {
+          "default": "random",
+          "type": "string",
+          "enum": [
+            "random",
+            "title",
+            "artist",
+            "album",
+            "year",
+            "added",
+            "plays",
+            "lastPlayed"
+          ]
+        },
+        "descending": {
+          "default": false,
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 100,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        }
+      },
+      "required": [
+        "match",
+        "rules",
+        "order",
+        "descending",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
     "PlaylistSummary": {
       "type": "object",
       "properties": {
@@ -1723,6 +1837,17 @@
             "$ref": "#/definitions/Artwork"
           }
         },
+        "rules": {
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SmartRules"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
@@ -1741,6 +1866,7 @@
         "trackCount",
         "durationMs",
         "covers",
+        "rules",
         "createdAt",
         "updatedAt"
       ],
@@ -1777,6 +1903,17 @@
             "$ref": "#/definitions/Artwork"
           }
         },
+        "rules": {
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SmartRules"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
@@ -1792,6 +1929,19 @@
           "items": {
             "$ref": "#/definitions/PlaylistEntry"
           }
+        },
+        "matching": {
+          "default": null,
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1801,9 +1951,11 @@
         "trackCount",
         "durationMs",
         "covers",
+        "rules",
         "createdAt",
         "updatedAt",
-        "entries"
+        "entries",
+        "matching"
       ],
       "additionalProperties": false
     },
@@ -1838,6 +1990,13 @@
           "items": {
             "$ref": "#/definitions/Id"
           }
+        },
+        "rules": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/SmartRules"
+            }
+          ]
         }
       },
       "required": [
@@ -1861,6 +2020,13 @@
             },
             {
               "type": "null"
+            }
+          ]
+        },
+        "rules": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/SmartRules"
             }
           ]
         }

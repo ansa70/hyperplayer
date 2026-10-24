@@ -1,12 +1,20 @@
-import type { Artwork, Playlist, PlaylistSummary, TrackSource } from "@hyperplayer/schemas";
+import type { Artwork, Playlist, PlaylistSummary, SmartRules, TrackSource } from "@hyperplayer/schemas";
 import type { Catalog } from "../catalog/catalog.ts";
 import type { Db } from "../db.ts";
 import { HttpError, notFound } from "../http/contract.ts";
+import { checkRules, smartTracks } from "./smart.ts";
 import { newId, resolveSource } from "./sources.ts";
 
 type Row = Record<string, unknown>;
 
 const now = () => new Date().toISOString();
+const rulesOf = (r: Row) => (r.rules ? (JSON.parse(r.rules as string) as SmartRules) : null);
+const notByHand = () =>
+  new HttpError(
+    409,
+    "smart_playlist",
+    "A smart playlist's tracks follow from its rules: change those instead",
+  );
 const normalize = (s: string) =>
   s
     .toLowerCase()
@@ -26,11 +34,38 @@ export class Playlists {
     const rows = this.#db
       .prepare("SELECT * FROM playlists WHERE owner_id = ? ORDER BY updated_at DESC")
       .all(owner) as Row[];
-    return rows.map((r) => this.#summary(r));
+    return rows.map((r) => this.#summary(r, this.#smart(owner, r)?.trackIds));
   }
 
   get(owner: string, id: string): Playlist {
     const row = this.#row(owner, id);
+    const smart = this.#smart(owner, row);
+    if (smart) {
+      // Worked out now: the entries are simply the matching tracks.
+      const tracks = this.#catalog.tracksByIds(smart.trackIds);
+      const at = now();
+      return {
+        ...this.#summary(row, smart.trackIds),
+        matching: smart.matching,
+        entries: smart.trackIds.flatMap((trackId) => {
+          const t = tracks.get(trackId);
+          if (!t) return [];
+          return [
+            {
+              entryId: trackId,
+              track: t,
+              snapshot: {
+                title: t.title,
+                artistName: t.artistName,
+                albumTitle: t.albumTitle,
+                durationMs: t.durationMs,
+              },
+              addedAt: at,
+            },
+          ];
+        }),
+      };
+    }
     const entries = this.#db
       .prepare("SELECT * FROM playlist_entries WHERE playlist_id = ? ORDER BY position")
       .all(id) as Row[];
@@ -39,6 +74,7 @@ export class Playlists {
     );
     return {
       ...this.#summary(row),
+      matching: null,
       entries: entries.map((e) => ({
         entryId: String(e.entry_id),
         track: (e.track_id ? tracks.get(e.track_id as string) : undefined) ?? null,
@@ -53,20 +89,37 @@ export class Playlists {
     };
   }
 
-  create(owner: string, name: string, description: string | null, trackIds: string[] = []): Playlist {
+  /** A playlist; with `rules`, a smart one (and `trackIds` is ignored). */
+  create(
+    owner: string,
+    name: string,
+    description: string | null,
+    trackIds: string[] = [],
+    rules?: SmartRules,
+  ): Playlist {
+    if (rules) checkRules(rules);
     const id = newId();
     const at = now();
     this.#db
       .prepare(
-        "INSERT INTO playlists (id, owner_id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO playlists (id, owner_id, name, description, rules, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
       )
-      .run(id, owner, name, description, at, at);
-    if (trackIds.length) this.add(owner, id, { kind: "tracks", trackIds });
+      .run(id, owner, name, description, rules ? JSON.stringify(rules) : null, at, at);
+    if (trackIds.length && !rules) this.add(owner, id, { kind: "tracks", trackIds });
     return this.get(owner, id);
   }
 
-  update(owner: string, id: string, changes: { name?: string; description?: string | null }): Playlist {
-    this.#row(owner, id);
+  update(
+    owner: string,
+    id: string,
+    changes: { name?: string; description?: string | null; rules?: SmartRules },
+  ): Playlist {
+    const row = this.#row(owner, id);
+    if (changes.rules) {
+      if (!row.rules) throw new HttpError(409, "not_smart", "Only a smart playlist has rules");
+      checkRules(changes.rules);
+      this.#db.prepare("UPDATE playlists SET rules = ? WHERE id = ?").run(JSON.stringify(changes.rules), id);
+    }
     if (changes.name !== undefined)
       this.#db.prepare("UPDATE playlists SET name = ? WHERE id = ?").run(changes.name, id);
     if (changes.description !== undefined) {
@@ -83,7 +136,7 @@ export class Playlists {
 
   /** Inserts the source's tracks at `position` (default: the end). */
   add(owner: string, id: string, source: TrackSource, position?: number): Playlist {
-    this.#row(owner, id);
+    if (this.#row(owner, id).rules) throw notByHand();
     // Resolved up front, so adding a playlist to itself doubles it rather than looping.
     const { trackIds } = resolveSource(this.#db, source, owner);
     if (!trackIds.length) throw new HttpError(400, "empty_source", "Nothing to add");
@@ -109,7 +162,7 @@ export class Playlists {
   }
 
   remove(owner: string, id: string, entryId: string): Playlist {
-    this.#row(owner, id);
+    if (this.#row(owner, id).rules) throw notByHand();
     const order = this.#order(id);
     if (!order.includes(entryId)) throw notFound("Entry");
     this.#transaction(() => {
@@ -121,7 +174,7 @@ export class Playlists {
   }
 
   move(owner: string, id: string, entryId: string, toIndex: number): Playlist {
-    this.#row(owner, id);
+    if (this.#row(owner, id).rules) throw notByHand();
     const order = this.#order(id).filter((e) => e !== entryId);
     if (order.length === this.#order(id).length) throw notFound("Entry");
     order.splice(Math.min(toIndex, order.length), 0, entryId);
@@ -183,29 +236,59 @@ export class Playlists {
     return row;
   }
 
-  #summary(r: Row): PlaylistSummary {
+  /** A smart playlist's tracks as of now; null for an ordinary playlist. */
+  #smart(owner: string, r: Row) {
+    const rules = rulesOf(r);
+    return rules ? smartTracks(this.#db, owner, rules) : null;
+  }
+
+  /** `smart`: a smart playlist's tracks, which the figures and covers are taken from. */
+  #summary(r: Row, smart?: string[]): PlaylistSummary {
     const id = String(r.id);
-    const stats = this.#db
-      .prepare(
-        "SELECT COUNT(*) AS n, COALESCE(SUM(duration_ms), 0) AS ms FROM playlist_entries WHERE playlist_id = ?",
-      )
-      .get(id) as Row;
-    const coverIds = (
-      this.#db
+    let trackCount: number;
+    let durationMs: number;
+    let coverIds: string[];
+    if (smart) {
+      const tracks = smart.length
+        ? (this.#db
+            .prepare(
+              `SELECT t.id, t.duration_ms, al.cover_id FROM tracks t JOIN albums al ON al.id = t.album_id
+               WHERE t.id IN (${smart.map(() => "?").join(",")})`,
+            )
+            .all(...smart) as Row[])
+        : [];
+      const byId = new Map(tracks.map((t) => [String(t.id), t]));
+      trackCount = tracks.length;
+      durationMs = tracks.reduce((ms, t) => ms + Number(t.duration_ms), 0);
+      coverIds = [
+        ...new Set(smart.flatMap((t) => (byId.get(t)?.cover_id ? [String(byId.get(t)!.cover_id)] : []))),
+      ].slice(0, 4);
+    } else {
+      const stats = this.#db
         .prepare(
-          `SELECT al.cover_id FROM playlist_entries e
-           JOIN tracks t ON t.id = e.track_id JOIN albums al ON al.id = t.album_id
-           WHERE e.playlist_id = ? AND al.cover_id IS NOT NULL
-           GROUP BY al.cover_id ORDER BY MIN(e.position) LIMIT 4`,
+          "SELECT COUNT(*) AS n, COALESCE(SUM(duration_ms), 0) AS ms FROM playlist_entries WHERE playlist_id = ?",
         )
-        .all(id) as Row[]
-    ).map((c) => String(c.cover_id));
+        .get(id) as Row;
+      trackCount = Number(stats.n);
+      durationMs = Number(stats.ms);
+      coverIds = (
+        this.#db
+          .prepare(
+            `SELECT al.cover_id FROM playlist_entries e
+             JOIN tracks t ON t.id = e.track_id JOIN albums al ON al.id = t.album_id
+             WHERE e.playlist_id = ? AND al.cover_id IS NOT NULL
+             GROUP BY al.cover_id ORDER BY MIN(e.position) LIMIT 4`,
+          )
+          .all(id) as Row[]
+      ).map((c) => String(c.cover_id));
+    }
     return {
       id,
       name: String(r.name),
       description: (r.description as string | null) ?? null,
-      trackCount: Number(stats.n),
-      durationMs: Number(stats.ms),
+      trackCount,
+      durationMs,
+      rules: rulesOf(r),
       covers: coverIds.flatMap((c): Artwork[] => {
         const art = this.#catalog.artwork(c);
         return art ? [art] : [];

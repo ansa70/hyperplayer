@@ -33,6 +33,75 @@ export const PlaylistEntry = named(
   }),
 );
 
+// ---------------------------------------------------------- smart playlists
+
+export const SmartField = named(
+  "SmartField",
+  z.enum([
+    "title",
+    "artist",
+    "album",
+    "genre",
+    "format",
+    "year",
+    "duration",
+    "sampleRate",
+    "plays",
+    "lossless",
+    "lastPlayed",
+    "added",
+  ]),
+  "What a smart playlist rule looks at. `artist` matches the track's or the album's artist.",
+);
+
+export const SmartOperator = named(
+  "SmartOperator",
+  z.enum([
+    "contains",
+    "notContains",
+    "is",
+    "isNot",
+    "startsWith",
+    "lessThan",
+    "greaterThan",
+    "between",
+    "inLast",
+    "notInLast",
+    "never",
+  ]),
+  `How a rule compares. Text fields (title, artist, album, genre, format): contains, notContains,
+is, isNot, startsWith. Numbers (year; duration in seconds or m:ss; sampleRate in kHz; plays):
+is, isNot, lessThan, greaterThan, between. lossless: is (yes or no). Dates (lastPlayed, added):
+inLast and notInLast a number of days; lastPlayed also never.`,
+);
+
+export const SmartRule = named(
+  "SmartRule",
+  z.object({
+    field: SmartField,
+    op: SmartOperator,
+    /** Left empty, the rule is skipped (still being written). */
+    value: z.string().max(200).default(""),
+    /** The upper end for `between`. */
+    value2: z.string().max(200).default(""),
+  }),
+);
+
+export const SmartRules = named(
+  "SmartRules",
+  z.object({
+    /** Tracks must match every rule, or any of them. */
+    match: z.enum(["all", "any"]).default("all"),
+    rules: z.array(SmartRule).max(20).default([]),
+    order: z
+      .enum(["random", "title", "artist", "album", "year", "added", "plays", "lastPlayed"])
+      .default("random"),
+    descending: z.boolean().default(false),
+    limit: z.int().min(1).max(500).default(100),
+  }),
+  "A smart playlist's rules: its tracks are whatever matches, worked out whenever it's read.",
+);
+
 export const PlaylistSummary = named(
   "PlaylistSummary",
   z.object({
@@ -43,6 +112,8 @@ export const PlaylistSummary = named(
     durationMs: z.int().nonnegative(),
     /** Up to four distinct album covers, for a mosaic. */
     covers: z.array(Artwork),
+    /** Set for a smart playlist, whose tracks follow from these rules (they can't be edited by hand). */
+    rules: SmartRules.nullable().default(null),
     createdAt: Timestamp,
     updatedAt: Timestamp,
   }),
@@ -52,6 +123,8 @@ export const Playlist = named(
   "Playlist",
   PlaylistSummary.extend({
     entries: z.array(PlaylistEntry),
+    /** For a smart playlist: how many tracks match, before its limit. */
+    matching: z.int().nonnegative().nullable().default(null),
   }),
 );
 
@@ -66,6 +139,8 @@ export const CreatePlaylist = named(
     description: z.string().max(2000).nullable().optional(),
     /** Optional initial content. */
     trackIds: z.array(Id).max(10_000).optional(),
+    /** Makes it a smart playlist (then `trackIds` is ignored). */
+    rules: SmartRules.optional(),
   }),
 );
 
@@ -74,6 +149,8 @@ export const UpdatePlaylist = named(
   z.object({
     name: Name.optional(),
     description: z.string().max(2000).nullable().optional(),
+    /** New rules for a smart playlist. */
+    rules: SmartRules.optional(),
   }),
 );
 
@@ -222,6 +299,8 @@ export type PlaylistSummary = z.infer<typeof PlaylistSummary>;
 export type Playlist = z.infer<typeof Playlist>;
 export type TrackSource = z.infer<typeof TrackSource>;
 export type RepeatMode = z.infer<typeof RepeatMode>;
+export type SmartRules = z.infer<typeof SmartRules>;
+export type SmartRule = z.infer<typeof SmartRule>;
 export type QueueEntry = z.infer<typeof QueueEntry>;
 export type QueueOrigin = z.infer<typeof QueueOrigin>;
 export type QueueState = z.infer<typeof QueueState>;

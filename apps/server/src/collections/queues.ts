@@ -43,6 +43,11 @@ interface ShuffleContext {
   avoidFirst: string | null;
   /** This lap is drawn out; the next one starts only when reached (and repeat allows). */
   done: boolean;
+  /**
+   * A smart playlist's tracks, as the queue had them when shuffle started: its rules may
+   * pick differently each time (random order), which would break the laps. At most 500.
+   */
+  tracks?: string[];
 }
 
 /** The queue as it was when the shuffle button went on, to return to when it goes off. */
@@ -277,6 +282,11 @@ export class Queues {
       avoidFirst: null,
       done: false,
     };
+    const playlist = scope === "playlist" && key ? this.#playlistRules(key) : null;
+    if (playlist) {
+      // The tracks the queue was just built from: asked again, its rules might pick others.
+      q.context.tracks = [...new Set(q.base.entries.map((e) => e.trackId))];
+    }
     q.shuffle = true;
     q.origin = origin;
     q.entries = current ? [current] : [];
@@ -286,6 +296,12 @@ export class Queues {
       q.index = 0;
       q.positionMs = 0;
     }
+  }
+
+  /** A smart playlist's rules (as stored); null for an ordinary playlist. */
+  #playlistRules(id: string): string | null {
+    const row = this.#db.prepare("SELECT rules FROM playlists WHERE id = ?").get(id) as Row | undefined;
+    return (row?.rules as string | null | undefined) ?? null;
   }
 
   /** The shuffle button went off: back to the queue from before, at the current track if it's there. */
@@ -357,6 +373,7 @@ export class Queues {
 
   /** Every track in the context, in a stable order for the lap's seed to shuffle. */
   #contextTracks(c: ShuffleContext): string[] {
+    if (c.tracks) return [...c.tracks].sort();
     const ids = (sql: string, ...args: string[]) =>
       (this.#db.prepare(sql).all(...args) as Row[]).map((r) => String(r.id));
     if (c.key === null) return ids("SELECT id FROM tracks ORDER BY id");

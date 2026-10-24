@@ -1,4 +1,19 @@
-import { CheckBox, LineEdit, ListView, Slider, ScrollView } from "std-widgets.slint";
+import { CheckBox, ComboBox, LineEdit, ListView, Slider, ScrollView } from "std-widgets.slint";
+
+/// One rule of a smart playlist, as its editor shows it.
+export struct RuleRow {
+    /// Index into the editor's field list.
+    field: int,
+    /// The operators this field takes, as labels, and the chosen one.
+    ops: [string],
+    op: int,
+    value: string,
+    value2: string,
+    /// What to type: "seconds or m:ss", "days", "yes or no"…
+    hint: string,
+    needs-value: bool,
+    between: bool,
+}
 
 /// Something the playlist page's search can add: a track, album, artist or genre.
 export struct AddItem {
@@ -40,6 +55,7 @@ export struct PlaylistItem {
     id: string,
     name: string,
     subtitle: string,
+    smart: bool,
 }
 
 export struct PlaylistView {
@@ -396,6 +412,42 @@ component ShuffleMenu inherits PopupWindow {
     }
 }
 
+/// The sidebar's "+": an empty playlist, or a smart one from a template.
+component NewPlaylistMenu inherits PopupWindow {
+    callback pick(string);
+    width: 250px;
+    height: 6px + 31px + 9px + 24px + 5 * 31px + 6px;
+    Rectangle {
+        background: Theme.surface-hi;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: Theme.surface.brighter(0.8);
+        drop-shadow-blur: 18px;
+        drop-shadow-color: #000000b0;
+        VerticalLayout {
+            padding: 6px;
+            spacing: 1px;
+            MenuItem { text: "Empty playlist"; clicked => { root.pick("empty"); } }
+            Rectangle { height: 9px; Rectangle { height: 1px; background: Theme.surface.brighter(0.8); } }
+            Text {
+                height: 24px;
+                x: 10px;
+                text: "SMART, KEPT UP TO DATE";
+                color: Theme.faint;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 1.2px;
+                vertical-alignment: center;
+            }
+            MenuItem { text: "Random tracks"; clicked => { root.pick("random"); } }
+            MenuItem { text: "From an artist"; clicked => { root.pick("artist"); } }
+            MenuItem { text: "From albums"; clicked => { root.pick("albums"); } }
+            MenuItem { text: "By genre"; clicked => { root.pick("genre"); } }
+            MenuItem { text: "Custom rules"; clicked => { root.pick("custom"); } }
+        }
+    }
+}
+
 /// Actions on a track (or a whole album): queue it, add it to a playlist, and,
 /// where the list allows, remove or move it.
 component ActionMenu inherits PopupWindow {
@@ -591,7 +643,8 @@ component Sidebar inherits Rectangle {
     callback select(string);
     callback search-changed(string);
     callback select-playlist(string);
-    callback new-playlist();
+    /// "empty", or a smart playlist template: random, artist, albums, genre, custom.
+    callback new-playlist(string);
     in property <string> account;
     callback sign-out();
     callback search-accepted(string);
@@ -642,7 +695,7 @@ component Sidebar inherits Rectangle {
             }
             HorizontalLayout {
                 Text { text: "PLAYLISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; vertical-alignment: center; }
-                Rectangle {
+                plus := Rectangle {
                     width: 24px;
                     height: 24px;
                     border-radius: 12px;
@@ -662,7 +715,12 @@ component Sidebar inherits Rectangle {
                         stroke: Theme.bg;
                         stroke-width: 2.25px;
                     }
-                    plus-ta := TouchArea { mouse-cursor: pointer; clicked => { root.new-playlist(); } }
+                    plus-ta := TouchArea { mouse-cursor: pointer; clicked => { new-menu.show(); } }
+                }
+                new-menu := NewPlaylistMenu {
+                    x: plus.x + plus.width - self.width;
+                    y: plus.y + plus.height + 6px;
+                    pick(kind) => { root.new-playlist(kind); }
                 }
             }
             VerticalLayout {
@@ -674,6 +732,8 @@ component Sidebar inherits Rectangle {
                     HorizontalLayout {
                         padding-left: 8px;
                         padding-right: 8px;
+                        spacing: 6px;
+                        if p.smart: Text { text: "✦"; color: Theme.accent; font-size: 11px; vertical-alignment: center; }
                         Text { text: p.name; color: Theme.text; font-size: 13px; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
                         Text { text: p.subtitle; color: Theme.faint; font-size: 11px; vertical-alignment: center; }
                     }
@@ -1180,6 +1240,30 @@ component OutlineButton inherits Rectangle {
     ob-ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
 }
 
+component Segmented inherits HorizontalLayout {
+    in property <[{ key: string, label: string }]> options;
+    in property <string> selected;
+    callback pick(string);
+    spacing: 6px;
+    alignment: start;
+    for option in root.options: Rectangle {
+        height: 30px;
+        width: seg-label.preferred-width + 24px;
+        border-radius: 15px;
+        border-width: 1px;
+        border-color: option.key == root.selected ? Theme.text : (seg-ta.has-hover ? Theme.muted : Theme.faint);
+        background: option.key == root.selected ? Theme.surface-hi : transparent;
+        seg-label := Text {
+            text: option.label;
+            color: option.key == root.selected ? Theme.text : Theme.muted;
+            font-size: 12px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        seg-ta := TouchArea { mouse-cursor: pointer; clicked => { root.pick(option.key); } }
+    }
+}
+
 /// One kind of result in the playlist page's search, each with a button to add it.
 component AddSection inherits VerticalLayout {
     in property <string> heading;
@@ -1217,6 +1301,119 @@ component AddSection inherits VerticalLayout {
     }
 }
 
+/// A smart playlist's rules: which tracks match, in what order, and how many.
+component SmartEditor inherits Rectangle {
+    in property <[RuleRow]> rules;
+    in property <bool> match-any;
+    in property <int> order;
+    in property <bool> descending;
+    in property <string> limit;
+    /// Edited since last applied.
+    in property <bool> dirty;
+    in property <string> message;
+    callback set-match(bool);
+    callback rule-field(int, int);
+    callback rule-op(int, int);
+    callback rule-value(int, string);
+    callback rule-value2(int, string);
+    callback remove-rule(int);
+    callback add-rule();
+    callback set-order(int);
+    callback set-descending(bool);
+    callback set-limit(string);
+    callback apply();
+    border-radius: 8px;
+    background: Theme.surface.with-alpha(0.7);
+    VerticalLayout {
+        padding: 12px;
+        spacing: 10px;
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            Text { text: "Tracks matching"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+            Segmented {
+                selected: root.match-any ? "any" : "all";
+                options: [{ key: "all", label: "all rules" }, { key: "any", label: "any rule" }];
+                pick(key) => { root.set-match(key == "any"); }
+            }
+        }
+        for rule[i] in root.rules: HorizontalLayout {
+            spacing: 8px;
+            ComboBox {
+                width: 140px;
+                model: ["Title", "Artist", "Album", "Genre", "Format", "Year", "Duration", "Sample rate", "Plays", "Lossless", "Last played", "Added"];
+                current-index: rule.field;
+                selected => { root.rule-field(i, self.current-index); }
+            }
+            ComboBox {
+                width: 160px;
+                model: rule.ops;
+                current-index: rule.op;
+                selected => { root.rule-op(i, self.current-index); }
+            }
+            if rule.needs-value: LineEdit {
+                min-width: 60px;
+                text: rule.value;
+                placeholder-text: rule.hint;
+                edited(text) => { root.rule-value(i, text); }
+                accepted => { root.apply(); }
+            }
+            if rule.between: Text { text: "and"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+            if rule.between: LineEdit {
+                min-width: 60px;
+                text: rule.value2;
+                placeholder-text: rule.hint;
+                edited(text) => { root.rule-value2(i, text); }
+                accepted => { root.apply(); }
+            }
+            if !rule.needs-value: Rectangle { horizontal-stretch: 1; }
+            IconButton { glyph: "✕"; size: 32px; clicked => { root.remove-rule(i); } }
+        }
+        if root.rules.length == 0: Text {
+            text: "No rules yet: any track in the library can be picked.";
+            color: Theme.faint;
+            font-size: 12px;
+        }
+        HorizontalLayout {
+            spacing: 10px;
+            OutlineButton { text: "+ Add rule"; clicked => { root.add-rule(); } }
+            Rectangle { horizontal-stretch: 1; }
+            Text { text: "Order"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+            ComboBox {
+                width: 140px;
+                model: ["Random", "Title", "Artist", "Album", "Year", "Date added", "Plays", "Last played"];
+                current-index: root.order;
+                selected => { root.set-order(self.current-index); }
+            }
+            if root.order != 0: CheckBox {
+                text: "Descending";
+                checked: root.descending;
+                toggled => { root.set-descending(self.checked); }
+            }
+            Text { text: "up to"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+            LineEdit {
+                width: 64px;
+                text: root.limit;
+                edited(text) => { root.set-limit(text); }
+                accepted => { root.apply(); }
+            }
+            Text { text: "tracks (max 500)"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+        }
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: start;
+            OutlineButton { text: root.dirty ? "Apply rules" : "Rules applied"; clicked => { root.apply(); } }
+            if root.message != "": Text {
+                text: root.message;
+                color: root.dirty ? Theme.accent : Theme.muted;
+                font-size: 12px;
+                vertical-alignment: center;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
 component PlaylistPage inherits Rectangle {
     in property <PlaylistView> playlist;
     in property <[TrackItem]> tracks;
@@ -1237,6 +1434,27 @@ component PlaylistPage inherits Rectangle {
     in property <string> add-message;
     callback add-search(string);
     callback add(string, string, string);
+    /// A smart playlist: its rules instead of the search, and no editing by hand.
+    in property <bool> smart;
+    in property <[RuleRow]> rules;
+    in property <bool> match-any;
+    in property <int> order;
+    in property <bool> descending;
+    in property <string> limit;
+    in property <bool> rules-dirty;
+    in property <string> rules-message;
+    callback set-match(bool);
+    callback rule-field(int, int);
+    callback rule-op(int, int);
+    callback rule-value(int, string);
+    callback rule-value2(int, string);
+    callback remove-rule(int);
+    callback add-rule();
+    callback set-order(int);
+    callback set-descending(bool);
+    callback set-limit(string);
+    callback apply-rules();
+    callback save-copy();
     property <bool> confirm-delete;
     property <bool> nothing-found: root.add-tracks.length + root.add-albums.length + root.add-artists.length + root.add-genres.length == 0;
     VerticalLayout {
@@ -1254,7 +1472,7 @@ component PlaylistPage inherits Rectangle {
             VerticalLayout {
                 alignment: end;
                 spacing: 6px;
-                Text { text: "PLAYLIST"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+                Text { text: root.smart ? "SMART PLAYLIST" : "PLAYLIST"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
                 LineEdit {
                     text: playlist.name;
                     font-size: 24px;
@@ -1274,6 +1492,11 @@ component PlaylistPage inherits Rectangle {
                     VerticalLayout {
                         alignment: center;
                         ToggleIcon { commands: Icons.shuffle; clicked => { root.shuffle-play(); } }
+                    }
+                    // Freezes what matches now into an ordinary playlist, to edit by hand.
+                    if root.smart: VerticalLayout {
+                        alignment: center;
+                        OutlineButton { text: "Save as playlist"; clicked => { root.save-copy(); } }
                     }
                     VerticalLayout {
                         alignment: center;
@@ -1302,8 +1525,28 @@ component PlaylistPage inherits Rectangle {
                 }
             }
         }
+        if root.smart: SmartEditor {
+            rules: root.rules;
+            match-any: root.match-any;
+            order: root.order;
+            descending: root.descending;
+            limit: root.limit;
+            dirty: root.rules-dirty;
+            message: root.rules-message;
+            set-match(any) => { root.set-match(any); }
+            rule-field(i, f) => { root.rule-field(i, f); }
+            rule-op(i, o) => { root.rule-op(i, o); }
+            rule-value(i, v) => { root.rule-value(i, v); }
+            rule-value2(i, v) => { root.rule-value2(i, v); }
+            remove-rule(i) => { root.remove-rule(i); }
+            add-rule => { root.add-rule(); }
+            set-order(o) => { root.set-order(o); }
+            set-descending(d) => { root.set-descending(d); }
+            set-limit(l) => { root.set-limit(l); }
+            apply => { root.apply-rules(); }
+        }
         // While searching, the results and the playlist share the page about evenly.
-        VerticalLayout {
+        if !root.smart: VerticalLayout {
             spacing: 8px;
             vertical-stretch: root.add-query != "" ? 1 : 0;
             LineEdit {
@@ -1343,7 +1586,12 @@ component PlaylistPage inherits Rectangle {
                 }
             }
         }
-        if tracks.length == 0 && root.add-query == "": Text {
+        if tracks.length == 0 && root.smart: Text {
+            text: "No tracks match these rules.";
+            color: Theme.faint;
+            font-size: 13px;
+        }
+        if tracks.length == 0 && !root.smart && root.add-query == "": Text {
             text: "Empty for now: search above to add tracks, albums, whole artists or genres. The ⋯ menu on any track or album adds it too.";
             color: Theme.faint;
             font-size: 13px;
@@ -1356,8 +1604,8 @@ component PlaylistPage inherits Rectangle {
                 for track[i] in root.tracks: TrackRow {
                     track: track;
                     playlists: root.playlists;
-                    removable: true;
-                    movable: true;
+                    removable: !root.smart;
+                    movable: !root.smart;
                     remove-label: "Remove from this playlist";
                     play => { root.play(i); }
                     action(kind, id) => { root.track-action(i, kind, id); }
@@ -2245,30 +2493,6 @@ export global SettingsState {
     callback create-user();
 }
 
-component Segmented inherits HorizontalLayout {
-    in property <[{ key: string, label: string }]> options;
-    in property <string> selected;
-    callback pick(string);
-    spacing: 6px;
-    alignment: start;
-    for option in root.options: Rectangle {
-        height: 30px;
-        width: seg-label.preferred-width + 24px;
-        border-radius: 15px;
-        border-width: 1px;
-        border-color: option.key == root.selected ? Theme.text : (seg-ta.has-hover ? Theme.muted : Theme.faint);
-        background: option.key == root.selected ? Theme.surface-hi : transparent;
-        seg-label := Text {
-            text: option.label;
-            color: option.key == root.selected ? Theme.text : Theme.muted;
-            font-size: 12px;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-        }
-        seg-ta := TouchArea { mouse-cursor: pointer; clicked => { root.pick(option.key); } }
-    }
-}
-
 component Card inherits Rectangle {
     in property <string> title;
     background: Theme.surface;
@@ -2866,6 +3090,8 @@ export component AppWindow inherits Window {
     in property <[AlbumItem]> search-albums;
     in property <[TrackItem]> search-tracks;
     in property <[PlaylistItem]> playlists;
+    /// The playlists tracks can be added to by hand (not the smart ones), for the ⋯ menus.
+    in property <[PlaylistItem]> editable-playlists;
     in property <string> selected-playlist-id;
     in property <PlaylistView> playlist;
     in property <[TrackItem]> playlist-tracks;
@@ -2878,6 +3104,26 @@ export component AppWindow inherits Window {
     in property <string> playlist-add-message;
     callback playlist-add-search(string);
     callback playlist-add(string, string, string);
+    in property <bool> smart-playlist;
+    in property <[RuleRow]> smart-rules;
+    in property <bool> smart-match-any;
+    in property <int> smart-order;
+    in property <bool> smart-descending;
+    in property <string> smart-limit;
+    in property <bool> smart-dirty;
+    in property <string> smart-message;
+    callback smart-set-match(bool);
+    callback smart-rule-field(int, int);
+    callback smart-rule-op(int, int);
+    callback smart-rule-value(int, string);
+    callback smart-rule-value2(int, string);
+    callback smart-remove-rule(int);
+    callback smart-add-rule();
+    callback smart-set-order(int);
+    callback smart-set-descending(bool);
+    callback smart-set-limit(string);
+    callback smart-apply();
+    callback smart-save-copy();
     in property <string> queue-origin;
     in property <[TrackItem]> queue-now;
     in property <[TrackItem]> queue-next;
@@ -2924,7 +3170,8 @@ export component AppWindow inherits Window {
     callback search-accepted(string);
     public function reveal-artist(index: int) { sidebar.reveal-artist(index); }
     callback select-playlist(string);
-    callback new-playlist();
+    /// "empty", or a smart playlist template: random, artist, albums, genre, custom.
+    callback new-playlist(string);
     callback play-playlist(int);
     callback shuffle-playlist();
     callback rename-playlist(string);
@@ -3042,7 +3289,7 @@ export component AppWindow inherits Window {
                 playlists: root.playlists;
                 selected-playlist-id: root.page == Page.playlist ? root.selected-playlist-id : "";
                 select-playlist(id) => { root.select-playlist(id); }
-                new-playlist => { root.new-playlist(); }
+                new-playlist(kind) => { root.new-playlist(kind); }
                 account: root.account;
                 sign-out => { root.sign-out(); }
                 history-open: root.page == Page.history;
@@ -3073,7 +3320,7 @@ export component AppWindow inherits Window {
                     artists: root.search-artists;
                     albums: root.search-albums;
                     tracks: root.search-tracks;
-                    playlists: root.playlists;
+                    playlists: root.editable-playlists;
                     select-artist(id) => { root.select-artist(id); }
                     select-album(id) => { root.select-album(id); }
                     play(i) => { root.play-search-track(i); }
@@ -3082,7 +3329,7 @@ export component AppWindow inherits Window {
                 if root.page == Page.playlist: PlaylistPage {
                     playlist: root.playlist;
                     tracks: root.playlist-tracks;
-                    playlists: root.playlists;
+                    playlists: root.editable-playlists;
                     play(i) => { root.play-playlist(i); }
                     shuffle-play => { root.shuffle-playlist(); }
                     rename(name) => { root.rename-playlist(name); }
@@ -3097,6 +3344,26 @@ export component AppWindow inherits Window {
                     add-message: root.playlist-add-message;
                     add-search(text) => { root.playlist-add-search(text); }
                     add(kind, id, title) => { root.playlist-add(kind, id, title); }
+                    smart: root.smart-playlist;
+                    rules: root.smart-rules;
+                    match-any: root.smart-match-any;
+                    order: root.smart-order;
+                    descending: root.smart-descending;
+                    limit: root.smart-limit;
+                    rules-dirty: root.smart-dirty;
+                    rules-message: root.smart-message;
+                    set-match(any) => { root.smart-set-match(any); }
+                    rule-field(i, f) => { root.smart-rule-field(i, f); }
+                    rule-op(i, o) => { root.smart-rule-op(i, o); }
+                    rule-value(i, v) => { root.smart-rule-value(i, v); }
+                    rule-value2(i, v) => { root.smart-rule-value2(i, v); }
+                    remove-rule(i) => { root.smart-remove-rule(i); }
+                    add-rule => { root.smart-add-rule(); }
+                    set-order(o) => { root.smart-set-order(o); }
+                    set-descending(d) => { root.smart-set-descending(d); }
+                    set-limit(l) => { root.smart-set-limit(l); }
+                    apply-rules => { root.smart-apply(); }
+                    save-copy => { root.smart-save-copy(); }
                 }
                 if root.page == Page.settings: SettingsPage { }
                 if root.page == Page.albums: AlbumsPage {
@@ -3115,7 +3382,7 @@ export component AppWindow inherits Window {
                     artists: root.history-artists;
                     top: root.history-top;
                     recent: root.history-recent;
-                    playlists: root.playlists;
+                    playlists: root.editable-playlists;
                     select-artist(id) => { root.select-artist(id); }
                     play(list, i) => { root.play-history-track(list, i); }
                     track-action(list, i, kind, id) => { root.track-action(list, i, kind, id); }
@@ -3133,7 +3400,7 @@ export component AppWindow inherits Window {
                     origin: root.queue-origin;
                     now: root.queue-now;
                     next: root.queue-next;
-                    playlists: root.playlists;
+                    playlists: root.editable-playlists;
                     jump(i) => { root.jump-in-queue(i); }
                     clear => { root.clear-queue(); }
                     track-action(i, kind, id) => { root.track-action("queue", i, kind, id); }
@@ -3141,7 +3408,7 @@ export component AppWindow inherits Window {
                 if root.page == Page.album: AlbumPage {
                     album: root.album;
                     tracks: root.album-tracks;
-                    playlists: root.playlists;
+                    playlists: root.editable-playlists;
                     play(i) => { root.play-track(i); }
                     back => { root.back-to-artist(); }
                     album-action(kind, id) => { root.album-action(kind, id); }

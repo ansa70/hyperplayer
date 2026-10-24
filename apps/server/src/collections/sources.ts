@@ -1,7 +1,8 @@
-import type { QueueOrigin, TrackSource } from "@hyperplayer/schemas";
+import type { QueueOrigin, SmartRules, TrackSource } from "@hyperplayer/schemas";
 import type { Db } from "../db.ts";
 import { IN_GENRE } from "../catalog/genres.ts";
 import { notFound } from "../http/contract.ts";
+import { smartTracks } from "./smart.ts";
 
 type Row = Record<string, unknown>;
 
@@ -63,8 +64,21 @@ export function resolveSource(
       };
     case "playlist":
       // Someone else's playlist is indistinguishable from a missing one.
-      if (!db.prepare("SELECT 1 FROM playlists WHERE id = ? AND owner_id = ?").get(source.id, userId)) {
-        throw notFound("Playlist");
+      const playlist = db
+        .prepare("SELECT rules FROM playlists WHERE id = ? AND owner_id = ?")
+        .get(source.id, userId) as Row | undefined;
+      if (!playlist) throw notFound("Playlist");
+      const origin = {
+        kind: "playlist" as const,
+        id: source.id,
+        name: name("SELECT name FROM playlists WHERE id = ?", source.id, "Playlist"),
+      };
+      // A smart playlist plays what matches its rules now.
+      if (playlist.rules) {
+        return {
+          trackIds: smartTracks(db, userId, JSON.parse(playlist.rules as string) as SmartRules).trackIds,
+          origin,
+        };
       }
       return {
         // Entries whose file is currently missing are skipped.

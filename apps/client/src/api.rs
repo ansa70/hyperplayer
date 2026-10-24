@@ -423,14 +423,38 @@ impl Api {
     }
 
     pub fn create_playlist(&self, name: &str, tracks: Vec<types::Id>) -> Result<Playlist> {
+        self.new_playlist(name, tracks, None)
+    }
+
+    /// A smart playlist: its tracks follow from `rules`.
+    pub fn create_smart_playlist(&self, name: &str, rules: types::SmartRules) -> Result<Playlist> {
+        self.new_playlist(name, vec![], Some(rules))
+    }
+
+    fn new_playlist(
+        &self,
+        name: &str,
+        tracks: Vec<types::Id>,
+        rules: Option<types::SmartRules>,
+    ) -> Result<Playlist> {
         let body = CreatePlaylist {
             name: name
                 .try_into()
                 .map_err(|e| anyhow::anyhow!("invalid playlist name: {e}"))?,
             description: None,
             track_ids: tracks,
+            rules,
         };
         self.send(Method::POST, "/api/playlists", Some(&body))
+    }
+
+    pub fn set_playlist_rules(&self, id: &str, rules: types::SmartRules) -> Result<Playlist> {
+        let body = UpdatePlaylist {
+            name: None,
+            description: None,
+            rules: Some(rules),
+        };
+        self.send(Method::PATCH, &format!("/api/playlists/{id}"), Some(&body))
     }
 
     pub fn rename_playlist(&self, id: &str, name: &str) -> Result<Playlist> {
@@ -440,6 +464,7 @@ impl Api {
                     .map_err(|e| anyhow::anyhow!("invalid playlist name: {e}"))?,
             ),
             description: None,
+            rules: None,
         };
         self.send(Method::PATCH, &format!("/api/playlists/{id}"), Some(&body))
     }
