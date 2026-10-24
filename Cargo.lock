@@ -2376,7 +2376,7 @@ dependencies = [
 
 [[package]]
 name = "hyperplayer"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2405,7 +2405,7 @@ dependencies = [
 
 [[package]]
 name = "hyperplayer-service"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "windows-service",
  "windows-sys 0.61.2",
