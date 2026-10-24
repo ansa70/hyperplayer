@@ -38,7 +38,7 @@ export class LibraryWatcher {
   #closed = false;
 
   constructor(
-    readonly roots: string[],
+    public roots: string[],
     readonly opts: {
       rescanMinutes: number;
       watch: boolean;
@@ -104,6 +104,13 @@ export class LibraryWatcher {
       }
       return false;
     }
+  }
+
+  /** The library's folders changed: watch those instead. */
+  setRoots(roots: string[]) {
+    this.roots = roots;
+    this.#warned.clear();
+    void this.sync();
   }
 
   /** How many directories are being watched. */

@@ -22,6 +22,7 @@ import { HttpError, notFound, Router, SESSION_COOKIE } from "./http/contract.ts"
 import { loadTls, stampOf } from "./http/tls.ts";
 import { ArtworkStore } from "./library/artwork.ts";
 import { Scanner } from "./library/scanner.ts";
+import { LibraryFolders } from "./library/folders.ts";
 import { LibraryWatcher } from "./library/watcher.ts";
 import { Waveforms } from "./library/waveform.ts";
 import {
@@ -89,11 +90,12 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   // Native clients ignore CORS; browsers get access only from explicitly listed origins.
   if (config.corsOrigins.length) await app.register(cors, { origin: config.corsOrigins, credentials: true });
 
+  const folders = new LibraryFolders(db, config.libraryPaths);
   let scanning: Promise<void> | null = null;
   let again: Promise<void> | null = null;
   const scanOnce = () =>
     scanner
-      .scan(config.libraryPaths)
+      .scan(folders.paths)
       .then((s) => {
         const changed = s.updated > 0 || s.removed > 0;
         // Periodic rescans that find nothing new stay quiet.
@@ -123,7 +125,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     });
     return again;
   };
-  const watcher = new LibraryWatcher(config.libraryPaths, {
+  const watcher = new LibraryWatcher(folders.paths, {
     rescanMinutes: config.rescanMinutes,
     watch: config.watch,
     debounceMs: config.watchDebounceMs,
@@ -137,7 +139,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     scanning: scanning !== null,
     folders: admin
       ? await Promise.all(
-          config.libraryPaths.map(async (path) => ({
+          folders.paths.map(async (path) => ({
             path,
             available: await readdir(path).then(
               (entries) => entries.length > 0,
@@ -148,6 +150,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
         )
       : [],
     lastScanAt: catalog.lastScanAt(),
+    pathStyle: process.platform === "win32" ? "windows" : "posix",
     ...catalog.counts(),
     enrichmentQueue: enricher.queueSize,
   });
@@ -213,6 +216,12 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   // --------------------------------------------------------------- library
   route.json(api.libraryStatus, ({ auth: a }) => status(a.user.admin));
   route.json(api.libraryScan, () => (void startScan(), status(true)));
+  route.json(api.setLibraryFolders, async ({ body }) => {
+    await folders.set(body.paths);
+    watcher.setRoots(folders.paths);
+    void startScan();
+    return status(true);
+  });
   route.json(api.listArtists, ({ query }) => catalog.listArtists(query.offset, query.limit));
   route.json(
     api.getArtist,
@@ -332,5 +341,5 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     db.close();
   });
 
-  return { app, startScan, auth, scrobbler, tls };
+  return { app, startScan, auth, scrobbler, tls, folders };
 }

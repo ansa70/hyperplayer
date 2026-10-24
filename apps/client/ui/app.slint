@@ -2095,6 +2095,14 @@ export global SettingsState {
     in property <[FolderItem]> folders;
     in property <bool> scanning;
     callback rescan();
+    /// A path on the server to add to the library.
+    in-out property <string> new-folder;
+    /// An example path as the server writes them (Windows or not).
+    in property <string> folder-example: "/mnt/music";
+    callback add-folder();
+    callback remove-folder(string);
+    in property <string> folders-message;
+    in property <bool> folders-error;
 
     // Admin: users.
     in property <[UserItem]> users;
@@ -2174,6 +2182,7 @@ component Note inherits Text {
 
 component SettingsPage inherits Rectangle {
     // Per-row admin actions waiting for input or confirmation.
+    property <string> removing-folder;
     property <string> resetting;
     property <string> reset-password;
     property <string> deleting;
@@ -2454,6 +2463,36 @@ component SettingsPage inherits Rectangle {
                         spacing: 10px;
                         Text { text: folder.path; color: Theme.text; font-size: 13px; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
                         Text { text: folder.detail; color: folder.available ? Theme.muted : #ff8a80; font-size: 12px; vertical-alignment: center; }
+                        // The library keeps at least one folder.
+                        if SettingsState.folders.length > 1: OutlineButton {
+                            danger: true;
+                            text: root.removing-folder == folder.path ? "Confirm remove" : "Remove";
+                            clicked => {
+                                if root.removing-folder == folder.path {
+                                    root.removing-folder = "";
+                                    SettingsState.remove-folder(folder.path);
+                                } else {
+                                    root.removing-folder = folder.path;
+                                }
+                            }
+                        }
+                    }
+                    if root.removing-folder != "": Note {
+                        text: "Removing a folder takes its tracks out of the library. Playlists keep them, and find them again if the folder comes back.";
+                        color: #ff8a80;
+                    }
+                    if SettingsState.is-admin: HorizontalLayout {
+                        spacing: 8px;
+                        LineEdit {
+                            text <=> SettingsState.new-folder;
+                            placeholder-text: "Another folder, as a path on the server (e.g. " + SettingsState.folder-example + ")";
+                            accepted => { SettingsState.add-folder(); }
+                        }
+                        OutlineButton { text: "Add folder"; clicked => { SettingsState.add-folder(); } }
+                    }
+                    if SettingsState.folders-message != "": Note {
+                        text: SettingsState.folders-message;
+                        color: SettingsState.folders-error ? #ff8a80 : Theme.muted;
                     }
                     if SettingsState.is-admin: HorizontalLayout {
                         alignment: start;
@@ -2461,7 +2500,7 @@ component SettingsPage inherits Rectangle {
                     }
                     Note {
                         text: SettingsState.is-admin
-                            ? "The server also rescans every few minutes and watches folders where the filesystem allows. Folders are set with HP_LIBRARY on the server."
+                            ? "The server also rescans every few minutes and watches folders where the filesystem allows. Folders set here replace HP_LIBRARY's, until HP_LIBRARY itself is changed (e.g. by the installer). In Docker, only folders mounted into the container can be found."
                             : SettingsState.scanning ? "The server is scanning the library now." : "The server rescans the library every few minutes, so new music shows up on its own.";
                     }
                 }

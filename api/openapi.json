@@ -712,6 +712,53 @@
         }
       }
     },
+    "/api/library/folders": {
+      "put": {
+        "operationId": "setLibraryFolders",
+        "summary": "Replace the music folders (each must exist on the server) and rescan",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetLibraryFolders"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Replace the music folders (each must exist on the server) and rescan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/artists": {
       "get": {
         "operationId": "listArtists",
@@ -3693,6 +3740,13 @@
               "$ref": "#/components/schemas/LibraryFolder"
             }
           },
+          "pathStyle": {
+            "type": "string",
+            "enum": [
+              "posix",
+              "windows"
+            ]
+          },
           "lastScanAt": {
             "nullable": true,
             "type": "string",
@@ -3723,11 +3777,30 @@
         "required": [
           "scanning",
           "folders",
+          "pathStyle",
           "lastScanAt",
           "artists",
           "albums",
           "tracks",
           "enrichmentQueue"
+        ],
+        "additionalProperties": false
+      },
+      "SetLibraryFolders": {
+        "type": "object",
+        "properties": {
+          "paths": {
+            "minItems": 1,
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "paths"
         ],
         "additionalProperties": false
       },

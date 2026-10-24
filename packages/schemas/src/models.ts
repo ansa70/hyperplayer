@@ -300,6 +300,8 @@ export const LibraryStatus = named(
     scanning: z.boolean(),
     /** The music folders, for admins; empty for everyone else. */
     folders: z.array(LibraryFolder),
+    /** How paths look on the server (`D:\Music` or `/mnt/music`), for entering a folder. */
+    pathStyle: z.enum(["posix", "windows"]),
     lastScanAt: z.iso.datetime().nullable(),
     artists: Count,
     albums: Count,
@@ -307,6 +309,15 @@ export const LibraryStatus = named(
     /** Albums and artists still waiting for external metadata. */
     enrichmentQueue: Count,
   }),
+);
+
+export const SetLibraryFolders = named(
+  "SetLibraryFolders",
+  z.object({
+    /** Full paths on the server; each must be an existing folder. */
+    paths: z.array(z.string().trim().min(1)).min(1).max(32),
+  }),
+  "The music folders, replacing HP_LIBRARY's until HP_LIBRARY itself changes.",
 );
 
 export const StreamFormat = named(
@@ -347,5 +358,6 @@ export type TrackPage = z.infer<typeof TrackPage>;
 export type SearchResults = z.infer<typeof SearchResults>;
 export type LibraryFolder = z.infer<typeof LibraryFolder>;
 export type LibraryStatus = z.infer<typeof LibraryStatus>;
+export type SetLibraryFolders = z.infer<typeof SetLibraryFolders>;
 export type StreamFormat = z.infer<typeof StreamFormat>;
 export type ApiError = z.infer<typeof ApiError>;

@@ -14,7 +14,7 @@ use hyperplayer::{
     api::{ServerError, types},
     replaygain,
 };
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 
 use super::{
     App, AppWindow, DeviceItem, FolderItem, Page, SettingsState, UserItem, background,
@@ -56,6 +56,14 @@ pub fn init(ui: &AppWindow) {
     });
     s.on_fm_disconnect(disconnect_lastfm);
     s.on_rescan(rescan);
+    s.on_add_folder(add_folder);
+    s.on_remove_folder(|path| {
+        let paths = folder_paths()
+            .into_iter()
+            .filter(|p| *p != path.as_str())
+            .collect();
+        set_folders(paths, "Folder removed; rescanning.");
+    });
     s.on_set_admin(|id, admin| update_user(id, serde_json::json!({ "admin": admin }), "Saved."));
     s.on_reset_password(|id, password| {
         if password.chars().count() < 8 {
@@ -105,8 +113,9 @@ pub fn toggle_page() {
 }
 
 fn load() {
-    // Outcomes of earlier user actions (perhaps by another account) are stale now.
+    // Outcomes of earlier actions (perhaps by another account) are stale now.
     users_message("", false);
+    state(|s| s.set_folders_message("".into()));
     let api = with_app(|app| app.api.clone());
     background(
         move || {
@@ -453,6 +462,10 @@ fn show_library(s: &SettingsState, l: &types::LibraryStatus) {
         .collect();
     s.set_folders(ModelRc::new(VecModel::from(folders)));
     s.set_scanning(l.scanning);
+    s.set_folder_example(match l.path_style {
+        types::LibraryStatusPathStyle::Windows => r"D:\Music".into(),
+        types::LibraryStatusPathStyle::Posix => "/mnt/music".into(),
+    });
 }
 
 fn show_users(s: &SettingsState, users: &[types::User], me: &str) {
@@ -572,6 +585,58 @@ fn create_user() {
         },
         "User added.",
     );
+}
+
+/// The folders as last shown.
+fn folder_paths() -> Vec<String> {
+    with_app(|app| {
+        app.ui.upgrade().map_or_else(Vec::new, |ui| {
+            let folders = ui.global::<SettingsState>().get_folders();
+            folders.iter().map(|f| f.path.to_string()).collect()
+        })
+    })
+}
+
+fn add_folder() {
+    let path = with_app(|app| {
+        app.ui.upgrade().map(|ui| {
+            ui.global::<SettingsState>()
+                .get_new_folder()
+                .trim()
+                .to_string()
+        })
+    })
+    .unwrap_or_default();
+    if path.is_empty() {
+        return;
+    }
+    let mut paths = folder_paths();
+    paths.push(path);
+    set_folders(paths, "Folder added; scanning it now.");
+}
+
+/// Sends the new folder list; the server refuses paths that aren't folders on it.
+fn set_folders(paths: Vec<String>, done: &'static str) {
+    let api = with_app(|app| app.api.clone());
+    thread::spawn(move || {
+        let result = api.set_library_folders(paths);
+        let _ = slint::invoke_from_event_loop(move || {
+            state(|s| match result {
+                Ok(library) => {
+                    show_library(&s, &library);
+                    s.set_new_folder("".into());
+                    s.set_folders_message(done.into());
+                    s.set_folders_error(false);
+                }
+                Err(e) => {
+                    // The server's own words ("There's no folder … on the server") are the useful part.
+                    let msg = format!("{e:#}");
+                    s.set_folders_message(msg.rsplit(": ").next().unwrap_or(&msg).into());
+                    s.set_folders_error(true);
+                }
+            })
+        });
+    });
 }
 
 fn rescan() {

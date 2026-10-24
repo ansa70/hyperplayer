@@ -1071,6 +1071,13 @@
             "$ref": "#/definitions/LibraryFolder"
           }
         },
+        "pathStyle": {
+          "type": "string",
+          "enum": [
+            "posix",
+            "windows"
+          ]
+        },
         "lastScanAt": {
           "anyOf": [
             {
@@ -1107,11 +1114,30 @@
       "required": [
         "scanning",
         "folders",
+        "pathStyle",
         "lastScanAt",
         "artists",
         "albums",
         "tracks",
         "enrichmentQueue"
+      ],
+      "additionalProperties": false
+    },
+    "SetLibraryFolders": {
+      "type": "object",
+      "properties": {
+        "paths": {
+          "minItems": 1,
+          "maxItems": 32,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "paths"
       ],
       "additionalProperties": false
     },

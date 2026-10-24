@@ -2,7 +2,7 @@ import { buildApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
 
 const config = loadConfig();
-const { app, startScan, tls } = await buildApp(config);
+const { app, startScan, tls, folders } = await buildApp(config);
 
 await app.listen({ host: config.host, port: config.port });
 if (tls) {
@@ -14,7 +14,7 @@ if (tls) {
 } else {
   app.log.info("Plain HTTP (HP_TLS)");
 }
-app.log.info(`Library: ${config.libraryPaths.join(", ")}`);
+app.log.info(`Library: ${folders.paths.join(", ")}`);
 void startScan();
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
