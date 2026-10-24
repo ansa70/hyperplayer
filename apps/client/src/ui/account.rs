@@ -509,7 +509,7 @@ fn signed_in(display: &str) {
     with_app(|app| {
         if let Some(ui) = app.ui.upgrade() {
             ui.set_signed_in(true);
-            ui.set_account(format!("Signed in as {display}").into());
+            ui.set_account(display.into());
             set_login(app, |l| l.busy = false);
         }
     });

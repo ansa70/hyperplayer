@@ -122,6 +122,8 @@ global Icons {
     out property <string> history: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5 M12 7v5l4 2";
     // Lucide "mic-vocal".
     out property <string> lyrics: "M11 7.601l-5.994 8.19a1 1 0 0 0 .1 1.298l.817.818a1 1 0 0 0 1.314.087L15.09 12 M16.5 21.174C15.5 20.5 14.372 20 13 20c-2.058 0-3.928 2.356-6 2-2.072-.356-2.775-3.369-1.5-4.5 M11 7a5 5 0 1 0 10 0a5 5 0 1 0-10 0";
+    // Lucide "user".
+    out property <string> user: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M8 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0";
     out property <string> more: "M12 12h.01 M19 12h.01 M5 12h.01";
     out property <string> plus: "M5 12h14 M12 5v14";
     out property <string> window-close: "M18 6 6 18 M6 6l12 12";
@@ -414,6 +416,54 @@ component TrackRow inherits Rectangle {
 }
 
 /// A sidebar entry leading to a page (Albums, History).
+/// A scroll bar laid over a ScrollView or ListView whose own bar is off (the
+/// style's is barely visible): a thin line at rest, wider and in the accent
+/// colour under the pointer. Drag it, click the track to jump, or scroll on it.
+component AccentScrollBar inherits Rectangle {
+    in property <length> visible-height;
+    in property <length> content-height;
+    in-out property <length> content-y;
+    property <length> maximum: max(0px, root.content-height - root.visible-height);
+    property <bool> active: ta.has-hover || ta.pressed;
+    width: 14px;
+    visible: root.maximum > 0;
+    thumb := Rectangle {
+        width: root.active ? 6px : 3px;
+        x: parent.width - 4px - self.width;
+        height: max(24px, root.height * root.visible-height / max(1px, root.content-height));
+        y: (root.height - self.height) * (-root.content-y / max(1px, root.maximum));
+        border-radius: self.width / 2;
+        background: root.active ? Theme.accent : Theme.muted.with-alpha(0.45);
+        animate width, background { duration: 150ms; easing: ease-out; }
+    }
+    ta := TouchArea {
+        property <length> grab-offset;
+        property <length> grab-y;
+        function scroll-to(offset: length) {
+            root.content-y = -clamp(offset, 0px, root.maximum);
+        }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                // On the track: centre the thumb under the pointer, then drag from there.
+                if self.mouse-y < thumb.y || self.mouse-y > thumb.y + thumb.height {
+                    self.scroll-to((self.mouse-y - thumb.height / 2) * root.maximum / max(1px, root.height - thumb.height));
+                }
+                self.grab-offset = -root.content-y;
+                self.grab-y = self.mouse-y;
+            }
+        }
+        moved => {
+            if self.pressed {
+                self.scroll-to(self.grab-offset + (self.mouse-y - self.grab-y) * root.maximum / max(1px, root.height - thumb.height));
+            }
+        }
+        scroll-event(e) => {
+            self.scroll-to(-root.content-y - e.delta-y);
+            accept
+        }
+    }
+}
+
 component NavRow inherits Rectangle {
     in property <string> icon;
     in property <string> text;
@@ -480,115 +530,150 @@ component Sidebar inherits Rectangle {
     }
     background: Theme.panel;
     VerticalLayout {
-        padding: 16px;
-        spacing: 12px;
-        Text {
-            text: "HyperPlayer";
-            color: Theme.text;
-            font-size: 20px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
-        search := LineEdit {
-            placeholder-text: "Search artists, albums, tracks   ( / )";
-            edited(text) => { root.search-changed(text); }
-            accepted(text) => { root.search-accepted(text); }
-        }
-        NavRow {
-            icon: Icons.albums;
-            text: "Albums";
-            active: root.albums-open;
-            clicked => { root.show-albums(); }
-        }
-        NavRow {
-            icon: Icons.history;
-            text: "History";
-            active: root.history-open;
-            clicked => { root.show-history(); }
-        }
-        HorizontalLayout {
-            Text { text: "PLAYLISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; vertical-alignment: center; }
-            Rectangle {
-                width: 24px;
-                height: 24px;
-                border-radius: 12px;
-                background: plus-ta.has-hover ? Theme.accent.brighter(0.15) : Theme.accent;
-                drop-shadow-blur: plus-ta.has-hover ? 10px : 4px;
-                drop-shadow-color: Theme.accent.with-alpha(0.5);
-                animate background, drop-shadow-blur { duration: 120ms; }
-                Path {
-                    x: 3px;
-                    y: 3px;
-                    width: 18px;
-                    height: 18px;
-                    viewbox-width: 24;
-                    viewbox-height: 24;
-                    commands: Icons.plus;
-                    fill: transparent;
-                    stroke: Theme.bg;
-                    stroke-width: 2.25px;
-                }
-                plus-ta := TouchArea { mouse-cursor: pointer; clicked => { root.new-playlist(); } }
-            }
-        }
         VerticalLayout {
-            spacing: 2px;
-            for p in root.playlists: Rectangle {
-                height: 30px;
-                border-radius: 6px;
-                background: p.id == root.selected-playlist-id ? Theme.surface-hi : (pl-ta.has-hover ? Theme.surface-hi.with-alpha(0.5) : transparent);
-                HorizontalLayout {
-                    padding-left: 8px;
-                    padding-right: 8px;
-                    Text { text: p.name; color: Theme.text; font-size: 13px; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
-                    Text { text: p.subtitle; color: Theme.faint; font-size: 11px; vertical-alignment: center; }
-                }
-                pl-ta := TouchArea { clicked => { root.select-playlist(p.id); } }
-            }
-        }
-        Text { text: "ARTISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
-        artist-list := ListView {
-            for artist in root.artists: Rectangle {
-                height: 52px;
-                border-radius: 8px;
-                background: artist.id == root.selected-id ? Theme.surface-hi : (ta.has-hover ? Theme.surface-hi.with-alpha(0.5) : transparent);
-                HorizontalLayout {
-                    padding: 6px;
-                    spacing: 10px;
-                    Rectangle {
-                        width: 40px;
-                        height: 40px;
-                        border-radius: 20px;
-                        clip: true;
-                        background: Theme.surface-hi;
-                        Image { width: 40px; height: 40px; source: artist.image; image-fit: cover; }
-                    }
-                    VerticalLayout {
-                        alignment: center;
-                        Text { text: artist.name; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
-                        Text { text: artist.subtitle; color: Theme.muted; font-size: 11px; overflow: elide; }
-                    }
-                }
-                ta := TouchArea { clicked => { root.select(artist.id); } }
-            }
-        }
-        Text { text: root.status; color: Theme.faint; font-size: 11px; wrap: word-wrap; }
-        HorizontalLayout {
-            spacing: 8px;
-            Text { text: root.account; color: Theme.muted; font-size: 12px; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+            padding: 16px;
+            spacing: 12px;
             Text {
-                text: "Settings";
-                color: root.settings-open || settings-ta.has-hover ? Theme.text : Theme.faint;
-                font-size: 12px;
-                vertical-alignment: center;
-                settings-ta := TouchArea { mouse-cursor: pointer; clicked => { root.show-settings(); } }
+                text: "HyperPlayer";
+                color: Theme.text;
+                font-size: 20px;
+                font-weight: 800;
+                letter-spacing: -0.5px;
             }
-            Text {
-                text: "Sign out";
-                color: out-ta.has-hover ? Theme.text : Theme.faint;
-                font-size: 12px;
-                vertical-alignment: center;
-                out-ta := TouchArea { mouse-cursor: pointer; clicked => { root.sign-out(); } }
+            search := LineEdit {
+                placeholder-text: "Search artists, albums, tracks   ( / )";
+                edited(text) => { root.search-changed(text); }
+                accepted(text) => { root.search-accepted(text); }
+            }
+            NavRow {
+                icon: Icons.albums;
+                text: "Albums";
+                active: root.albums-open;
+                clicked => { root.show-albums(); }
+            }
+            NavRow {
+                icon: Icons.history;
+                text: "History";
+                active: root.history-open;
+                clicked => { root.show-history(); }
+            }
+            HorizontalLayout {
+                Text { text: "PLAYLISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; vertical-alignment: center; }
+                Rectangle {
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 12px;
+                    background: plus-ta.has-hover ? Theme.accent.brighter(0.15) : Theme.accent;
+                    drop-shadow-blur: plus-ta.has-hover ? 10px : 4px;
+                    drop-shadow-color: Theme.accent.with-alpha(0.5);
+                    animate background, drop-shadow-blur { duration: 120ms; }
+                    Path {
+                        x: 3px;
+                        y: 3px;
+                        width: 18px;
+                        height: 18px;
+                        viewbox-width: 24;
+                        viewbox-height: 24;
+                        commands: Icons.plus;
+                        fill: transparent;
+                        stroke: Theme.bg;
+                        stroke-width: 2.25px;
+                    }
+                    plus-ta := TouchArea { mouse-cursor: pointer; clicked => { root.new-playlist(); } }
+                }
+            }
+            VerticalLayout {
+                spacing: 2px;
+                for p in root.playlists: Rectangle {
+                    height: 30px;
+                    border-radius: 6px;
+                    background: p.id == root.selected-playlist-id ? Theme.surface-hi : (pl-ta.has-hover ? Theme.surface-hi.with-alpha(0.5) : transparent);
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        Text { text: p.name; color: Theme.text; font-size: 13px; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                        Text { text: p.subtitle; color: Theme.faint; font-size: 11px; vertical-alignment: center; }
+                    }
+                    pl-ta := TouchArea { clicked => { root.select-playlist(p.id); } }
+                }
+            }
+            Text { text: "ARTISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
+            Rectangle {
+                vertical-stretch: 1;
+                artist-list := ListView {
+                    vertical-scrollbar-policy: always-off;
+                    for artist in root.artists: Rectangle {
+                        height: 52px;
+                        border-radius: 8px;
+                        background: artist.id == root.selected-id ? Theme.surface-hi : (ta.has-hover ? Theme.surface-hi.with-alpha(0.5) : transparent);
+                        HorizontalLayout {
+                            padding: 6px;
+                            spacing: 10px;
+                            Rectangle {
+                                width: 40px;
+                                height: 40px;
+                                border-radius: 20px;
+                                clip: true;
+                                background: Theme.surface-hi;
+                                Image { width: 40px; height: 40px; source: artist.image; image-fit: cover; }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                Text { text: artist.name; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
+                                Text { text: artist.subtitle; color: Theme.muted; font-size: 11px; overflow: elide; }
+                            }
+                        }
+                        ta := TouchArea { clicked => { root.select(artist.id); } }
+                    }
+                }
+                AccentScrollBar {
+                    x: parent.width - self.width;
+                    height: parent.height;
+                    visible-height: artist-list.visible-height;
+                    content-height: artist-list.content-height;
+                    content-y <=> artist-list.content-y;
+                }
+            }
+            if root.status != "": Text { text: root.status; color: Theme.faint; font-size: 11px; wrap: word-wrap; }
+        }
+        // The account, set apart from the scrolling lists like the transport bar.
+        Rectangle {
+            background: Theme.chrome;
+            Rectangle { y: 0; height: 1px; background: Theme.surface-hi; }
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                padding-top: 12px;
+                padding-bottom: 12px;
+                spacing: 8px;
+                VerticalLayout {
+                    alignment: center;
+                    Path {
+                        width: 14px;
+                        height: 14px;
+                        viewbox-width: 24;
+                        viewbox-height: 24;
+                        commands: Icons.user;
+                        fill: transparent;
+                        stroke: Theme.muted;
+                        stroke-width: 2px;
+                    }
+                }
+                Text { text: root.account; color: Theme.text; font-size: 12px; font-weight: 600; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                Text {
+                    text: "Settings";
+                    color: root.settings-open || settings-ta.has-hover ? Theme.text : Theme.faint;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                    settings-ta := TouchArea { mouse-cursor: pointer; clicked => { root.show-settings(); } }
+                }
+                Text {
+                    text: "Sign out";
+                    color: out-ta.has-hover ? Theme.text : Theme.faint;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                    out-ta := TouchArea { mouse-cursor: pointer; clicked => { root.sign-out(); } }
+                }
             }
         }
     }
@@ -1114,96 +1199,106 @@ component NowPlayingPanel inherits Rectangle {
     }
     // Every line in here wraps or elides: one that can't would widen the whole
     // column past the panel's edge.
-    if np.active: ScrollView {
-        VerticalLayout {
-            alignment: start;
-            padding: 22px;
-            spacing: 14px;
-            Text { text: "NOW PLAYING"; color: Theme.art-muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
-            Cover {
-                source: np.cover;
-                size: root.width - 44px;
-                drop-shadow-blur: 40px;
-                drop-shadow-color: np.accent.with-alpha(0.45);
-            }
-            if root.visualizer: Rectangle {
-                height: 44px;
-                property <length> step: self.width / max(1, root.spectrum.length);
-                for level[i] in root.spectrum: Rectangle {
-                    x: i * parent.step + parent.step * 0.15;
-                    width: parent.step * 0.7;
-                    height: max(2px, level * parent.height);
-                    y: parent.height - self.height;
-                    border-radius: 2px;
-                    background: @linear-gradient(0deg, Theme.accent.with-alpha(0.55) 0%, Theme.accent 100%);
-                }
-            }
+    if np.active: Rectangle {
+        np-scroll := ScrollView {
+            vertical-scrollbar-policy: always-off;
             VerticalLayout {
-                spacing: 2px;
-                Text { text: np.title; color: Theme.art-text; font-size: 22px; font-weight: 800; wrap: word-wrap; }
-                Text { text: np.artist; color: Theme.art-text; font-size: 15px; font-weight: 600; wrap: word-wrap; }
-                Text { text: np.album + (np.year == "" ? "" : "  ·  " + np.year); color: Theme.art-muted; font-size: 13px; wrap: word-wrap; }
-            }
-            HorizontalLayout {
                 alignment: start;
-                spacing: 6px;
-                Chip { text: np.format; accent: np.accent; }
-                if np.quality != "": Chip { text: np.quality; accent: np.accent; }
-            }
-            if np.genres != "": Text { text: np.genres; color: Theme.art-muted; font-size: 12px; wrap: word-wrap; }
-            Rectangle { height: 1px; background: Theme.surface-hi; }
-            Text { text: "Credits"; color: Theme.art-text; font-size: 15px; font-weight: 700; }
-            if credits.length == 0: Text {
-                text: np.loading-details ? "Looking up musicians…" : "No credits found for this track.";
-                color: Theme.art-faint;
-                font-size: 12px;
-            }
-            CreditList {
-                items: root.credits;
-                accent: np.accent;
-                text-color: Theme.art-text;
-                muted-color: Theme.art-muted;
-                faint-color: Theme.art-faint;
-                select-artist(id) => { root.select-artist(id); }
-            }
-            Rectangle { height: 1px; background: Theme.surface-hi; }
-            VerticalLayout {
-                spacing: 2px;
-                Text {
-                    text: "About " + np.artist;
-                    color: about-ta.has-hover ? np.accent.brighter(0.4) : Theme.art-text;
-                    font-size: 15px;
-                    font-weight: 700;
-                    wrap: word-wrap;
-                    about-ta := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => { root.select-artist(np.artist-id); }
+                padding: 22px;
+                spacing: 14px;
+                Text { text: "NOW PLAYING"; color: Theme.art-muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+                Cover {
+                    source: np.cover;
+                    size: root.width - 44px;
+                    drop-shadow-blur: 40px;
+                    drop-shadow-color: np.accent.with-alpha(0.45);
+                }
+                if root.visualizer: Rectangle {
+                    height: 44px;
+                    property <length> step: self.width / max(1, root.spectrum.length);
+                    for level[i] in root.spectrum: Rectangle {
+                        x: i * parent.step + parent.step * 0.15;
+                        width: parent.step * 0.7;
+                        height: max(2px, level * parent.height);
+                        y: parent.height - self.height;
+                        border-radius: 2px;
+                        background: @linear-gradient(0deg, Theme.accent.with-alpha(0.55) 0%, Theme.accent 100%);
                     }
                 }
-                if np.artist-meta != "": Text { text: np.artist-meta; color: Theme.art-muted; font-size: 12px; wrap: word-wrap; }
+                VerticalLayout {
+                    spacing: 2px;
+                    Text { text: np.title; color: Theme.art-text; font-size: 22px; font-weight: 800; wrap: word-wrap; }
+                    Text { text: np.artist; color: Theme.art-text; font-size: 15px; font-weight: 600; wrap: word-wrap; }
+                    Text { text: np.album + (np.year == "" ? "" : "  ·  " + np.year); color: Theme.art-muted; font-size: 13px; wrap: word-wrap; }
+                }
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 6px;
+                    Chip { text: np.format; accent: np.accent; }
+                    if np.quality != "": Chip { text: np.quality; accent: np.accent; }
+                }
+                if np.genres != "": Text { text: np.genres; color: Theme.art-muted; font-size: 12px; wrap: word-wrap; }
+                Rectangle { height: 1px; background: Theme.surface-hi; }
+                Text { text: "Credits"; color: Theme.art-text; font-size: 15px; font-weight: 700; }
+                if credits.length == 0: Text {
+                    text: np.loading-details ? "Looking up musicians…" : "No credits found for this track.";
+                    color: Theme.art-faint;
+                    font-size: 12px;
+                }
+                CreditList {
+                    items: root.credits;
+                    accent: np.accent;
+                    text-color: Theme.art-text;
+                    muted-color: Theme.art-muted;
+                    faint-color: Theme.art-faint;
+                    select-artist(id) => { root.select-artist(id); }
+                }
+                Rectangle { height: 1px; background: Theme.surface-hi; }
+                VerticalLayout {
+                    spacing: 2px;
+                    Text {
+                        text: "About " + np.artist;
+                        color: about-ta.has-hover ? np.accent.brighter(0.4) : Theme.art-text;
+                        font-size: 15px;
+                        font-weight: 700;
+                        wrap: word-wrap;
+                        about-ta := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.select-artist(np.artist-id); }
+                        }
+                    }
+                    if np.artist-meta != "": Text { text: np.artist-meta; color: Theme.art-muted; font-size: 12px; wrap: word-wrap; }
+                }
+                Text {
+                    text: np.biography != "" ? np.biography : np.loading-details ? "Fetching biography…" : "No biography available.";
+                    color: Theme.art-muted;
+                    font-size: 12px;
+                    wrap: word-wrap;
+                }
+                if members.length > 0: CreditList {
+                    items: root.members;
+                    accent: np.accent;
+                    text-color: Theme.art-text;
+                    muted-color: Theme.art-muted;
+                    faint-color: Theme.art-faint;
+                    select-artist(id) => { root.select-artist(id); }
+                }
+                if more-from.length > 0: Text { text: "More from " + np.artist; color: Theme.art-text; font-size: 15px; font-weight: 700; wrap: word-wrap; }
+                if more-from.length > 0: AlbumGrid {
+                    albums: root.more-from;
+                    cell: (root.width - 44px - 20px) / 2;
+                    text-color: Theme.art-text;
+                    muted-color: Theme.art-muted;
+                    select(id) => { root.select-album(id); }
+                }
             }
-            Text {
-                text: np.biography != "" ? np.biography : np.loading-details ? "Fetching biography…" : "No biography available.";
-                color: Theme.art-muted;
-                font-size: 12px;
-                wrap: word-wrap;
-            }
-            if members.length > 0: CreditList {
-                items: root.members;
-                accent: np.accent;
-                text-color: Theme.art-text;
-                muted-color: Theme.art-muted;
-                faint-color: Theme.art-faint;
-                select-artist(id) => { root.select-artist(id); }
-            }
-            if more-from.length > 0: Text { text: "More from " + np.artist; color: Theme.art-text; font-size: 15px; font-weight: 700; wrap: word-wrap; }
-            if more-from.length > 0: AlbumGrid {
-                albums: root.more-from;
-                cell: (root.width - 44px - 20px) / 2;
-                text-color: Theme.art-text;
-                muted-color: Theme.art-muted;
-                select(id) => { root.select-album(id); }
-            }
+        }
+        AccentScrollBar {
+            x: parent.width - self.width;
+            height: parent.height;
+            visible-height: np-scroll.visible-height;
+            content-height: np-scroll.content-height;
+            content-y <=> np-scroll.content-y;
         }
     }
 }
