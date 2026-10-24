@@ -15,6 +15,12 @@ fn button_layout() -> (Vec<String>, Vec<String>) {
     if cfg!(windows) {
         return parse_layout(":minimize,maximize,close");
     }
+    // The settings portal answers for the desktop actually running, also inside a
+    // Flatpak; gsettings goes by XDG_CURRENT_DESKTOP, which terminals sometimes misreport.
+    #[cfg(target_os = "linux")]
+    if let Some(layout) = portal_button_layout() {
+        return parse_layout(&layout);
+    }
     let layout = Command::new("gsettings")
         .args(["get", "org.gnome.desktop.wm.preferences", "button-layout"])
         .output()
@@ -28,6 +34,34 @@ fn button_layout() -> (Vec<String>, Vec<String>) {
         })
         .unwrap_or_else(|| ":minimize,maximize,close".into());
     parse_layout(&layout)
+}
+
+/// GNOME's button layout through the desktop's settings portal, if one runs.
+#[cfg(target_os = "linux")]
+fn portal_button_layout() -> Option<String> {
+    use zbus::zvariant::{OwnedValue, Value};
+    let bus = zbus::blocking::Connection::session().ok()?;
+    let read = |method: &str| {
+        bus.call_method(
+            Some("org.freedesktop.portal.Desktop"),
+            "/org/freedesktop/portal/desktop",
+            Some("org.freedesktop.portal.Settings"),
+            method,
+            &("org.gnome.desktop.wm.preferences", "button-layout"),
+        )
+        .ok()?
+        .body()
+        .deserialize::<OwnedValue>()
+        .ok()
+    };
+    // ReadOne since portal version 2; Read before, which wraps the value once more.
+    if let Some(value) = read("ReadOne") {
+        return String::try_from(value).ok();
+    }
+    match &*read("Read")? {
+        Value::Value(inner) => String::try_from(inner.try_clone().ok()?).ok(),
+        _ => None,
+    }
 }
 
 fn parse_layout(layout: &str) -> (Vec<String>, Vec<String>) {

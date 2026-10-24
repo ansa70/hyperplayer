@@ -2400,6 +2400,7 @@ dependencies = [
  "syn 2.0.119",
  "typify",
  "windows-sys 0.61.2",
+ "zbus 5.19.0",
 ]
 
 [[package]]

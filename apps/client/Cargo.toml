@@ -31,6 +31,10 @@ regress = "0.10"
 souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] }
 slint = { version = "1.18", features = ["unstable-winit-030"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# The desktop's settings portal (the window-button layout), as the media controls already use it.
+zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }
 

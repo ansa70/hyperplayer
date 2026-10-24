@@ -3075,7 +3075,8 @@ export component AppWindow inherits Window {
     property <color> shown-b: root.tint-b;
     property <color> shown-c: root.tint-c;
     animate shown-a, shown-b, shown-c { duration: 900ms; easing: ease-in-out; }
-    background: @linear-gradient(150deg, root.shown-a 0%, root.shown-b 55%, root.shown-c 100%);
+    property <bool> rounded: root.custom-title-bar && !root.window-maximized;
+    background: transparent;
 
     in property <[ArtistItem]> artists;
     in property <string> selected-artist-id;
@@ -3222,262 +3223,270 @@ export component AppWindow inherits Window {
     callback set-shuffle-scope(string);
     callback cycle-repeat();
 
-    keys := FocusScope {
-    key-pressed(event) => {
-        if event.text == Key.Escape {
-            if root.show-help { root.show-help = false; }
-            else if sidebar.clear-search() { }
-            else if root.page == Page.queue { root.show-queue(); }
-            else if root.page == Page.lyrics { root.show-lyrics(); }
-            else if root.page == Page.history { root.show-history(); }
-            else if root.page == Page.albums { root.show-albums(); }
-            else if root.page == Page.settings { root.show-settings(); }
-            keys.focus();
-            return accept;
-        }
-        // Everything else is ignored while modifier combos other than Ctrl are held.
-        if event.modifiers.alt || event.modifiers.meta { return reject; }
-        if event.modifiers.control {
-            if event.text == Key.LeftArrow { root.prev(); return accept; }
-            if event.text == Key.RightArrow { root.next(); return accept; }
-            if event.text == "f" { sidebar.focus-search(); return accept; }
+    // With our own title bar (and not maximized) the window is drawn inside a frame with
+    // rounded corners; the window itself stays transparent around them.
+    frame := Rectangle {
+        border-radius: root.rounded ? 10px : 0px;
+        clip: true;
+        background: @linear-gradient(150deg, root.shown-a 0%, root.shown-b 55%, root.shown-c 100%);
+
+        keys := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                if root.show-help { root.show-help = false; }
+                else if sidebar.clear-search() { }
+                else if root.page == Page.queue { root.show-queue(); }
+                else if root.page == Page.lyrics { root.show-lyrics(); }
+                else if root.page == Page.history { root.show-history(); }
+                else if root.page == Page.albums { root.show-albums(); }
+                else if root.page == Page.settings { root.show-settings(); }
+                keys.focus();
+                return accept;
+            }
+            // Everything else is ignored while modifier combos other than Ctrl are held.
+            if event.modifiers.alt || event.modifiers.meta { return reject; }
+            if event.modifiers.control {
+                if event.text == Key.LeftArrow { root.prev(); return accept; }
+                if event.text == Key.RightArrow { root.next(); return accept; }
+                if event.text == "f" { sidebar.focus-search(); return accept; }
+                return reject;
+            }
+            if event.text == " " { root.toggle(); return accept; }
+            if event.text == Key.LeftArrow { root.shortcut("seek-back"); return accept; }
+            if event.text == Key.RightArrow { root.shortcut("seek-forward"); return accept; }
+            if event.text == Key.UpArrow {
+                root.volume = min(1.0, root.volume + 0.05);
+                root.volume-changed(root.volume);
+                return accept;
+            }
+            if event.text == Key.DownArrow {
+                root.volume = max(0.0, root.volume - 0.05);
+                root.volume-changed(root.volume);
+                return accept;
+            }
+            if event.text == "m" || event.text == "M" { root.shortcut("toggle-mute"); return accept; }
+            if event.text == "s" || event.text == "S" { root.toggle-shuffle(); return accept; }
+            if event.text == "r" || event.text == "R" { root.cycle-repeat(); return accept; }
+            if event.text == "q" || event.text == "Q" { root.show-queue(); return accept; }
+            if event.text == "l" || event.text == "L" { root.show-lyrics(); return accept; }
+            if event.text == "h" || event.text == "H" { root.show-history(); return accept; }
+            if event.text == "a" || event.text == "A" { root.show-albums(); return accept; }
+            if event.text == "," { root.show-settings(); return accept; }
+            if event.text == "/" { sidebar.focus-search(); return accept; }
+            if event.text == "?" { root.show-help = !root.show-help; return accept; }
             return reject;
         }
-        if event.text == " " { root.toggle(); return accept; }
-        if event.text == Key.LeftArrow { root.shortcut("seek-back"); return accept; }
-        if event.text == Key.RightArrow { root.shortcut("seek-forward"); return accept; }
-        if event.text == Key.UpArrow {
-            root.volume = min(1.0, root.volume + 0.05);
-            root.volume-changed(root.volume);
-            return accept;
-        }
-        if event.text == Key.DownArrow {
-            root.volume = max(0.0, root.volume - 0.05);
-            root.volume-changed(root.volume);
-            return accept;
-        }
-        if event.text == "m" || event.text == "M" { root.shortcut("toggle-mute"); return accept; }
-        if event.text == "s" || event.text == "S" { root.toggle-shuffle(); return accept; }
-        if event.text == "r" || event.text == "R" { root.cycle-repeat(); return accept; }
-        if event.text == "q" || event.text == "Q" { root.show-queue(); return accept; }
-        if event.text == "l" || event.text == "L" { root.show-lyrics(); return accept; }
-        if event.text == "h" || event.text == "H" { root.show-history(); return accept; }
-        if event.text == "a" || event.text == "A" { root.show-albums(); return accept; }
-        if event.text == "," { root.show-settings(); return accept; }
-        if event.text == "/" { sidebar.focus-search(); return accept; }
-        if event.text == "?" { root.show-help = !root.show-help; return accept; }
-        return reject;
-    }
-    VerticalLayout {
-        if root.custom-title-bar: TitleBar {
-            title: root.title;
-            maximized: root.window-maximized;
-            left: root.title-buttons-left;
-            right: root.title-buttons-right;
-            drag => { root.window-drag(); }
-            button(b) => { root.window-button(b); }
-        }
-        HorizontalLayout {
-            sidebar := Sidebar {
-                width: 260px;
-                artists: root.artists;
-                selected-id: root.selected-artist-id;
-                status: root.status;
-                select(id) => { root.select-artist(id); }
-                search-changed(text) => { root.search-changed(text); }
-                search-accepted(text) => { root.search-accepted(text); }
-                playlists: root.playlists;
-                selected-playlist-id: root.page == Page.playlist ? root.selected-playlist-id : "";
-                select-playlist(id) => { root.select-playlist(id); }
-                new-playlist(kind) => { root.new-playlist(kind); }
-                account: root.account;
-                sign-out => { root.sign-out(); }
-                history-open: root.page == Page.history;
-                show-history => { root.show-history(); }
-                albums-open: root.page == Page.albums;
-                show-albums => { root.show-albums(); }
-                settings-open: root.page == Page.settings;
-                show-settings => { root.show-settings(); }
+        VerticalLayout {
+            if root.custom-title-bar: TitleBar {
+                title: root.title;
+                maximized: root.window-maximized;
+                left: root.title-buttons-left;
+                right: root.title-buttons-right;
+                drag => { root.window-drag(); }
+                button(b) => { root.window-button(b); }
             }
-            Rectangle {
-                horizontal-stretch: 1;
-                if root.page == Page.welcome: Text {
-                    text: "Pick an artist to start listening";
-                    color: Theme.faint;
-                    font-size: 16px;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
+            HorizontalLayout {
+                sidebar := Sidebar {
+                    width: 260px;
+                    artists: root.artists;
+                    selected-id: root.selected-artist-id;
+                    status: root.status;
+                    select(id) => { root.select-artist(id); }
+                    search-changed(text) => { root.search-changed(text); }
+                    search-accepted(text) => { root.search-accepted(text); }
+                    playlists: root.playlists;
+                    selected-playlist-id: root.page == Page.playlist ? root.selected-playlist-id : "";
+                    select-playlist(id) => { root.select-playlist(id); }
+                    new-playlist(kind) => { root.new-playlist(kind); }
+                    account: root.account;
+                    sign-out => { root.sign-out(); }
+                    history-open: root.page == Page.history;
+                    show-history => { root.show-history(); }
+                    albums-open: root.page == Page.albums;
+                    show-albums => { root.show-albums(); }
+                    settings-open: root.page == Page.settings;
+                    show-settings => { root.show-settings(); }
                 }
-                if root.page == Page.artist: ArtistPage {
-                    artist: root.artist;
-                    albums: root.artist-albums;
-                    members: root.artist-members;
+                Rectangle {
+                    horizontal-stretch: 1;
+                    if root.page == Page.welcome: Text {
+                        text: "Pick an artist to start listening";
+                        color: Theme.faint;
+                        font-size: 16px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                    if root.page == Page.artist: ArtistPage {
+                        artist: root.artist;
+                        albums: root.artist-albums;
+                        members: root.artist-members;
+                        select-album(id) => { root.select-album(id); }
+                        select-artist(id) => { root.select-artist(id); }
+                    }
+                    if root.page == Page.search: SearchPage {
+                        query: root.search-query;
+                        artists: root.search-artists;
+                        albums: root.search-albums;
+                        tracks: root.search-tracks;
+                        playlists: root.editable-playlists;
+                        select-artist(id) => { root.select-artist(id); }
+                        select-album(id) => { root.select-album(id); }
+                        play(i) => { root.play-search-track(i); }
+                        track-action(i, kind, id) => { root.track-action("search", i, kind, id); }
+                    }
+                    if root.page == Page.playlist: PlaylistPage {
+                        playlist: root.playlist;
+                        tracks: root.playlist-tracks;
+                        playlists: root.editable-playlists;
+                        play(i) => { root.play-playlist(i); }
+                        shuffle-play => { root.shuffle-playlist(); }
+                        rename(name) => { root.rename-playlist(name); }
+                        delete => { root.delete-playlist(); }
+                        track-action(i, kind, id) => { root.track-action("playlist", i, kind, id); }
+                        add-query <=> root.playlist-add-query;
+                        add-pending: root.playlist-add-pending;
+                        add-tracks: root.playlist-add-tracks;
+                        add-albums: root.playlist-add-albums;
+                        add-artists: root.playlist-add-artists;
+                        add-genres: root.playlist-add-genres;
+                        add-message: root.playlist-add-message;
+                        add-search(text) => { root.playlist-add-search(text); }
+                        add(kind, id, title) => { root.playlist-add(kind, id, title); }
+                        smart: root.smart-playlist;
+                        rules: root.smart-rules;
+                        match-any: root.smart-match-any;
+                        order: root.smart-order;
+                        descending: root.smart-descending;
+                        limit: root.smart-limit;
+                        rules-dirty: root.smart-dirty;
+                        rules-message: root.smart-message;
+                        set-match(any) => { root.smart-set-match(any); }
+                        rule-field(i, f) => { root.smart-rule-field(i, f); }
+                        rule-op(i, o) => { root.smart-rule-op(i, o); }
+                        rule-value(i, v) => { root.smart-rule-value(i, v); }
+                        rule-value2(i, v) => { root.smart-rule-value2(i, v); }
+                        remove-rule(i) => { root.smart-remove-rule(i); }
+                        add-rule => { root.smart-add-rule(); }
+                        set-order(o) => { root.smart-set-order(o); }
+                        set-descending(d) => { root.smart-set-descending(d); }
+                        set-limit(l) => { root.smart-set-limit(l); }
+                        apply-rules => { root.smart-apply(); }
+                        save-copy => { root.smart-save-copy(); }
+                    }
+                    if root.page == Page.settings: SettingsPage { }
+                    if root.page == Page.albums: AlbumsPage {
+                        summary: root.albums-summary;
+                        sort: root.albums-sort;
+                        rows: root.albums-rows;
+                        reset: root.albums-reset;
+                        select(id) => { root.select-album(id); }
+                        sort-by(key) => { root.albums-sort-by(key); }
+                        columns-changed(n) => { root.albums-columns(n); }
+                        visible-rows(first, last) => { root.albums-visible(first, last); }
+                    }
+                    if root.page == Page.history: HistoryPage {
+                        loaded: root.history-loaded;
+                        summary: root.history-summary;
+                        artists: root.history-artists;
+                        top: root.history-top;
+                        recent: root.history-recent;
+                        playlists: root.editable-playlists;
+                        select-artist(id) => { root.select-artist(id); }
+                        play(list, i) => { root.play-history-track(list, i); }
+                        track-action(list, i, kind, id) => { root.track-action(list, i, kind, id); }
+                    }
+                    if root.page == Page.lyrics: LyricsPage {
+                        title: root.np.active ? root.np.title : "";
+                        artist: root.np.active ? root.np.artist : "";
+                        state: root.lyrics-state;
+                        lines: root.lyrics-lines;
+                        current: root.lyrics-current;
+                        source: root.lyrics-source;
+                        seek-line(i) => { root.seek-lyric-line(i); }
+                    }
+                    if root.page == Page.queue: QueuePage {
+                        origin: root.queue-origin;
+                        now: root.queue-now;
+                        next: root.queue-next;
+                        playlists: root.editable-playlists;
+                        jump(i) => { root.jump-in-queue(i); }
+                        clear => { root.clear-queue(); }
+                        track-action(i, kind, id) => { root.track-action("queue", i, kind, id); }
+                    }
+                    if root.page == Page.album: AlbumPage {
+                        album: root.album;
+                        tracks: root.album-tracks;
+                        playlists: root.editable-playlists;
+                        play(i) => { root.play-track(i); }
+                        back => { root.back-to-artist(); }
+                        album-action(kind, id) => { root.album-action(kind, id); }
+                        track-action(i, kind, id) => { root.track-action("album", i, kind, id); }
+                    }
+                }
+                NowPlayingPanel {
+                    width: 360px;
+                    np: root.np;
+                    spectrum: root.spectrum;
+                    visualizer: root.visualizer;
+                    more-from: root.more-from;
+                    credits: root.credits;
+                    members: root.np-members;
                     select-album(id) => { root.select-album(id); }
                     select-artist(id) => { root.select-artist(id); }
                 }
-                if root.page == Page.search: SearchPage {
-                    query: root.search-query;
-                    artists: root.search-artists;
-                    albums: root.search-albums;
-                    tracks: root.search-tracks;
-                    playlists: root.editable-playlists;
-                    select-artist(id) => { root.select-artist(id); }
-                    select-album(id) => { root.select-album(id); }
-                    play(i) => { root.play-search-track(i); }
-                    track-action(i, kind, id) => { root.track-action("search", i, kind, id); }
-                }
-                if root.page == Page.playlist: PlaylistPage {
-                    playlist: root.playlist;
-                    tracks: root.playlist-tracks;
-                    playlists: root.editable-playlists;
-                    play(i) => { root.play-playlist(i); }
-                    shuffle-play => { root.shuffle-playlist(); }
-                    rename(name) => { root.rename-playlist(name); }
-                    delete => { root.delete-playlist(); }
-                    track-action(i, kind, id) => { root.track-action("playlist", i, kind, id); }
-                    add-query <=> root.playlist-add-query;
-                    add-pending: root.playlist-add-pending;
-                    add-tracks: root.playlist-add-tracks;
-                    add-albums: root.playlist-add-albums;
-                    add-artists: root.playlist-add-artists;
-                    add-genres: root.playlist-add-genres;
-                    add-message: root.playlist-add-message;
-                    add-search(text) => { root.playlist-add-search(text); }
-                    add(kind, id, title) => { root.playlist-add(kind, id, title); }
-                    smart: root.smart-playlist;
-                    rules: root.smart-rules;
-                    match-any: root.smart-match-any;
-                    order: root.smart-order;
-                    descending: root.smart-descending;
-                    limit: root.smart-limit;
-                    rules-dirty: root.smart-dirty;
-                    rules-message: root.smart-message;
-                    set-match(any) => { root.smart-set-match(any); }
-                    rule-field(i, f) => { root.smart-rule-field(i, f); }
-                    rule-op(i, o) => { root.smart-rule-op(i, o); }
-                    rule-value(i, v) => { root.smart-rule-value(i, v); }
-                    rule-value2(i, v) => { root.smart-rule-value2(i, v); }
-                    remove-rule(i) => { root.smart-remove-rule(i); }
-                    add-rule => { root.smart-add-rule(); }
-                    set-order(o) => { root.smart-set-order(o); }
-                    set-descending(d) => { root.smart-set-descending(d); }
-                    set-limit(l) => { root.smart-set-limit(l); }
-                    apply-rules => { root.smart-apply(); }
-                    save-copy => { root.smart-save-copy(); }
-                }
-                if root.page == Page.settings: SettingsPage { }
-                if root.page == Page.albums: AlbumsPage {
-                    summary: root.albums-summary;
-                    sort: root.albums-sort;
-                    rows: root.albums-rows;
-                    reset: root.albums-reset;
-                    select(id) => { root.select-album(id); }
-                    sort-by(key) => { root.albums-sort-by(key); }
-                    columns-changed(n) => { root.albums-columns(n); }
-                    visible-rows(first, last) => { root.albums-visible(first, last); }
-                }
-                if root.page == Page.history: HistoryPage {
-                    loaded: root.history-loaded;
-                    summary: root.history-summary;
-                    artists: root.history-artists;
-                    top: root.history-top;
-                    recent: root.history-recent;
-                    playlists: root.editable-playlists;
-                    select-artist(id) => { root.select-artist(id); }
-                    play(list, i) => { root.play-history-track(list, i); }
-                    track-action(list, i, kind, id) => { root.track-action(list, i, kind, id); }
-                }
-                if root.page == Page.lyrics: LyricsPage {
-                    title: root.np.active ? root.np.title : "";
-                    artist: root.np.active ? root.np.artist : "";
-                    state: root.lyrics-state;
-                    lines: root.lyrics-lines;
-                    current: root.lyrics-current;
-                    source: root.lyrics-source;
-                    seek-line(i) => { root.seek-lyric-line(i); }
-                }
-                if root.page == Page.queue: QueuePage {
-                    origin: root.queue-origin;
-                    now: root.queue-now;
-                    next: root.queue-next;
-                    playlists: root.editable-playlists;
-                    jump(i) => { root.jump-in-queue(i); }
-                    clear => { root.clear-queue(); }
-                    track-action(i, kind, id) => { root.track-action("queue", i, kind, id); }
-                }
-                if root.page == Page.album: AlbumPage {
-                    album: root.album;
-                    tracks: root.album-tracks;
-                    playlists: root.editable-playlists;
-                    play(i) => { root.play-track(i); }
-                    back => { root.back-to-artist(); }
-                    album-action(kind, id) => { root.album-action(kind, id); }
-                    track-action(i, kind, id) => { root.track-action("album", i, kind, id); }
-                }
             }
-            NowPlayingPanel {
-                width: 360px;
+            TransportBar {
                 np: root.np;
-                spectrum: root.spectrum;
-                visualizer: root.visualizer;
-                more-from: root.more-from;
-                credits: root.credits;
-                members: root.np-members;
-                select-album(id) => { root.select-album(id); }
-                select-artist(id) => { root.select-artist(id); }
+                waveform: root.waveform;
+                waveform-ready: root.waveform-ready;
+                playing: root.playing;
+                position: root.position;
+                duration: root.duration;
+                position-text: root.position-text;
+                duration-text: root.duration-text;
+                volume <=> root.volume;
+                toggle => { root.toggle(); }
+                next => { root.next(); }
+                prev => { root.prev(); }
+                seek(v) => { root.seek(v); }
+                volume-changed(v) => { root.volume-changed(v); }
+                stream-info: root.stream-info;
+                quality-mode: root.quality-mode;
+                cycle-quality-mode => { root.cycle-quality-mode(); }
+                replaygain-mode: root.replaygain-mode;
+                cycle-replaygain => { root.cycle-replaygain(); }
+                shuffle: root.shuffle;
+                repeat: root.repeat;
+                toggle-shuffle => { root.toggle-shuffle(); }
+                shuffle-scope: root.shuffle-scope;
+                shuffle-label: root.shuffle-label;
+                set-shuffle-scope(scope) => { root.set-shuffle-scope(scope); }
+                cycle-repeat => { root.cycle-repeat(); }
+                queue-open: root.page == Page.queue;
+                show-queue => { root.show-queue(); }
+                lyrics-open: root.page == Page.lyrics;
+                show-lyrics => { root.show-lyrics(); }
             }
         }
-        TransportBar {
-            np: root.np;
-            waveform: root.waveform;
-            waveform-ready: root.waveform-ready;
-            playing: root.playing;
-            position: root.position;
-            duration: root.duration;
-            position-text: root.position-text;
-            duration-text: root.duration-text;
-            volume <=> root.volume;
-            toggle => { root.toggle(); }
-            next => { root.next(); }
-            prev => { root.prev(); }
-            seek(v) => { root.seek(v); }
-            volume-changed(v) => { root.volume-changed(v); }
-            stream-info: root.stream-info;
-            quality-mode: root.quality-mode;
-            cycle-quality-mode => { root.cycle-quality-mode(); }
-            replaygain-mode: root.replaygain-mode;
-            cycle-replaygain => { root.cycle-replaygain(); }
-            shuffle: root.shuffle;
-            repeat: root.repeat;
-            toggle-shuffle => { root.toggle-shuffle(); }
-            shuffle-scope: root.shuffle-scope;
-            shuffle-label: root.shuffle-label;
-            set-shuffle-scope(scope) => { root.set-shuffle-scope(scope); }
-            cycle-repeat => { root.cycle-repeat(); }
-            queue-open: root.page == Page.queue;
-            show-queue => { root.show-queue(); }
-            lyrics-open: root.page == Page.lyrics;
-            show-lyrics => { root.show-lyrics(); }
         }
-    }
-    }
-    if root.show-help: ShortcutHelp {
-        close => { root.show-help = false; keys.focus(); }
-    }
-    if !root.signed-in: LoginScreen {
-        state: root.login;
-        server <=> root.login-server;
-        username <=> root.login-username;
-        password <=> root.login-password;
-        new-password <=> root.login-new-password;
-        confirm-password <=> root.login-confirm-password;
-        submit => { root.login-submit(); }
-        check-server => { root.login-check-server(); }
-        change-password => { root.login-change-password(); }
-        full-name <=> root.login-full-name;
-        onboard => { root.login-onboard(); }
-        skip-onboarding => { root.login-skip-onboarding(); }
-        trust => { root.login-trust(); }
-        cancel-trust => { root.login-cancel-trust(); }
+        if root.show-help: ShortcutHelp {
+            close => { root.show-help = false; keys.focus(); }
+        }
+        if !root.signed-in: LoginScreen {
+            state: root.login;
+            server <=> root.login-server;
+            username <=> root.login-username;
+            password <=> root.login-password;
+            new-password <=> root.login-new-password;
+            confirm-password <=> root.login-confirm-password;
+            submit => { root.login-submit(); }
+            check-server => { root.login-check-server(); }
+            change-password => { root.login-change-password(); }
+            full-name <=> root.login-full-name;
+            onboard => { root.login-onboard(); }
+            skip-onboarding => { root.login-skip-onboarding(); }
+            trust => { root.login-trust(); }
+            cancel-trust => { root.login-cancel-trust(); }
+        }
     }
 }
