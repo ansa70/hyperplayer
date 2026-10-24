@@ -1,5 +1,5 @@
 # Checks every push to main and every pull request: the same checks as `vp run ready`
-# (format, lint, type check, tests, clippy), plus clippy on the Windows-only code.
+# (format, lint, type check, tests, clippy), plus clippy on the Windows and macOS code.
 name: CI
 
 on:
@@ -70,3 +70,23 @@ jobs:
 
       - run: vp run @hyperplayer/schemas#generate
       - run: cargo xwin clippy --target x86_64-pc-windows-msvc -p hyperplayer -p hyperplayer-service -- -D warnings
+
+  macos:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          node-version: "24"
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2.9.3
+
+      - run: vp run @hyperplayer/schemas#generate
+      - run: cargo clippy -p hyperplayer --all-targets -- -D warnings
+      - run: cargo test -p hyperplayer

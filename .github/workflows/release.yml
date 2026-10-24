@@ -1,5 +1,6 @@
 # Builds the release downloads with the scripts in packaging/: the Linux bundle (with the
-# player's .deb and Flatpak) and the Windows installer.
+# player's .deb and Flatpak), the Windows installer and the macOS disk images (Apple
+# Silicon and Intel, each built on its own kind of Mac).
 #
 # Pushing a tag v<version> (the version in apps/client/Cargo.toml, e.g. v0.1.0-beta.3)
 # creates a draft GitHub release with them, to review and publish by hand. Run by hand
@@ -187,9 +188,39 @@ jobs:
           path: release/hyperplayer-${{ env.VERSION }}-windows-x64-setup.exe
           if-no-files-found: error
 
+  macos:
+    needs: version
+    strategy:
+      matrix:
+        include:
+          - runner: macos-26
+            arch: arm64
+          - runner: macos-26-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          node-version: "24"
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2.9.3
+
+      - run: packaging/macos/build.sh
+
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release-macos-${{ matrix.arch }}
+          path: release/hyperplayer-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}.dmg
+          if-no-files-found: error
+
   release:
     if: github.ref_type == 'tag'
-    needs: [version, linux, windows]
+    needs: [version, linux, windows, macos]
     runs-on: ubuntu-26.04
     permissions:
       contents: write

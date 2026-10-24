@@ -246,9 +246,11 @@ pub const APP_ID: &str = "io.ansaloni.HyperPlayer";
 
 pub fn run() -> anyhow::Result<()> {
     let settings = Settings::load();
-    // HP_TITLEBAR=system forces the desktop's title bar for this run.
-    let system_title_bar =
-        settings.system_title_bar || std::env::var("HP_TITLEBAR").is_ok_and(|v| v == "system");
+    // HP_TITLEBAR=system forces the desktop's title bar for this run. macOS always has
+    // its own: its buttons belong on the left, in its style.
+    let system_title_bar = cfg!(target_os = "macos")
+        || settings.system_title_bar
+        || std::env::var("HP_TITLEBAR").is_ok_and(|v| v == "system");
     let server = account::initial_server(&settings.server);
     let token = (!settings.username.is_empty())
         .then(|| hyperplayer::credentials::load(&server, &settings.username))

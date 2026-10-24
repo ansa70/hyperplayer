@@ -2438,6 +2438,8 @@ export global SettingsState {
     callback set-cover-background(bool);
     callback set-visualizer(bool);
     in property <bool> system-title-bar;
+    /// Off where the desktop's title bar is the only one (macOS).
+    in property <bool> title-bar-choice: true;
     callback set-system-title-bar(bool);
 
     // Playback (the user's preferences).
@@ -2648,7 +2650,7 @@ component SettingsPage inherits Rectangle {
                         checked: SettingsState.visualizer;
                         toggled => { SettingsState.set-visualizer(self.checked); }
                     }
-                    CheckBox {
+                    if SettingsState.title-bar-choice: CheckBox {
                         text: "Use the desktop's title bar instead of HyperPlayer's (from the next start; this computer only)";
                         checked: SettingsState.system-title-bar;
                         toggled => { SettingsState.set-system-title-bar(self.checked); }

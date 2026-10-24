@@ -6,7 +6,7 @@ use std::process::Command;
 
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel, winit_030::WinitWindowAccessor};
 
-use super::{AppWindow, with_app};
+use super::{AppWindow, SettingsState, with_app};
 
 /// The desktop's title-bar button layout, e.g. `close,minimize,maximize:` (buttons
 /// before the colon go on the left). GNOME-family desktops store it in gsettings;
@@ -78,6 +78,8 @@ fn parse_layout(layout: &str) -> (Vec<String>, Vec<String>) {
 
 pub fn init(ui: &AppWindow, system_title_bar: bool) {
     ui.set_custom_title_bar(!system_title_bar);
+    ui.global::<SettingsState>()
+        .set_title_bar_choice(!cfg!(target_os = "macos"));
     let (left, right) = button_layout();
     let model = |v: Vec<String>| {
         ModelRc::new(VecModel::from(
