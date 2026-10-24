@@ -715,52 +715,62 @@ component ArtistPage inherits Rectangle {
     in property <[CreditItem]> members;
     callback select-album(string);
     callback select-artist(string);
-    ScrollView {
-        VerticalLayout {
-            alignment: start;
-            padding: 28px;
-            spacing: 24px;
-            HorizontalLayout {
-                spacing: 24px;
+    Rectangle {
+        artist-scroll := ScrollView {
+            vertical-scrollbar-policy: always-off;
+            VerticalLayout {
                 alignment: start;
-                Rectangle {
-                    width: 168px;
-                    height: 168px;
-                    border-radius: 84px;
-                    clip: true;
-                    background: Theme.surface-hi;
-                    Image { width: 168px; height: 168px; source: artist.image; image-fit: cover; }
+                padding: 28px;
+                spacing: 24px;
+                HorizontalLayout {
+                    spacing: 24px;
+                    alignment: start;
+                    Rectangle {
+                        width: 168px;
+                        height: 168px;
+                        border-radius: 84px;
+                        clip: true;
+                        background: Theme.surface-hi;
+                        Image { width: 168px; height: 168px; source: artist.image; image-fit: cover; }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 6px;
+                        Text { text: "ARTIST"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+                        Text { text: artist.name; color: Theme.text; font-size: 44px; font-weight: 900; letter-spacing: -1px; }
+                        if artist.meta != "": Text { text: artist.meta; color: Theme.text; font-size: 13px; }
+                        Text { text: artist.stats; color: Theme.muted; font-size: 13px; }
+                        Text { text: artist.genres; color: Theme.faint; font-size: 12px; }
+                    }
                 }
-                VerticalLayout {
-                    alignment: center;
-                    spacing: 6px;
-                    Text { text: "ARTIST"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
-                    Text { text: artist.name; color: Theme.text; font-size: 44px; font-weight: 900; letter-spacing: -1px; }
-                    if artist.meta != "": Text { text: artist.meta; color: Theme.text; font-size: 13px; }
-                    Text { text: artist.stats; color: Theme.muted; font-size: 13px; }
-                    Text { text: artist.genres; color: Theme.faint; font-size: 12px; }
+                if artist.biography != "": Text {
+                    text: artist.biography;
+                    color: Theme.muted;
+                    font-size: 13px;
+                    wrap: word-wrap;
+                    max-width: 760px;
+                }
+                if root.members.length > 0: VerticalLayout {
+                    max-width: 760px;
+                    Text { text: "Members"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                    CreditList {
+                        items: root.members;
+                        select-artist(id) => { root.select-artist(id); }
+                    }
+                }
+                Text { text: "Discography"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                AlbumGrid {
+                    albums: root.albums;
+                    select(id) => { root.select-album(id); }
                 }
             }
-            if artist.biography != "": Text {
-                text: artist.biography;
-                color: Theme.muted;
-                font-size: 13px;
-                wrap: word-wrap;
-                max-width: 760px;
-            }
-            if root.members.length > 0: VerticalLayout {
-                max-width: 760px;
-                Text { text: "Members"; color: Theme.text; font-size: 18px; font-weight: 700; }
-                CreditList {
-                    items: root.members;
-                    select-artist(id) => { root.select-artist(id); }
-                }
-            }
-            Text { text: "Discography"; color: Theme.text; font-size: 18px; font-weight: 700; }
-            AlbumGrid {
-                albums: root.albums;
-                select(id) => { root.select-album(id); }
-            }
+        }
+        AccentScrollBar {
+            x: parent.width - self.width;
+            height: parent.height;
+            visible-height: artist-scroll.visible-height;
+            content-height: artist-scroll.content-height;
+            content-y <=> artist-scroll.content-y;
         }
     }
 }
@@ -808,12 +818,23 @@ component AlbumPage inherits Rectangle {
                 }
             }
         }
-        ListView {
-            for track[i] in root.tracks: TrackRow {
-                track: track;
-                playlists: root.playlists;
-                play => { root.play(i); }
-                action(kind, id) => { root.track-action(i, kind, id); }
+        Rectangle {
+            vertical-stretch: 1;
+            album-list := ListView {
+                vertical-scrollbar-policy: always-off;
+                for track[i] in root.tracks: TrackRow {
+                    track: track;
+                    playlists: root.playlists;
+                    play => { root.play(i); }
+                    action(kind, id) => { root.track-action(i, kind, id); }
+                }
+            }
+            AccentScrollBar {
+                x: parent.width - self.width;
+                height: parent.height;
+                visible-height: album-list.visible-height;
+                content-height: album-list.content-height;
+                content-y <=> album-list.content-y;
             }
         }
     }
@@ -877,31 +898,41 @@ component AlbumsPage inherits Rectangle {
                 }
             }
         }
-        list := ListView {
+        Rectangle {
             vertical-stretch: 1;
-            changed content-y => { root.report(); }
-            changed visible-height => { root.report(); }
-            for row in root.rows: HorizontalLayout {
-                height: root.row-height;
-                spacing: root.gap;
-                alignment: start;
-                for album in row.items: Rectangle {
-                    width: root.cell;
-                    VerticalLayout {
-                        alignment: start;
-                        spacing: 4px;
-                        Cover {
-                            source: album.cover;
-                            size: root.cell;
-                            drop-shadow-blur: ta.has-hover ? 24px : 12px;
-                            drop-shadow-color: #00000080;
-                            animate drop-shadow-blur { duration: 150ms; }
+            list := ListView {
+                vertical-scrollbar-policy: always-off;
+                changed content-y => { root.report(); }
+                changed visible-height => { root.report(); }
+                for row in root.rows: HorizontalLayout {
+                    height: root.row-height;
+                    spacing: root.gap;
+                    alignment: start;
+                    for album in row.items: Rectangle {
+                        width: root.cell;
+                        VerticalLayout {
+                            alignment: start;
+                            spacing: 4px;
+                            Cover {
+                                source: album.cover;
+                                size: root.cell;
+                                drop-shadow-blur: ta.has-hover ? 24px : 12px;
+                                drop-shadow-color: #00000080;
+                                animate drop-shadow-blur { duration: 150ms; }
+                            }
+                            Text { text: album.title; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
+                            Text { text: album.subtitle; color: Theme.muted; font-size: 11px; overflow: elide; }
                         }
-                        Text { text: album.title; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
-                        Text { text: album.subtitle; color: Theme.muted; font-size: 11px; overflow: elide; }
+                        ta := TouchArea { mouse-cursor: pointer; clicked => { root.select(album.id); } }
                     }
-                    ta := TouchArea { mouse-cursor: pointer; clicked => { root.select(album.id); } }
                 }
+            }
+            AccentScrollBar {
+                x: parent.width - self.width;
+                height: parent.height;
+                visible-height: list.visible-height;
+                content-height: list.content-height;
+                content-y <=> list.content-y;
             }
         }
     }
@@ -917,56 +948,66 @@ component HistoryPage inherits Rectangle {
     callback select-artist(string);
     callback play(string, int);
     callback track-action(string, int, string, string);
-    ScrollView {
-        VerticalLayout {
-            alignment: start;
-            padding: 28px;
-            spacing: 18px;
+    Rectangle {
+        history-scroll := ScrollView {
+            vertical-scrollbar-policy: always-off;
             VerticalLayout {
-                spacing: 6px;
-                Text { text: "History"; color: Theme.text; font-size: 28px; font-weight: 800; }
-                if root.summary != "": Text { text: root.summary; color: Theme.muted; font-size: 13px; }
-            }
-            if root.loaded && root.recent.length == 0: Text {
-                text: "Nothing yet. Tracks you listen to (half of them, or 4 minutes) show up here.";
-                color: Theme.faint;
-                font-size: 13px;
-                wrap: word-wrap;
-            }
-            if root.artists.length > 0: Text { text: "Top artists · last 30 days"; color: Theme.text; font-size: 18px; font-weight: 700; }
-            if root.artists.length > 0: HorizontalLayout {
                 alignment: start;
-                spacing: 20px;
-                for artist in root.artists: VerticalLayout {
-                    width: 110px;
-                    spacing: 4px;
-                    Rectangle {
+                padding: 28px;
+                spacing: 18px;
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "History"; color: Theme.text; font-size: 28px; font-weight: 800; }
+                    if root.summary != "": Text { text: root.summary; color: Theme.muted; font-size: 13px; }
+                }
+                if root.loaded && root.recent.length == 0: Text {
+                    text: "Nothing yet. Tracks you listen to (half of them, or 4 minutes) show up here.";
+                    color: Theme.faint;
+                    font-size: 13px;
+                    wrap: word-wrap;
+                }
+                if root.artists.length > 0: Text { text: "Top artists · last 30 days"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                if root.artists.length > 0: HorizontalLayout {
+                    alignment: start;
+                    spacing: 20px;
+                    for artist in root.artists: VerticalLayout {
                         width: 110px;
-                        height: 110px;
-                        border-radius: 55px;
-                        clip: true;
-                        background: Theme.surface-hi;
-                        Image { width: 110px; height: 110px; source: artist.image; image-fit: cover; }
-                        TouchArea { mouse-cursor: pointer; clicked => { root.select-artist(artist.id); } }
+                        spacing: 4px;
+                        Rectangle {
+                            width: 110px;
+                            height: 110px;
+                            border-radius: 55px;
+                            clip: true;
+                            background: Theme.surface-hi;
+                            Image { width: 110px; height: 110px; source: artist.image; image-fit: cover; }
+                            TouchArea { mouse-cursor: pointer; clicked => { root.select-artist(artist.id); } }
+                        }
+                        Text { text: artist.name; color: Theme.text; font-size: 13px; font-weight: 600; horizontal-alignment: center; overflow: elide; }
+                        Text { text: artist.subtitle; color: Theme.muted; font-size: 11px; horizontal-alignment: center; }
                     }
-                    Text { text: artist.name; color: Theme.text; font-size: 13px; font-weight: 600; horizontal-alignment: center; overflow: elide; }
-                    Text { text: artist.subtitle; color: Theme.muted; font-size: 11px; horizontal-alignment: center; }
+                }
+                if root.top.length > 0: Text { text: "Most played · last 30 days"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                for track[i] in root.top: TrackRow {
+                    track: track;
+                    playlists: root.playlists;
+                    play => { root.play("history-top", i); }
+                    action(kind, id) => { root.track-action("history-top", i, kind, id); }
+                }
+                if root.recent.length > 0: Text { text: "Recently played"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                for track[i] in root.recent: TrackRow {
+                    track: track;
+                    playlists: root.playlists;
+                    play => { root.play("history-recent", i); }
+                    action(kind, id) => { root.track-action("history-recent", i, kind, id); }
                 }
             }
-            if root.top.length > 0: Text { text: "Most played · last 30 days"; color: Theme.text; font-size: 18px; font-weight: 700; }
-            for track[i] in root.top: TrackRow {
-                track: track;
-                playlists: root.playlists;
-                play => { root.play("history-top", i); }
-                action(kind, id) => { root.track-action("history-top", i, kind, id); }
-            }
-            if root.recent.length > 0: Text { text: "Recently played"; color: Theme.text; font-size: 18px; font-weight: 700; }
-            for track[i] in root.recent: TrackRow {
-                track: track;
-                playlists: root.playlists;
-                play => { root.play("history-recent", i); }
-                action(kind, id) => { root.track-action("history-recent", i, kind, id); }
-            }
+        }
+        AccentScrollBar {
+            x: parent.width - self.width;
+            height: parent.height;
+            visible-height: history-scroll.visible-height;
+            content-height: history-scroll.content-height;
+            content-y <=> history-scroll.content-y;
         }
     }
 }
@@ -981,48 +1022,58 @@ component SearchPage inherits Rectangle {
     callback select-album(string);
     callback play(int);
     callback track-action(int, string, string);
-    ScrollView {
-        VerticalLayout {
-            alignment: start;
-            padding: 28px;
-            spacing: 18px;
-            Text { text: "Results for “" + root.query + "”"; color: Theme.text; font-size: 24px; font-weight: 800; }
-            if artists.length + albums.length + tracks.length == 0: Text {
-                text: "Nothing matches. Every word must appear in a title, artist or album name.";
-                color: Theme.faint;
-                font-size: 13px;
-            }
-            if artists.length > 0: Text { text: "Artists"; color: Theme.text; font-size: 18px; font-weight: 700; }
-            if artists.length > 0: HorizontalLayout {
+    Rectangle {
+        search-scroll := ScrollView {
+            vertical-scrollbar-policy: always-off;
+            VerticalLayout {
                 alignment: start;
-                spacing: 20px;
-                for artist in root.artists: VerticalLayout {
-                    width: 120px;
-                    spacing: 6px;
-                    Rectangle {
+                padding: 28px;
+                spacing: 18px;
+                Text { text: "Results for “" + root.query + "”"; color: Theme.text; font-size: 24px; font-weight: 800; }
+                if artists.length + albums.length + tracks.length == 0: Text {
+                    text: "Nothing matches. Every word must appear in a title, artist or album name.";
+                    color: Theme.faint;
+                    font-size: 13px;
+                }
+                if artists.length > 0: Text { text: "Artists"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                if artists.length > 0: HorizontalLayout {
+                    alignment: start;
+                    spacing: 20px;
+                    for artist in root.artists: VerticalLayout {
                         width: 120px;
-                        height: 120px;
-                        border-radius: 60px;
-                        clip: true;
-                        background: Theme.surface-hi;
-                        Image { width: 120px; height: 120px; source: artist.image; image-fit: cover; }
-                        TouchArea { mouse-cursor: pointer; clicked => { root.select-artist(artist.id); } }
+                        spacing: 6px;
+                        Rectangle {
+                            width: 120px;
+                            height: 120px;
+                            border-radius: 60px;
+                            clip: true;
+                            background: Theme.surface-hi;
+                            Image { width: 120px; height: 120px; source: artist.image; image-fit: cover; }
+                            TouchArea { mouse-cursor: pointer; clicked => { root.select-artist(artist.id); } }
+                        }
+                        Text { text: artist.name; color: Theme.text; font-size: 13px; font-weight: 600; horizontal-alignment: center; overflow: elide; }
                     }
-                    Text { text: artist.name; color: Theme.text; font-size: 13px; font-weight: 600; horizontal-alignment: center; overflow: elide; }
+                }
+                if albums.length > 0: Text { text: "Albums"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                if albums.length > 0: AlbumGrid {
+                    albums: root.albums;
+                    select(id) => { root.select-album(id); }
+                }
+                if tracks.length > 0: Text { text: "Tracks"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                for track[i] in root.tracks: TrackRow {
+                    track: track;
+                    playlists: root.playlists;
+                    play => { root.play(i); }
+                    action(kind, id) => { root.track-action(i, kind, id); }
                 }
             }
-            if albums.length > 0: Text { text: "Albums"; color: Theme.text; font-size: 18px; font-weight: 700; }
-            if albums.length > 0: AlbumGrid {
-                albums: root.albums;
-                select(id) => { root.select-album(id); }
-            }
-            if tracks.length > 0: Text { text: "Tracks"; color: Theme.text; font-size: 18px; font-weight: 700; }
-            for track[i] in root.tracks: TrackRow {
-                track: track;
-                playlists: root.playlists;
-                play => { root.play(i); }
-                action(kind, id) => { root.track-action(i, kind, id); }
-            }
+        }
+        AccentScrollBar {
+            x: parent.width - self.width;
+            height: parent.height;
+            visible-height: search-scroll.visible-height;
+            content-height: search-scroll.content-height;
+            content-y <=> search-scroll.content-y;
         }
     }
 }
@@ -1101,15 +1152,26 @@ component PlaylistPage inherits Rectangle {
             color: Theme.faint;
             font-size: 13px;
         }
-        ListView {
-            for track[i] in root.tracks: TrackRow {
-                track: track;
-                playlists: root.playlists;
-                removable: true;
-                movable: true;
-                remove-label: "Remove from this playlist";
-                play => { root.play(i); }
-                action(kind, id) => { root.track-action(i, kind, id); }
+        Rectangle {
+            vertical-stretch: 1;
+            playlist-list := ListView {
+                vertical-scrollbar-policy: always-off;
+                for track[i] in root.tracks: TrackRow {
+                    track: track;
+                    playlists: root.playlists;
+                    removable: true;
+                    movable: true;
+                    remove-label: "Remove from this playlist";
+                    play => { root.play(i); }
+                    action(kind, id) => { root.track-action(i, kind, id); }
+                }
+            }
+            AccentScrollBar {
+                x: parent.width - self.width;
+                height: parent.height;
+                visible-height: playlist-list.visible-height;
+                content-height: playlist-list.content-height;
+                content-y <=> playlist-list.content-y;
             }
         }
     }
@@ -1123,47 +1185,57 @@ component QueuePage inherits Rectangle {
     callback jump(int);
     callback clear();
     callback track-action(int, string, string);
-    ScrollView {
-        VerticalLayout {
-            alignment: start;
-            padding: 28px;
-            spacing: 14px;
-            HorizontalLayout {
-                Text { text: "Queue"; color: Theme.text; font-size: 28px; font-weight: 800; }
-                VerticalLayout {
-                    alignment: center;
-                    Rectangle {
-                        width: clear-label.preferred-width + 24px;
-                        height: 30px;
-                        border-radius: 15px;
-                        border-width: 1px;
-                        border-color: clear-ta.has-hover ? Theme.text : Theme.faint;
-                        clear-label := Text { text: "Clear"; color: Theme.muted; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
-                        clear-ta := TouchArea { mouse-cursor: pointer; clicked => { root.clear(); } }
+    Rectangle {
+        queue-scroll := ScrollView {
+            vertical-scrollbar-policy: always-off;
+            VerticalLayout {
+                alignment: start;
+                padding: 28px;
+                spacing: 14px;
+                HorizontalLayout {
+                    Text { text: "Queue"; color: Theme.text; font-size: 28px; font-weight: 800; }
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: clear-label.preferred-width + 24px;
+                            height: 30px;
+                            border-radius: 15px;
+                            border-width: 1px;
+                            border-color: clear-ta.has-hover ? Theme.text : Theme.faint;
+                            clear-label := Text { text: "Clear"; color: Theme.muted; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                            clear-ta := TouchArea { mouse-cursor: pointer; clicked => { root.clear(); } }
+                        }
                     }
                 }
+                if origin != "": Text { text: "Playing from " + root.origin; color: Theme.muted; font-size: 13px; }
+                if now.length == 0 && next.length == 0: Text {
+                    text: "Nothing queued. Use the ⋯ menu on any track or album to add music.";
+                    color: Theme.faint;
+                    font-size: 13px;
+                }
+                if now.length > 0: Text { text: "NOW PLAYING"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
+                for track in root.now: TrackRow {
+                    track: track;
+                    playlists: root.playlists;
+                    action(kind, id) => { root.track-action(-1, kind, id); }
+                }
+                if next.length > 0: Text { text: "NEXT UP"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
+                for track[i] in root.next: TrackRow {
+                    track: track;
+                    playlists: root.playlists;
+                    removable: true;
+                    remove-label: "Remove from queue";
+                    play => { root.jump(i); }
+                    action(kind, id) => { root.track-action(i, kind, id); }
+                }
             }
-            if origin != "": Text { text: "Playing from " + root.origin; color: Theme.muted; font-size: 13px; }
-            if now.length == 0 && next.length == 0: Text {
-                text: "Nothing queued. Use the ⋯ menu on any track or album to add music.";
-                color: Theme.faint;
-                font-size: 13px;
-            }
-            if now.length > 0: Text { text: "NOW PLAYING"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
-            for track in root.now: TrackRow {
-                track: track;
-                playlists: root.playlists;
-                action(kind, id) => { root.track-action(-1, kind, id); }
-            }
-            if next.length > 0: Text { text: "NEXT UP"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
-            for track[i] in root.next: TrackRow {
-                track: track;
-                playlists: root.playlists;
-                removable: true;
-                remove-label: "Remove from queue";
-                play => { root.jump(i); }
-                action(kind, id) => { root.track-action(i, kind, id); }
-            }
+        }
+        AccentScrollBar {
+            x: parent.width - self.width;
+            height: parent.height;
+            visible-height: queue-scroll.visible-height;
+            content-height: queue-scroll.content-height;
+            content-y <=> queue-scroll.content-y;
         }
     }
 }
@@ -1335,29 +1407,39 @@ component LyricsPage inherits Rectangle {
                 : root.state == LyricsState.instrumental ? "Instrumental"
                 : root.title == "" ? "Nothing is playing" : "No lyrics found for this track";
         }
-        list := ListView {
+        Rectangle {
             visible: root.state == LyricsState.plain || root.state == LyricsState.synced;
             vertical-stretch: 1;
-            for line[i] in root.lines: Rectangle {
-                height: root.row-height;
-                Text {
-                    width: parent.width;
-                    text: line;
-                    wrap: word-wrap;
-                    overflow: elide;
-                    vertical-alignment: center;
-                    font-size: 22px;
-                    font-weight: 700;
-                    color: root.state != LyricsState.synced || i == root.current ? Theme.text
-                        : line-ta.has-hover ? Theme.muted
-                        : i < root.current ? Theme.muted.with-alpha(0.7) : Theme.faint;
-                    animate color { duration: 200ms; }
+            list := ListView {
+                vertical-scrollbar-policy: always-off;
+                for line[i] in root.lines: Rectangle {
+                    height: root.row-height;
+                    Text {
+                        width: parent.width;
+                        text: line;
+                        wrap: word-wrap;
+                        overflow: elide;
+                        vertical-alignment: center;
+                        font-size: 22px;
+                        font-weight: 700;
+                        color: root.state != LyricsState.synced || i == root.current ? Theme.text
+                            : line-ta.has-hover ? Theme.muted
+                            : i < root.current ? Theme.muted.with-alpha(0.7) : Theme.faint;
+                        animate color { duration: 200ms; }
+                    }
+                    line-ta := TouchArea {
+                        enabled: root.state == LyricsState.synced;
+                        mouse-cursor: self.enabled ? pointer : default;
+                        clicked => { root.seek-line(i); }
+                    }
                 }
-                line-ta := TouchArea {
-                    enabled: root.state == LyricsState.synced;
-                    mouse-cursor: self.enabled ? pointer : default;
-                    clicked => { root.seek-line(i); }
-                }
+            }
+            AccentScrollBar {
+                x: parent.width - self.width;
+                height: parent.height;
+                visible-height: list.visible-height;
+                content-height: list.content-height;
+                content-y <=> list.content-y;
             }
         }
         if root.source != "": Text { text: root.source; color: Theme.faint; font-size: 11px; }
@@ -1998,376 +2080,386 @@ component SettingsPage inherits Rectangle {
     property <string> resetting;
     property <string> reset-password;
     property <string> deleting;
-    ScrollView {
-        VerticalLayout {
-            alignment: start;
-            padding: 28px;
-            spacing: 18px;
-            HorizontalLayout {
-                spacing: 14px;
-                Text { text: "Settings"; color: Theme.text; font-size: 28px; font-weight: 800; }
-                Text { text: SettingsState.versions; color: Theme.faint; font-size: 12px; vertical-alignment: center; }
-            }
-            Segmented {
-                selected: SettingsState.tab;
-                options: SettingsState.is-admin
-                    ? [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }, { key: "admin", label: "Server" }]
-                    : [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }];
-                pick(key) => { SettingsState.tab = key; }
-            }
-
-            // ------------------------------------------------------------ playback
-            if SettingsState.tab == "playback": Card {
-                title: "Streaming quality";
-                Note { text: "Auto picks the best quality your connection sustains and adapts as it changes. Original always streams the file as it is; Data saver uses about 128 kbit/s."; }
+    Rectangle {
+        settings-scroll := ScrollView {
+            vertical-scrollbar-policy: always-off;
+            VerticalLayout {
+                alignment: start;
+                padding: 28px;
+                spacing: 18px;
+                HorizontalLayout {
+                    spacing: 14px;
+                    Text { text: "Settings"; color: Theme.text; font-size: 28px; font-weight: 800; }
+                    Text { text: SettingsState.versions; color: Theme.faint; font-size: 12px; vertical-alignment: center; }
+                }
                 Segmented {
-                    selected: SettingsState.quality;
-                    options: [{ key: "auto", label: "Auto" }, { key: "original", label: "Original" }, { key: "data-saver", label: "Data saver" }];
-                    pick(key) => { SettingsState.set-quality(key); }
+                    selected: SettingsState.tab;
+                    options: SettingsState.is-admin
+                        ? [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }, { key: "admin", label: "Server" }]
+                        : [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }];
+                    pick(key) => { SettingsState.tab = key; }
                 }
-            }
-            if SettingsState.tab == "playback": Card {
-                title: "Volume levelling (ReplayGain)";
-                Note { text: "Evens out loudness between tracks using their ReplayGain tags. Auto keeps an album's own dynamics while it plays in order, and levels track by track otherwise."; }
-                Segmented {
-                    selected: SettingsState.replaygain;
-                    options: [{ key: "auto", label: "Auto" }, { key: "track", label: "Track" }, { key: "album", label: "Album" }, { key: "off", label: "Off" }];
-                    pick(key) => { SettingsState.set-replaygain(key); }
-                }
-                HorizontalLayout {
-                    spacing: 12px;
-                    Text { text: "Pre-amp"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
-                    Slider {
-                        minimum: -15;
-                        maximum: 15;
-                        step: 0.5;
-                        value: SettingsState.preamp;
-                        changed(v) => { SettingsState.preamp-changed(round(v * 2) / 2); }
-                        released(v) => { SettingsState.preamp-released(round(v * 2) / 2); }
-                    }
-                    Text {
-                        width: 60px;
-                        text: (SettingsState.preamp > 0 ? "+" : "") + SettingsState.preamp + " dB";
-                        color: Theme.text;
-                        font-size: 12px;
-                        vertical-alignment: center;
-                        horizontal-alignment: right;
-                    }
-                }
-                Note { text: "Added to every ReplayGain adjustment; boosts are still limited so peaks never clip."; }
-            }
 
-            // ---------------------------------------------------------- appearance
-            if SettingsState.tab == "appearance": Card {
-                title: "Accent colour";
-                Note { text: "Used for highlights, active controls and the waveform. “From the album” follows the cover of what's playing."; }
-                HorizontalLayout {
-                    spacing: 10px;
-                    alignment: start;
-                    for swatch in [
-                        { key: "cover", colour: #00000000 },
-                        { key: "#1ed760", colour: #1ed760 },
-                        { key: "#2dd4bf", colour: #2dd4bf },
-                        { key: "#5b8cff", colour: #5b8cff },
-                        { key: "#a77bff", colour: #a77bff },
-                        { key: "#ff5fa2", colour: #ff5fa2 },
-                        { key: "#ff5c5c", colour: #ff5c5c },
-                        { key: "#ff9f43", colour: #ff9f43 },
-                        { key: "#f5c542", colour: #f5c542 },
-                    ]: Rectangle {
-                        width: 34px;
-                        height: 34px;
-                        border-radius: 17px;
-                        border-width: SettingsState.accent == swatch.key ? 3px : 0px;
-                        border-color: Theme.text;
-                        // "From the album": the current accent, ringed to tell it apart.
-                        background: swatch.key == "cover" ? @linear-gradient(135deg, #ff5fa2 0%, #f5c542 50%, #2dd4bf 100%) : swatch.colour;
-                        drop-shadow-blur: swatch-ta.has-hover ? 10px : 0px;
-                        drop-shadow-color: (swatch.key == "cover" ? Theme.accent : swatch.colour).with-alpha(0.6);
-                        swatch-ta := TouchArea { mouse-cursor: pointer; clicked => { SettingsState.set-accent(swatch.key); } }
+                // ------------------------------------------------------------ playback
+                if SettingsState.tab == "playback": Card {
+                    title: "Streaming quality";
+                    Note { text: "Auto picks the best quality your connection sustains and adapts as it changes. Original always streams the file as it is; Data saver uses about 128 kbit/s."; }
+                    Segmented {
+                        selected: SettingsState.quality;
+                        options: [{ key: "auto", label: "Auto" }, { key: "original", label: "Original" }, { key: "data-saver", label: "Data saver" }];
+                        pick(key) => { SettingsState.set-quality(key); }
                     }
                 }
-                Note { text: SettingsState.accent == "cover" ? "From the album" : "Fixed colour " + SettingsState.accent; color: Theme.text; }
-            }
-            if SettingsState.tab == "appearance": Card {
-                title: "Window";
-                CheckBox {
-                    text: "Tint the window with the colours of the album playing";
-                    checked: SettingsState.cover-background;
-                    toggled => { SettingsState.set-cover-background(self.checked); }
-                }
-                CheckBox {
-                    text: "Show the live spectrum under the cover";
-                    checked: SettingsState.visualizer;
-                    toggled => { SettingsState.set-visualizer(self.checked); }
-                }
-                CheckBox {
-                    text: "Use the desktop's title bar instead of HyperPlayer's (from the next start; this computer only)";
-                    checked: SettingsState.system-title-bar;
-                    toggled => { SettingsState.set-system-title-bar(self.checked); }
-                }
-            }
-
-            // ------------------------------------------------------------- account
-            if SettingsState.tab == "account": Card {
-                title: "Profile";
-                Field {
-                    label: "FULL NAME";
-                    LineEdit { text <=> SettingsState.full-name; placeholder-text: "Optional"; accepted => { SettingsState.save-name(); } }
-                }
-                HorizontalLayout {
-                    spacing: 12px;
-                    alignment: start;
-                    OutlineButton { text: "Save"; clicked => { SettingsState.save-name(); } }
-                    if SettingsState.name-message != "": Note { text: SettingsState.name-message; vertical-alignment: center; }
-                }
-            }
-            if SettingsState.tab == "account": Card {
-                title: "Password";
-                Field {
-                    label: "CURRENT PASSWORD";
-                    LineEdit { text <=> SettingsState.pw-current; input-type: InputType.password; }
-                }
-                Field {
-                    label: "NEW PASSWORD";
-                    LineEdit { text <=> SettingsState.pw-new; input-type: InputType.password; placeholder-text: "At least 8 characters"; }
-                }
-                Field {
-                    label: "REPEAT THE NEW PASSWORD";
-                    LineEdit { text <=> SettingsState.pw-confirm; input-type: InputType.password; accepted => { SettingsState.change-password(); } }
-                }
-                HorizontalLayout {
-                    spacing: 12px;
-                    alignment: start;
-                    OutlineButton { text: "Change password"; clicked => { SettingsState.change-password(); } }
-                    if SettingsState.pw-message != "": Note {
-                        text: SettingsState.pw-message;
-                        color: SettingsState.pw-error ? #ff8a80 : Theme.muted;
-                        vertical-alignment: center;
+                if SettingsState.tab == "playback": Card {
+                    title: "Volume levelling (ReplayGain)";
+                    Note { text: "Evens out loudness between tracks using their ReplayGain tags. Auto keeps an album's own dynamics while it plays in order, and levels track by track otherwise."; }
+                    Segmented {
+                        selected: SettingsState.replaygain;
+                        options: [{ key: "auto", label: "Auto" }, { key: "track", label: "Track" }, { key: "album", label: "Album" }, { key: "off", label: "Off" }];
+                        pick(key) => { SettingsState.set-replaygain(key); }
                     }
-                }
-                Note { text: "Changing it signs out your other devices."; }
-            }
-            if SettingsState.tab == "account": Card {
-                title: "Signed-in devices";
-                for device in SettingsState.devices: HorizontalLayout {
-                    spacing: 12px;
-                    VerticalLayout {
-                        alignment: center;
-                        horizontal-stretch: 1;
-                        Text { text: device.name + (device.current ? "  (this device)" : ""); color: Theme.text; font-size: 13px; overflow: elide; }
-                        Note { text: device.detail; }
-                    }
-                    if !device.current: VerticalLayout {
-                        alignment: center;
-                        OutlineButton { text: "Sign out"; clicked => { SettingsState.revoke-device(device.id); } }
-                    }
-                }
-            }
-
-            // ---------------------------------------------------------- scrobbling
-            if SettingsState.tab == "scrobbling": Card {
-                HorizontalLayout {
-                    spacing: 10px;
-                    Text { text: "ListenBrainz"; color: Theme.text; font-size: 15px; font-weight: 700; vertical-alignment: center; }
-                    if SettingsState.lb-connected: VerticalLayout {
-                        alignment: center;
-                        Chip { text: "Connected as " + SettingsState.lb-username; accent: Theme.accent; }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                Text {
-                    text: "Sends what you listen to to your ListenBrainz profile, for a public listening history, statistics and recommendations. Listens are sent from the moment you connect; earlier history stays here.";
-                    color: Theme.muted;
-                    font-size: 13px;
-                    wrap: word-wrap;
-                }
-                if SettingsState.lb-connected: Note {
-                    text: SettingsState.lb-status;
-                    color: SettingsState.lb-failing ? #ff8a80 : Theme.muted;
-                }
-                // Shown to connect, and to replace a token ListenBrainz no longer accepts.
-                if !SettingsState.lb-connected || SettingsState.lb-failing: Field {
-                    label: "USER TOKEN";
-                    LineEdit {
-                        text <=> SettingsState.lb-token;
-                        input-type: InputType.password;
-                        placeholder-text: "Copy it from listenbrainz.org/settings";
-                        accepted(t) => { SettingsState.lb-connect(t); }
-                    }
-                }
-                if SettingsState.lb-error != "": Note { text: SettingsState.lb-error; color: #ff8a80; }
-                HorizontalLayout {
-                    alignment: start;
-                    spacing: 12px;
-                    if !SettingsState.lb-connected || SettingsState.lb-failing: PrimaryButton {
-                        width: 160px;
-                        text: SettingsState.lb-connected ? "Reconnect" : "Connect";
-                        busy: SettingsState.lb-busy;
-                        clicked => { SettingsState.lb-connect(SettingsState.lb-token); }
-                    }
-                    if SettingsState.lb-connected: VerticalLayout {
-                        alignment: center;
-                        OutlineButton { text: "Disconnect"; clicked => { SettingsState.lb-disconnect(); } }
-                    }
-                }
-            }
-            if SettingsState.tab == "scrobbling": Card {
-                HorizontalLayout {
-                    spacing: 10px;
-                    Text { text: "Last.fm"; color: Theme.text; font-size: 15px; font-weight: 700; vertical-alignment: center; }
-                    if SettingsState.fm-connected: VerticalLayout {
-                        alignment: center;
-                        Chip { text: "Connected as " + SettingsState.fm-username; accent: Theme.accent; }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                Text {
-                    text: "Scrobbles what you listen to to your Last.fm profile. Connecting opens Last.fm in your browser, where you allow HyperPlayer; your password stays with Last.fm.";
-                    color: Theme.muted;
-                    font-size: 13px;
-                    wrap: word-wrap;
-                }
-                if !SettingsState.fm-available: Note {
-                    text: "This server isn't set up for Last.fm yet: its admin needs a Last.fm API account (last.fm/api/account/create) and to start the server with HP_LASTFM_API_KEY and HP_LASTFM_SECRET.";
-                }
-                if SettingsState.fm-connected: Note {
-                    text: SettingsState.fm-status;
-                    color: SettingsState.fm-failing ? #ff8a80 : Theme.muted;
-                }
-                if SettingsState.fm-waiting: Note {
-                    text: "Allow HyperPlayer on the Last.fm page that opened in your browser; this page updates by itself once you have.";
-                }
-                if SettingsState.fm-error != "": Note { text: SettingsState.fm-error; color: #ff8a80; }
-                if SettingsState.fm-available: HorizontalLayout {
-                    alignment: start;
-                    spacing: 12px;
-                    // Shown to connect, and to reconnect when Last.fm no longer accepts the session.
-                    if !SettingsState.fm-waiting && (!SettingsState.fm-connected || SettingsState.fm-failing): PrimaryButton {
-                        width: 160px;
-                        text: SettingsState.fm-connected ? "Reconnect" : "Connect";
-                        busy: SettingsState.fm-busy;
-                        clicked => { SettingsState.fm-connect(); }
-                    }
-                    if SettingsState.fm-waiting: VerticalLayout {
-                        alignment: center;
-                        OutlineButton { text: "Open Last.fm again"; clicked => { SettingsState.fm-open(SettingsState.fm-url); } }
-                    }
-                    if SettingsState.fm-waiting: VerticalLayout {
-                        alignment: center;
-                        OutlineButton { text: "Cancel"; clicked => { SettingsState.fm-cancel(); } }
-                    }
-                    if SettingsState.fm-connected && !SettingsState.fm-waiting: VerticalLayout {
-                        alignment: center;
-                        OutlineButton { text: "Disconnect"; clicked => { SettingsState.fm-disconnect(); } }
-                    }
-                }
-            }
-
-            // --------------------------------------------------------------- admin
-            if SettingsState.tab == "admin": Card {
-                title: "Library";
-                Note { text: SettingsState.library-summary; }
-                for folder in SettingsState.folders: HorizontalLayout {
-                    spacing: 10px;
-                    Text { text: folder.path; color: Theme.text; font-size: 13px; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
-                    Text { text: folder.detail; color: folder.available ? Theme.muted : #ff8a80; font-size: 12px; vertical-alignment: center; }
-                }
-                HorizontalLayout {
-                    alignment: start;
-                    OutlineButton { text: SettingsState.scanning ? "Scanning…" : "Rescan now"; clicked => { SettingsState.rescan(); } }
-                }
-                Note { text: "The server also rescans every few minutes and watches folders where the filesystem allows. Folders are set with HP_LIBRARY on the server."; }
-            }
-            if SettingsState.tab == "admin": Card {
-                title: "Users";
-                for user in SettingsState.users: VerticalLayout {
-                    spacing: 8px;
                     HorizontalLayout {
-                        spacing: 8px;
+                        spacing: 12px;
+                        Text { text: "Pre-amp"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+                        Slider {
+                            minimum: -15;
+                            maximum: 15;
+                            step: 0.5;
+                            value: SettingsState.preamp;
+                            changed(v) => { SettingsState.preamp-changed(round(v * 2) / 2); }
+                            released(v) => { SettingsState.preamp-released(round(v * 2) / 2); }
+                        }
+                        Text {
+                            width: 60px;
+                            text: (SettingsState.preamp > 0 ? "+" : "") + SettingsState.preamp + " dB";
+                            color: Theme.text;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                            horizontal-alignment: right;
+                        }
+                    }
+                    Note { text: "Added to every ReplayGain adjustment; boosts are still limited so peaks never clip."; }
+                }
+
+                // ---------------------------------------------------------- appearance
+                if SettingsState.tab == "appearance": Card {
+                    title: "Accent colour";
+                    Note { text: "Used for highlights, active controls and the waveform. “From the album” follows the cover of what's playing."; }
+                    HorizontalLayout {
+                        spacing: 10px;
+                        alignment: start;
+                        for swatch in [
+                            { key: "cover", colour: #00000000 },
+                            { key: "#1ed760", colour: #1ed760 },
+                            { key: "#2dd4bf", colour: #2dd4bf },
+                            { key: "#5b8cff", colour: #5b8cff },
+                            { key: "#a77bff", colour: #a77bff },
+                            { key: "#ff5fa2", colour: #ff5fa2 },
+                            { key: "#ff5c5c", colour: #ff5c5c },
+                            { key: "#ff9f43", colour: #ff9f43 },
+                            { key: "#f5c542", colour: #f5c542 },
+                        ]: Rectangle {
+                            width: 34px;
+                            height: 34px;
+                            border-radius: 17px;
+                            border-width: SettingsState.accent == swatch.key ? 3px : 0px;
+                            border-color: Theme.text;
+                            // "From the album": the current accent, ringed to tell it apart.
+                            background: swatch.key == "cover" ? @linear-gradient(135deg, #ff5fa2 0%, #f5c542 50%, #2dd4bf 100%) : swatch.colour;
+                            drop-shadow-blur: swatch-ta.has-hover ? 10px : 0px;
+                            drop-shadow-color: (swatch.key == "cover" ? Theme.accent : swatch.colour).with-alpha(0.6);
+                            swatch-ta := TouchArea { mouse-cursor: pointer; clicked => { SettingsState.set-accent(swatch.key); } }
+                        }
+                    }
+                    Note { text: SettingsState.accent == "cover" ? "From the album" : "Fixed colour " + SettingsState.accent; color: Theme.text; }
+                }
+                if SettingsState.tab == "appearance": Card {
+                    title: "Window";
+                    CheckBox {
+                        text: "Tint the window with the colours of the album playing";
+                        checked: SettingsState.cover-background;
+                        toggled => { SettingsState.set-cover-background(self.checked); }
+                    }
+                    CheckBox {
+                        text: "Show the live spectrum under the cover";
+                        checked: SettingsState.visualizer;
+                        toggled => { SettingsState.set-visualizer(self.checked); }
+                    }
+                    CheckBox {
+                        text: "Use the desktop's title bar instead of HyperPlayer's (from the next start; this computer only)";
+                        checked: SettingsState.system-title-bar;
+                        toggled => { SettingsState.set-system-title-bar(self.checked); }
+                    }
+                }
+
+                // ------------------------------------------------------------- account
+                if SettingsState.tab == "account": Card {
+                    title: "Profile";
+                    Field {
+                        label: "FULL NAME";
+                        LineEdit { text <=> SettingsState.full-name; placeholder-text: "Optional"; accepted => { SettingsState.save-name(); } }
+                    }
+                    HorizontalLayout {
+                        spacing: 12px;
+                        alignment: start;
+                        OutlineButton { text: "Save"; clicked => { SettingsState.save-name(); } }
+                        if SettingsState.name-message != "": Note { text: SettingsState.name-message; vertical-alignment: center; }
+                    }
+                }
+                if SettingsState.tab == "account": Card {
+                    title: "Password";
+                    Field {
+                        label: "CURRENT PASSWORD";
+                        LineEdit { text <=> SettingsState.pw-current; input-type: InputType.password; }
+                    }
+                    Field {
+                        label: "NEW PASSWORD";
+                        LineEdit { text <=> SettingsState.pw-new; input-type: InputType.password; placeholder-text: "At least 8 characters"; }
+                    }
+                    Field {
+                        label: "REPEAT THE NEW PASSWORD";
+                        LineEdit { text <=> SettingsState.pw-confirm; input-type: InputType.password; accepted => { SettingsState.change-password(); } }
+                    }
+                    HorizontalLayout {
+                        spacing: 12px;
+                        alignment: start;
+                        OutlineButton { text: "Change password"; clicked => { SettingsState.change-password(); } }
+                        if SettingsState.pw-message != "": Note {
+                            text: SettingsState.pw-message;
+                            color: SettingsState.pw-error ? #ff8a80 : Theme.muted;
+                            vertical-alignment: center;
+                        }
+                    }
+                    Note { text: "Changing it signs out your other devices."; }
+                }
+                if SettingsState.tab == "account": Card {
+                    title: "Signed-in devices";
+                    for device in SettingsState.devices: HorizontalLayout {
+                        spacing: 12px;
                         VerticalLayout {
                             alignment: center;
                             horizontal-stretch: 1;
-                            Text { text: user.username + (user.me ? "  (you)" : ""); color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
-                            Note { text: user.detail; }
+                            Text { text: device.name + (device.current ? "  (this device)" : ""); color: Theme.text; font-size: 13px; overflow: elide; }
+                            Note { text: device.detail; }
                         }
-                        VerticalLayout {
+                        if !device.current: VerticalLayout {
                             alignment: center;
-                            OutlineButton {
-                                text: user.admin ? "Remove admin" : "Make admin";
-                                clicked => { SettingsState.set-admin(user.id, !user.admin); }
+                            OutlineButton { text: "Sign out"; clicked => { SettingsState.revoke-device(device.id); } }
+                        }
+                    }
+                }
+
+                // ---------------------------------------------------------- scrobbling
+                if SettingsState.tab == "scrobbling": Card {
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Text { text: "ListenBrainz"; color: Theme.text; font-size: 15px; font-weight: 700; vertical-alignment: center; }
+                        if SettingsState.lb-connected: VerticalLayout {
+                            alignment: center;
+                            Chip { text: "Connected as " + SettingsState.lb-username; accent: Theme.accent; }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    Text {
+                        text: "Sends what you listen to to your ListenBrainz profile, for a public listening history, statistics and recommendations. Listens are sent from the moment you connect; earlier history stays here.";
+                        color: Theme.muted;
+                        font-size: 13px;
+                        wrap: word-wrap;
+                    }
+                    if SettingsState.lb-connected: Note {
+                        text: SettingsState.lb-status;
+                        color: SettingsState.lb-failing ? #ff8a80 : Theme.muted;
+                    }
+                    // Shown to connect, and to replace a token ListenBrainz no longer accepts.
+                    if !SettingsState.lb-connected || SettingsState.lb-failing: Field {
+                        label: "USER TOKEN";
+                        LineEdit {
+                            text <=> SettingsState.lb-token;
+                            input-type: InputType.password;
+                            placeholder-text: "Copy it from listenbrainz.org/settings";
+                            accepted(t) => { SettingsState.lb-connect(t); }
+                        }
+                    }
+                    if SettingsState.lb-error != "": Note { text: SettingsState.lb-error; color: #ff8a80; }
+                    HorizontalLayout {
+                        alignment: start;
+                        spacing: 12px;
+                        if !SettingsState.lb-connected || SettingsState.lb-failing: PrimaryButton {
+                            width: 160px;
+                            text: SettingsState.lb-connected ? "Reconnect" : "Connect";
+                            busy: SettingsState.lb-busy;
+                            clicked => { SettingsState.lb-connect(SettingsState.lb-token); }
+                        }
+                        if SettingsState.lb-connected: VerticalLayout {
+                            alignment: center;
+                            OutlineButton { text: "Disconnect"; clicked => { SettingsState.lb-disconnect(); } }
+                        }
+                    }
+                }
+                if SettingsState.tab == "scrobbling": Card {
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Text { text: "Last.fm"; color: Theme.text; font-size: 15px; font-weight: 700; vertical-alignment: center; }
+                        if SettingsState.fm-connected: VerticalLayout {
+                            alignment: center;
+                            Chip { text: "Connected as " + SettingsState.fm-username; accent: Theme.accent; }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    Text {
+                        text: "Scrobbles what you listen to to your Last.fm profile. Connecting opens Last.fm in your browser, where you allow HyperPlayer; your password stays with Last.fm.";
+                        color: Theme.muted;
+                        font-size: 13px;
+                        wrap: word-wrap;
+                    }
+                    if !SettingsState.fm-available: Note {
+                        text: "This server isn't set up for Last.fm yet: its admin needs a Last.fm API account (last.fm/api/account/create) and to start the server with HP_LASTFM_API_KEY and HP_LASTFM_SECRET.";
+                    }
+                    if SettingsState.fm-connected: Note {
+                        text: SettingsState.fm-status;
+                        color: SettingsState.fm-failing ? #ff8a80 : Theme.muted;
+                    }
+                    if SettingsState.fm-waiting: Note {
+                        text: "Allow HyperPlayer on the Last.fm page that opened in your browser; this page updates by itself once you have.";
+                    }
+                    if SettingsState.fm-error != "": Note { text: SettingsState.fm-error; color: #ff8a80; }
+                    if SettingsState.fm-available: HorizontalLayout {
+                        alignment: start;
+                        spacing: 12px;
+                        // Shown to connect, and to reconnect when Last.fm no longer accepts the session.
+                        if !SettingsState.fm-waiting && (!SettingsState.fm-connected || SettingsState.fm-failing): PrimaryButton {
+                            width: 160px;
+                            text: SettingsState.fm-connected ? "Reconnect" : "Connect";
+                            busy: SettingsState.fm-busy;
+                            clicked => { SettingsState.fm-connect(); }
+                        }
+                        if SettingsState.fm-waiting: VerticalLayout {
+                            alignment: center;
+                            OutlineButton { text: "Open Last.fm again"; clicked => { SettingsState.fm-open(SettingsState.fm-url); } }
+                        }
+                        if SettingsState.fm-waiting: VerticalLayout {
+                            alignment: center;
+                            OutlineButton { text: "Cancel"; clicked => { SettingsState.fm-cancel(); } }
+                        }
+                        if SettingsState.fm-connected && !SettingsState.fm-waiting: VerticalLayout {
+                            alignment: center;
+                            OutlineButton { text: "Disconnect"; clicked => { SettingsState.fm-disconnect(); } }
+                        }
+                    }
+                }
+
+                // --------------------------------------------------------------- admin
+                if SettingsState.tab == "admin": Card {
+                    title: "Library";
+                    Note { text: SettingsState.library-summary; }
+                    for folder in SettingsState.folders: HorizontalLayout {
+                        spacing: 10px;
+                        Text { text: folder.path; color: Theme.text; font-size: 13px; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+                        Text { text: folder.detail; color: folder.available ? Theme.muted : #ff8a80; font-size: 12px; vertical-alignment: center; }
+                    }
+                    HorizontalLayout {
+                        alignment: start;
+                        OutlineButton { text: SettingsState.scanning ? "Scanning…" : "Rescan now"; clicked => { SettingsState.rescan(); } }
+                    }
+                    Note { text: "The server also rescans every few minutes and watches folders where the filesystem allows. Folders are set with HP_LIBRARY on the server."; }
+                }
+                if SettingsState.tab == "admin": Card {
+                    title: "Users";
+                    for user in SettingsState.users: VerticalLayout {
+                        spacing: 8px;
+                        HorizontalLayout {
+                            spacing: 8px;
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                Text { text: user.username + (user.me ? "  (you)" : ""); color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
+                                Note { text: user.detail; }
                             }
-                        }
-                        if !user.me: VerticalLayout {
-                            alignment: center;
-                            OutlineButton {
-                                text: "Reset password";
-                                clicked => {
-                                    root.resetting = root.resetting == user.id ? "" : user.id;
-                                    root.reset-password = "";
+                            VerticalLayout {
+                                alignment: center;
+                                OutlineButton {
+                                    text: user.admin ? "Remove admin" : "Make admin";
+                                    clicked => { SettingsState.set-admin(user.id, !user.admin); }
                                 }
                             }
-                        }
-                        if !user.me: VerticalLayout {
-                            alignment: center;
-                            OutlineButton {
-                                danger: true;
-                                text: root.deleting == user.id ? "Confirm delete" : "Delete";
-                                clicked => {
-                                    if root.deleting == user.id {
-                                        root.deleting = "";
-                                        SettingsState.delete-user(user.id);
-                                    } else {
-                                        root.deleting = user.id;
+                            if !user.me: VerticalLayout {
+                                alignment: center;
+                                OutlineButton {
+                                    text: "Reset password";
+                                    clicked => {
+                                        root.resetting = root.resetting == user.id ? "" : user.id;
+                                        root.reset-password = "";
+                                    }
+                                }
+                            }
+                            if !user.me: VerticalLayout {
+                                alignment: center;
+                                OutlineButton {
+                                    danger: true;
+                                    text: root.deleting == user.id ? "Confirm delete" : "Delete";
+                                    clicked => {
+                                        if root.deleting == user.id {
+                                            root.deleting = "";
+                                            SettingsState.delete-user(user.id);
+                                        } else {
+                                            root.deleting = user.id;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    if root.resetting == user.id: HorizontalLayout {
-                        spacing: 8px;
-                        LineEdit {
-                            text <=> root.reset-password;
-                            input-type: InputType.password;
-                            placeholder-text: "Temporary password (at least 8 characters)";
-                        }
-                        OutlineButton {
-                            text: "Set";
-                            clicked => {
-                                SettingsState.reset-password(user.id, root.reset-password);
-                                root.resetting = "";
+                        if root.resetting == user.id: HorizontalLayout {
+                            spacing: 8px;
+                            LineEdit {
+                                text <=> root.reset-password;
+                                input-type: InputType.password;
+                                placeholder-text: "Temporary password (at least 8 characters)";
+                            }
+                            OutlineButton {
+                                text: "Set";
+                                clicked => {
+                                    SettingsState.reset-password(user.id, root.reset-password);
+                                    root.resetting = "";
+                                }
                             }
                         }
                     }
-                }
-                if SettingsState.users-message != "": Note {
-                    text: SettingsState.users-message;
-                    color: SettingsState.users-error ? #ff8a80 : Theme.muted;
-                }
-            }
-            if SettingsState.tab == "admin": Card {
-                title: "Add a user";
-                HorizontalLayout {
-                    spacing: 12px;
-                    Field {
-                        label: "USERNAME";
-                        LineEdit { text <=> SettingsState.new-username; }
-                    }
-                    Field {
-                        label: "FULL NAME";
-                        LineEdit { text <=> SettingsState.new-full-name; placeholder-text: "Optional"; }
+                    if SettingsState.users-message != "": Note {
+                        text: SettingsState.users-message;
+                        color: SettingsState.users-error ? #ff8a80 : Theme.muted;
                     }
                 }
-                Field {
-                    label: "PASSWORD";
-                    LineEdit { text <=> SettingsState.new-password; input-type: InputType.password; placeholder-text: "At least 8 characters"; }
-                }
-                CheckBox { text: "Admin (can manage the server and its users)"; checked <=> SettingsState.new-admin; }
-                HorizontalLayout {
-                    alignment: start;
-                    OutlineButton { text: "Add user"; clicked => { SettingsState.create-user(); } }
+                if SettingsState.tab == "admin": Card {
+                    title: "Add a user";
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Field {
+                            label: "USERNAME";
+                            LineEdit { text <=> SettingsState.new-username; }
+                        }
+                        Field {
+                            label: "FULL NAME";
+                            LineEdit { text <=> SettingsState.new-full-name; placeholder-text: "Optional"; }
+                        }
+                    }
+                    Field {
+                        label: "PASSWORD";
+                        LineEdit { text <=> SettingsState.new-password; input-type: InputType.password; placeholder-text: "At least 8 characters"; }
+                    }
+                    CheckBox { text: "Admin (can manage the server and its users)"; checked <=> SettingsState.new-admin; }
+                    HorizontalLayout {
+                        alignment: start;
+                        OutlineButton { text: "Add user"; clicked => { SettingsState.create-user(); } }
+                    }
                 }
             }
+        }
+        AccentScrollBar {
+            x: parent.width - self.width;
+            height: parent.height;
+            visible-height: settings-scroll.visible-height;
+            content-height: settings-scroll.content-height;
+            content-y <=> settings-scroll.content-y;
         }
     }
 }
