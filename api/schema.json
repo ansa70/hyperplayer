@@ -1008,6 +1008,24 @@
         "$ref": "#/definitions/AlbumSummary"
       }
     },
+    "GenreSummary": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "trackCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "name",
+        "trackCount"
+      ],
+      "additionalProperties": false
+    },
     "SearchResults": {
       "type": "object",
       "properties": {
@@ -1028,12 +1046,20 @@
           "items": {
             "$ref": "#/definitions/Track"
           }
+        },
+        "genres": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GenreSummary"
+          }
         }
       },
       "required": [
         "artists",
         "albums",
-        "tracks"
+        "tracks",
+        "genres"
       ],
       "additionalProperties": false
     },
@@ -1497,7 +1523,8 @@
         "library",
         "album",
         "artist",
-        "genre"
+        "genre",
+        "playlist"
       ]
     },
     "Preferences": {
@@ -1914,6 +1941,24 @@
             "id"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "genre"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -1995,6 +2040,7 @@
             "album",
             "playlist",
             "artist",
+            "genre",
             "shuffle"
           ]
         },
@@ -2119,6 +2165,13 @@
         },
         "shuffle": {
           "type": "boolean"
+        },
+        "shuffleScope": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/ShuffleScope"
+            }
+          ]
         }
       },
       "required": [

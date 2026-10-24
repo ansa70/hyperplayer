@@ -18,8 +18,8 @@ use types::{
     Artist, ArtistPage, AuthStatus, ConnectLastfm, ConnectListenBrainz, CreatePlaylist, DeviceList,
     HistoryStats, Jump, LastfmAuthorization, LibraryStatus, ListenPage, Lyrics, Me, MoveEntry,
     NowPlaying, Ok as OkResponse, PlayingNow, Playlist, PlaylistList, Preferences, QueueState,
-    RecordListen, RepeatMode, ScrobbleSettings, SearchResults, Session, SetQueue, TrackSource,
-    UpdatePlaylist, UpdateQueue, User, UserList, Waveform,
+    RecordListen, RepeatMode, ScrobbleSettings, SearchResults, Session, SetQueue, ShuffleScope,
+    TrackSource, UpdatePlaylist, UpdateQueue, User, UserList, Waveform,
 };
 
 use crate::{adaptive::Quality, trust};
@@ -486,6 +486,17 @@ impl Api {
         self.get("/api/queue")
     }
 
+    /// Plays `source` shuffled from `scope` (the user's own choice stays as it is).
+    pub fn shuffle_queue(&self, source: TrackSource, scope: ShuffleScope) -> Result<QueueState> {
+        let body = SetQueue {
+            source,
+            start: 0,
+            shuffle: Some(true),
+            shuffle_scope: Some(scope),
+        };
+        self.send(Method::PUT, "/api/queue", Some(&body))
+    }
+
     pub fn set_queue(
         &self,
         source: TrackSource,
@@ -496,6 +507,7 @@ impl Api {
             source,
             start: start as i64,
             shuffle,
+            shuffle_scope: None,
         };
         self.send(Method::PUT, "/api/queue", Some(&body))
     }

@@ -13,12 +13,14 @@ import type {
   EnrichmentState,
   ExternalLink,
   NowPlaying,
+  GenreSummary,
   SearchResults,
   Track,
   TrackCredits,
   TrackPage,
 } from "@hyperplayer/schemas";
 import type { Db } from "../db.ts";
+import { TRACK_GENRES } from "./genres.ts";
 import { SEARCH_WEIGHTS, toFtsQuery } from "./searchIndex.ts";
 
 type Row = Record<string, unknown>;
@@ -408,7 +410,8 @@ export class Catalog {
   /** Ranked full-text search: an entity's own name counts most, then artist/album, then credits. */
   search(q: string, limit: number): SearchResults {
     const query = toFtsQuery(q);
-    if (!query) return { artists: [], albums: [], tracks: [] };
+    // Genres match by plain substring, so they're found even without searchable words.
+    if (!query) return { artists: [], albums: [], tracks: [], genres: this.#searchGenres(q, limit) };
     const ids = (kind: string) =>
       (
         this.#db
@@ -434,6 +437,23 @@ export class Catalog {
       artists: fetch(ARTIST_SELECT, "ar", ids("artist")).map(this.#artistSummary),
       albums: fetch(ALBUM_SELECT, "al", ids("album")).map(this.#albumSummary),
       tracks: fetch(TRACK_SELECT, "t", ids("track")).map(this.#track),
+      genres: this.#searchGenres(q, limit),
     };
+  }
+
+  /** Genres containing `q`, those starting with it first, then the most used. */
+  #searchGenres(q: string, limit: number): GenreSummary[] {
+    const escaped = q.trim().replace(/[\\%_]/g, (c) => `\\${c}`);
+    const rows = this.#db
+      .prepare(
+        `SELECT min(j.value) AS name, count(DISTINCT t.id) AS tracks
+         FROM tracks t JOIN artists ar ON ar.id = t.artist_id, json_each(${TRACK_GENRES}) j
+         WHERE j.value LIKE ? ESCAPE '\\'
+         GROUP BY lower(j.value)
+         ORDER BY min(j.value) LIKE ? ESCAPE '\\' DESC, tracks DESC, lower(min(j.value))
+         LIMIT ?`,
+      )
+      .all(`%${escaped}%`, `${escaped}%`, limit) as Row[];
+    return rows.map((r) => ({ name: String(r.name), trackCount: Number(r.tracks) }));
   }
 }

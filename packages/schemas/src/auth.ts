@@ -137,8 +137,8 @@ const Accent = z.string().regex(/^(cover|#[0-9a-f]{6})$/);
 
 export const ShuffleScope = named(
   "ShuffleScope",
-  z.enum(["library", "album", "artist", "genre"]),
-  "Where shuffle picks tracks from: everything, or the playing track's album, artist or genre.",
+  z.enum(["library", "album", "artist", "genre", "playlist"]),
+  "Where shuffle picks tracks from: everything, the playing track's album, artist or genre, or the playlist playing.",
 );
 
 export const Preferences = named(
@@ -159,7 +159,7 @@ export const Preferences = named(
     coverBackground: z.boolean().default(true),
     /** Show the live spectrum in the now-playing panel. */
     visualizer: z.boolean().default(true),
-    /** What the shuffle button draws from: the whole library, or the playing track's album, artist or genre. */
+    /** What the shuffle button draws from (the library when the track gives none to go by: no genre, not from a playlist). */
     shuffleScope: ShuffleScope.default("library"),
   }),
   "Per-user settings that follow the account to every device.",

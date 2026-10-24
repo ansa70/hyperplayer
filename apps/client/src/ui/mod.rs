@@ -45,6 +45,8 @@ pub struct App {
     album_tracks: Vec<types::Track>,
     /// Bumped per keystroke; only the latest search's results are shown.
     search_seq: u64,
+    /// The same for the playlist page's search.
+    playlist_search_seq: u64,
     search_tracks: Vec<types::Track>,
     /// Where clearing the search box / closing the queue returns to.
     page_before_search: Page,
@@ -278,6 +280,7 @@ pub fn run() -> anyhow::Result<()> {
             album_id: None,
             album_tracks: Vec::new(),
             search_seq: 0,
+            playlist_search_seq: 0,
             search_tracks: Vec::new(),
             page_before_search: Page::Welcome,
             page_before_queue: Page::Welcome,
@@ -418,6 +421,8 @@ pub fn run() -> anyhow::Result<()> {
     // Playlists, queue, menus
     ui.on_select_playlist(library::select_playlist);
     ui.on_new_playlist(library::new_playlist);
+    ui.on_playlist_add_search(library::playlist_add_search);
+    ui.on_playlist_add(library::playlist_add);
     ui.on_play_playlist(library::play_playlist);
     ui.on_shuffle_playlist(library::shuffle_playlist);
     ui.on_rename_playlist(library::rename_playlist);

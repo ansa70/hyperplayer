@@ -1,12 +1,12 @@
 //! Playlists, the queue view, and the ⋯ menu actions on tracks and albums.
 
-use std::rc::Rc;
+use std::{rc::Rc, time::Duration};
 
 use hyperplayer::api::types::{self, TrackSource};
-use slint::{Image, ModelRc, SharedString, VecModel};
+use slint::{Image, Model, ModelRc, SharedString, Timer, VecModel};
 
 use super::{
-    App, Page, PlaylistItem, PlaylistView, TrackItem, background, current_track,
+    AddItem, App, Page, PlaylistItem, PlaylistView, TrackItem, background, current_track,
     models::{fmt_duration, load_image, plural},
     playback::{Then, play_from, queue_op, repeat_mode},
     set_status, with_app,
@@ -101,6 +101,13 @@ fn show_playlist(app: &mut App, p: types::Playlist, open: bool) {
         },
     });
     ui.set_playlist_tracks(Rc::new(VecModel::from(rows)).into());
+    if !same {
+        // Another playlist: its own search starts empty.
+        app.playlist_search_seq += 1;
+        ui.set_playlist_add_query("".into());
+        ui.set_playlist_add_message("".into());
+        show_add_results(&ui, None);
+    }
     ui.set_selected_playlist_id(p.id.to_string().into());
     if open {
         ui.set_page(Page::Playlist);
@@ -120,6 +127,159 @@ fn show_playlist(app: &mut App, p: types::Playlist, open: bool) {
         }),
     );
     app.playlist = Some(p);
+}
+
+/// Debounce for the playlist page's search-as-you-type.
+const ADD_SEARCH_DELAY: Duration = Duration::from_millis(250);
+/// Results per kind: enough to pick from, few enough to see the playlist below.
+const ADD_SEARCH_LIMIT: u32 = 6;
+
+/// Typing in the playlist page's search: finds what could be added.
+pub fn playlist_add_search(text: SharedString) {
+    let seq = with_app(|app| {
+        app.playlist_search_seq += 1;
+        if let Some(ui) = app.ui.upgrade() {
+            ui.set_playlist_add_pending(true);
+            ui.set_playlist_add_message("".into());
+        }
+        app.playlist_search_seq
+    });
+    let query = text.trim().to_string();
+    if query.is_empty() {
+        return;
+    }
+    Timer::single_shot(ADD_SEARCH_DELAY, move || {
+        // Typing continued: a newer search supersedes this one.
+        if with_app(|app| app.playlist_search_seq) != seq {
+            return;
+        }
+        let api = with_app(|app| app.api.clone());
+        background(
+            move || api.search(&query, ADD_SEARCH_LIMIT),
+            move |results| {
+                with_app(|app| {
+                    if app.playlist_search_seq == seq
+                        && let Some(ui) = app.ui.upgrade()
+                    {
+                        show_add_results(&ui, Some(&results));
+                    }
+                })
+            },
+        );
+    });
+}
+
+fn show_add_results(ui: &super::AppWindow, results: Option<&types::SearchResults>) {
+    let model = |items: Vec<AddItem>| ModelRc::new(VecModel::from(items));
+    let Some(r) = results else {
+        for set in [
+            super::AppWindow::set_playlist_add_tracks,
+            super::AppWindow::set_playlist_add_albums,
+            super::AppWindow::set_playlist_add_artists,
+            super::AppWindow::set_playlist_add_genres,
+        ] {
+            set(ui, model(Vec::new()));
+        }
+        return;
+    };
+    let item = |id: &str, title: &str, detail: String| AddItem {
+        id: id.into(),
+        title: title.into(),
+        detail: detail.into(),
+    };
+    ui.set_playlist_add_tracks(model(
+        r.tracks
+            .iter()
+            .map(|t| {
+                item(
+                    &t.id,
+                    &t.title,
+                    format!("{} · {}", t.artist_name, t.album_title),
+                )
+            })
+            .collect(),
+    ));
+    ui.set_playlist_add_albums(model(
+        r.albums
+            .iter()
+            .map(|a| {
+                let year = a.year.map(|y| format!(" · {y}")).unwrap_or_default();
+                item(
+                    &a.id,
+                    &a.title,
+                    format!(
+                        "{}{year} · {}",
+                        a.artist_name,
+                        plural(a.track_count, "track")
+                    ),
+                )
+            })
+            .collect(),
+    ));
+    ui.set_playlist_add_artists(model(
+        r.artists
+            .iter()
+            .map(|a| item(&a.id, &a.name, plural(a.track_count, "track")))
+            .collect(),
+    ));
+    ui.set_playlist_add_genres(model(
+        r.genres
+            .iter()
+            .map(|g| item(&g.name, &g.name, plural(g.track_count, "track")))
+            .collect(),
+    ));
+    ui.set_playlist_add_pending(false);
+}
+
+/// A "+ Add" in the playlist page's search: adds that track, album, artist or genre.
+pub fn playlist_add(kind: SharedString, id: SharedString, title: SharedString) {
+    let source = match kind.as_str() {
+        "track" => track_ids(&[id.as_str()]),
+        "album" => TrackSource::Album { id: source_id(&id) },
+        "artist" => TrackSource::Artist { id: source_id(&id) },
+        _ => TrackSource::Genre {
+            name: id.to_string().try_into().expect("genre name"),
+        },
+    };
+    let Some((api, pid, before)) = with_app(|app| {
+        let p = app.playlist.as_ref()?;
+        Some((app.api.clone(), p.id.to_string(), p.track_count))
+    }) else {
+        return;
+    };
+    background(
+        move || api.add_to_playlist(&pid, source),
+        move |p| {
+            let added = p.track_count - before;
+            with_app(|app| {
+                if let Some(ui) = app.ui.upgrade() {
+                    ui.set_playlist_add_message(
+                        format!("Added “{title}”: {}", plural(added, "track")).into(),
+                    );
+                }
+            });
+            playlist_changed(p, false);
+        },
+    );
+}
+
+/// The playing track changed: move the playlist page's mark, in place (a new model would
+/// lose the list's scroll position).
+pub fn refresh_playlist_playing(app: &App, ui: &super::AppWindow, playing: Option<&str>) {
+    let Some(p) = &app.playlist else { return };
+    let rows = ui.get_playlist_tracks();
+    for (i, e) in p.entries.iter().enumerate() {
+        let now = e
+            .track
+            .as_ref()
+            .is_some_and(|t| Some(t.id.as_str()) == playing);
+        if let Some(mut row) = rows.row_data(i)
+            && row.playing != now
+        {
+            row.playing = now;
+            rows.set_row_data(i, row);
+        }
+    }
 }
 
 /// After a playlist changed on the server: refresh the sidebar and, if open, the page.
@@ -165,9 +325,12 @@ pub fn play_playlist(index: i32) {
     play_from(TrackSource::Playlist { id }, start, Some(false));
 }
 
+/// The playlist's own Shuffle: the shuffle button's playlist scope, for this playlist.
 pub fn shuffle_playlist() {
     if let Some(id) = with_app(|app| app.playlist.as_ref().map(|p| p.id.clone())) {
-        play_from(TrackSource::Playlist { id }, 0, Some(true));
+        queue_op(Then::Play, move |api| {
+            api.shuffle_queue(TrackSource::Playlist { id }, types::ShuffleScope::Playlist)
+        });
     }
 }
 
@@ -180,7 +343,9 @@ pub fn rename_playlist(name: SharedString) {
         return;
     };
     let name = name.trim().to_string();
-    if name.is_empty() {
+    // Also called when the field loses focus, usually unchanged.
+    let unchanged = with_app(|app| app.playlist.as_ref().is_some_and(|p| p.name == name));
+    if name.is_empty() || unchanged {
         return;
     }
     background(
@@ -402,6 +567,7 @@ pub fn sync_queue_ui(app: &mut App) {
             Some(types::ShuffleScope::Album) => format!("Album: {name}"),
             Some(types::ShuffleScope::Artist) => format!("Artist: {name}"),
             Some(types::ShuffleScope::Genre) => format!("Genre: {name}"),
+            Some(types::ShuffleScope::Playlist) => format!("Playlist: {name}"),
         }
         .into(),
     );

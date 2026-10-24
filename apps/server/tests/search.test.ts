@@ -26,6 +26,10 @@ beforeAll(() => {
   track.run("blue-green", "/2", "Blue in Green", "miles", "kob");
   track.run("hold-up", "/3", "Hold Up", "bey", "lem");
   track.run("someday", "/4", "Someday My Prince Will Come", "miles", "sw");
+  // Tagged genres; Beyoncé's track is untagged, so her MusicBrainz genres stand in.
+  db.exec(`UPDATE tracks SET genres = '["Jazz"]' WHERE artist_id = 'miles';
+           UPDATE tracks SET genres = '["Jazz", "Cool Jazz"]' WHERE id = 'blue-green';
+           UPDATE artists SET mb_genres = '["pop", "R&B", "100%_fun"]' WHERE id = 'bey';`);
   db.exec(`INSERT INTO credits (track_id, source, scope, category, name, role, position)
            VALUES ('so-what', 'musicbrainz', 'track', 'performance', 'John Coltrane', 'tenor saxophone', 0)`);
   rebuildSearchIndex(db);
@@ -72,4 +76,17 @@ test("punctuation and operators in input are treated as plain words", () => {
 test("credited musicians find the tracks they play on", () => {
   expect(titles("coltrane").tracks).toEqual(["So What"]);
   expect(titles("coltrane so").tracks).toEqual(["So What"]);
+});
+
+test("genres are found by any part of their name, those starting with it first", () => {
+  expect(catalog.search("jazz", 10).genres).toEqual([
+    { name: "Jazz", trackCount: 3 },
+    { name: "Cool Jazz", trackCount: 1 },
+  ]);
+  // From the artist's genres when the file has none.
+  expect(catalog.search("POP", 10).genres).toEqual([{ name: "pop", trackCount: 1 }]);
+  // LIKE's wildcards are plain characters in a query.
+  expect(catalog.search("100%", 10).genres.map((g) => g.name)).toEqual(["100%_fun"]);
+  expect(catalog.search("_", 10).genres.map((g) => g.name)).toEqual(["100%_fun"]); // not every genre
+  expect(catalog.search("%", 10).genres.map((g) => g.name)).toEqual(["100%_fun"]);
 });

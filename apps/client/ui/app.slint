@@ -1,5 +1,12 @@
 import { CheckBox, LineEdit, ListView, Slider, ScrollView } from "std-widgets.slint";
 
+/// Something the playlist page's search can add: a track, album, artist or genre.
+export struct AddItem {
+    id: string,
+    title: string,
+    detail: string,
+}
+
 export struct ArtistItem {
     id: string,
     name: string,
@@ -353,7 +360,7 @@ component ShuffleMenu inherits PopupWindow {
     in property <string> scope;
     callback pick(string);
     width: 190px;
-    height: 6px + 24px + 4 * 31px + 6px;
+    height: 6px + 24px + 5 * 31px + 6px;
     Rectangle {
         background: Theme.surface-hi;
         border-radius: 8px;
@@ -379,6 +386,7 @@ component ShuffleMenu inherits PopupWindow {
                 { key: "album", label: "This album" },
                 { key: "artist", label: "This artist" },
                 { key: "genre", label: "This genre" },
+                { key: "playlist", label: "This playlist" },
             ]: MenuItem {
                 text: option.label;
                 checked: option.key == root.scope;
@@ -1153,6 +1161,62 @@ component SearchPage inherits Rectangle {
     }
 }
 
+component OutlineButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> danger;
+    callback clicked();
+    height: 30px;
+    width: ob-label.preferred-width + 24px;
+    border-radius: 15px;
+    border-width: 1px;
+    border-color: ob-ta.has-hover ? (root.danger ? #ff8a80 : Theme.text) : Theme.faint;
+    ob-label := Text {
+        text: root.text;
+        color: root.danger && ob-ta.has-hover ? #ff8a80 : Theme.muted;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    ob-ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+/// One kind of result in the playlist page's search, each with a button to add it.
+component AddSection inherits VerticalLayout {
+    in property <string> heading;
+    in property <string> kind;
+    in property <[AddItem]> items;
+    callback add(string, string, string);
+    spacing: 2px;
+    if root.items.length > 0: Text {
+        text: root.heading;
+        color: Theme.faint;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1.2px;
+    }
+    for item in root.items: Rectangle {
+        height: 40px;
+        border-radius: 6px;
+        background: row-ta.has-hover ? Theme.surface-hi.with-alpha(0.6) : transparent;
+        row-ta := TouchArea { }
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            spacing: 10px;
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 1;
+                Text { text: item.title; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
+                if item.detail != "": Text { text: item.detail; color: Theme.muted; font-size: 11px; overflow: elide; }
+            }
+            VerticalLayout {
+                alignment: center;
+                OutlineButton { text: "+ Add"; clicked => { root.add(root.kind, item.id, item.title); } }
+            }
+        }
+    }
+}
+
 component PlaylistPage inherits Rectangle {
     in property <PlaylistView> playlist;
     in property <[TrackItem]> tracks;
@@ -1162,7 +1226,19 @@ component PlaylistPage inherits Rectangle {
     callback rename(string);
     callback delete();
     callback track-action(int, string, string);
+    /// Searching the library to add to this playlist.
+    in-out property <string> add-query;
+    in property <bool> add-pending;
+    in property <[AddItem]> add-tracks;
+    in property <[AddItem]> add-albums;
+    in property <[AddItem]> add-artists;
+    in property <[AddItem]> add-genres;
+    /// What the last addition added.
+    in property <string> add-message;
+    callback add-search(string);
+    callback add(string, string, string);
     property <bool> confirm-delete;
+    property <bool> nothing-found: root.add-tracks.length + root.add-albums.length + root.add-artists.length + root.add-genres.length == 0;
     VerticalLayout {
         padding: 28px;
         spacing: 20px;
@@ -1184,8 +1260,12 @@ component PlaylistPage inherits Rectangle {
                     font-size: 24px;
                     min-width: 360px;
                     accepted(text) => { root.rename(text); }
+                    // Leaving the field keeps the new name too.
+                    changed has-focus => {
+                        if !self.has-focus { root.rename(self.text); }
+                    }
                 }
-                Text { text: playlist.meta + "  ·  edit the name and press Enter to rename"; color: Theme.muted; font-size: 12px; }
+                Text { text: playlist.meta + "  ·  click the name to rename the playlist"; color: Theme.muted; font-size: 12px; }
                 HorizontalLayout {
                     alignment: start;
                     padding-top: 8px;
@@ -1222,10 +1302,52 @@ component PlaylistPage inherits Rectangle {
                 }
             }
         }
-        if tracks.length == 0: Text {
-            text: "Empty. Add tracks from any album or search result with the ⋯ menu.";
+        // While searching, the results and the playlist share the page about evenly.
+        VerticalLayout {
+            spacing: 8px;
+            vertical-stretch: root.add-query != "" ? 1 : 0;
+            LineEdit {
+                placeholder-text: "Add to this playlist: search for tracks, albums, artists or genres";
+                text <=> root.add-query;
+                edited(text) => { root.add-search(text); }
+            }
+            if root.add-message != "": Text { text: root.add-message; color: Theme.accent; font-size: 12px; }
+            if root.add-query != "": Rectangle {
+                vertical-stretch: 1;
+                min-height: min(120px, add-results.preferred-height);
+                max-height: add-results.preferred-height;
+                border-radius: 8px;
+                background: Theme.surface.with-alpha(0.7);
+                add-scroll := ScrollView {
+                    vertical-scrollbar-policy: always-off;
+                    add-results := VerticalLayout {
+                        padding: 10px;
+                        spacing: 12px;
+                        AddSection { heading: "GENRES"; kind: "genre"; items: root.add-genres; add(k, id, t) => { root.add(k, id, t); } }
+                        AddSection { heading: "ARTISTS"; kind: "artist"; items: root.add-artists; add(k, id, t) => { root.add(k, id, t); } }
+                        AddSection { heading: "ALBUMS"; kind: "album"; items: root.add-albums; add(k, id, t) => { root.add(k, id, t); } }
+                        AddSection { heading: "TRACKS"; kind: "track"; items: root.add-tracks; add(k, id, t) => { root.add(k, id, t); } }
+                        if root.nothing-found: Text {
+                            text: root.add-pending ? "Searching…" : "Nothing found for “" + root.add-query + "”.";
+                            color: Theme.faint;
+                            font-size: 13px;
+                        }
+                    }
+                }
+                AccentScrollBar {
+                    x: parent.width - self.width;
+                    height: parent.height;
+                    visible-height: add-scroll.visible-height;
+                    content-height: add-scroll.content-height;
+                    content-y <=> add-scroll.content-y;
+                }
+            }
+        }
+        if tracks.length == 0 && root.add-query == "": Text {
+            text: "Empty for now: search above to add tracks, albums, whole artists or genres. The ⋯ menu on any track or album adds it too.";
             color: Theme.faint;
             font-size: 13px;
+            wrap: word-wrap;
         }
         Rectangle {
             vertical-stretch: 1;
@@ -1633,7 +1755,8 @@ component TransportBar inherits Rectangle {
                         : !self.hovered ? ""
                         : "Shuffle from: " + (root.shuffle-scope == "album" ? "This album"
                             : root.shuffle-scope == "artist" ? "This artist"
-                            : root.shuffle-scope == "genre" ? "This genre" : "Whole library");
+                            : root.shuffle-scope == "genre" ? "This genre"
+                            : root.shuffle-scope == "playlist" ? "This playlist" : "Whole library");
                     caption-color: root.shuffle ? root.accent : Theme.muted;
                     caption-width: self.x - 10px;
                     caption-clicked => { shuffle-menu.show(); }
@@ -2144,25 +2267,6 @@ component Segmented inherits HorizontalLayout {
         }
         seg-ta := TouchArea { mouse-cursor: pointer; clicked => { root.pick(option.key); } }
     }
-}
-
-component OutlineButton inherits Rectangle {
-    in property <string> text;
-    in property <bool> danger;
-    callback clicked();
-    height: 30px;
-    width: ob-label.preferred-width + 24px;
-    border-radius: 15px;
-    border-width: 1px;
-    border-color: ob-ta.has-hover ? (root.danger ? #ff8a80 : Theme.text) : Theme.faint;
-    ob-label := Text {
-        text: root.text;
-        color: root.danger && ob-ta.has-hover ? #ff8a80 : Theme.muted;
-        font-size: 12px;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-    ob-ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
 }
 
 component Card inherits Rectangle {
@@ -2765,6 +2869,15 @@ export component AppWindow inherits Window {
     in property <string> selected-playlist-id;
     in property <PlaylistView> playlist;
     in property <[TrackItem]> playlist-tracks;
+    in-out property <string> playlist-add-query;
+    in property <bool> playlist-add-pending;
+    in property <[AddItem]> playlist-add-tracks;
+    in property <[AddItem]> playlist-add-albums;
+    in property <[AddItem]> playlist-add-artists;
+    in property <[AddItem]> playlist-add-genres;
+    in property <string> playlist-add-message;
+    callback playlist-add-search(string);
+    callback playlist-add(string, string, string);
     in property <string> queue-origin;
     in property <[TrackItem]> queue-now;
     in property <[TrackItem]> queue-next;
@@ -2975,6 +3088,15 @@ export component AppWindow inherits Window {
                     rename(name) => { root.rename-playlist(name); }
                     delete => { root.delete-playlist(); }
                     track-action(i, kind, id) => { root.track-action("playlist", i, kind, id); }
+                    add-query <=> root.playlist-add-query;
+                    add-pending: root.playlist-add-pending;
+                    add-tracks: root.playlist-add-tracks;
+                    add-albums: root.playlist-add-albums;
+                    add-artists: root.playlist-add-artists;
+                    add-genres: root.playlist-add-genres;
+                    add-message: root.playlist-add-message;
+                    add-search(text) => { root.playlist-add-search(text); }
+                    add(kind, id, title) => { root.playlist-add(kind, id, title); }
                 }
                 if root.page == Page.settings: SettingsPage { }
                 if root.page == Page.albums: AlbumsPage {

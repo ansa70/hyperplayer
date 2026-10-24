@@ -85,8 +85,10 @@ export const TrackSource = named(
     z.object({ kind: z.literal("album"), id: Id }),
     z.object({ kind: z.literal("playlist"), id: Id }),
     z.object({ kind: z.literal("artist"), id: Id }),
+    /** Every track in the genre (matched regardless of case). */
+    z.object({ kind: z.literal("genre"), name: z.string().trim().min(1) }),
   ]),
-  "A set of tracks: explicit ids, or every track of an album, playlist or artist.",
+  "A set of tracks: explicit ids, or every track of an album, playlist, artist or genre.",
 );
 
 export const AddToPlaylist = named(
@@ -124,7 +126,7 @@ export const QueueOrigin = named(
   "QueueOrigin",
   z.object({
     /** `shuffle`: tracks drawn at random from the library, or an album, artist or genre (`id`, `name`). */
-    kind: z.enum(["tracks", "album", "playlist", "artist", "shuffle"]),
+    kind: z.enum(["tracks", "album", "playlist", "artist", "genre", "shuffle"]),
     id: Id.nullable(),
     /** Display name, e.g. the album or playlist title. */
     name: z.string().nullable(),
@@ -176,6 +178,8 @@ export const SetQueue = named(
      * drawn from its scope around the chosen one.
      */
     shuffle: z.boolean().optional(),
+    /** With `shuffle`, draw from this scope instead of the user's (a playlist's own Shuffle: `playlist`). */
+    shuffleScope: ShuffleScope.optional(),
   }),
 );
 

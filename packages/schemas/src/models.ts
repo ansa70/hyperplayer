@@ -275,12 +275,23 @@ export const AlbumPage = page("AlbumPage", AlbumSummary);
 export const TrackPage = page("TrackPage", Track);
 export const AlbumList = named("AlbumList", z.array(AlbumSummary));
 
+export const GenreSummary = named(
+  "GenreSummary",
+  z.object({
+    name: z.string(),
+    trackCount: Count,
+  }),
+  "A genre, as the library's tracks are tagged (or their artists known, when untagged).",
+);
+
 export const SearchResults = named(
   "SearchResults",
   z.object({
     artists: z.array(ArtistSummary),
     albums: z.array(AlbumSummary),
     tracks: z.array(Track),
+    /** Genres whose name contains the query, the ones starting with it first. */
+    genres: z.array(GenreSummary).default([]),
   }),
 );
 
@@ -366,6 +377,7 @@ export type TrackPage = z.infer<typeof TrackPage>;
 export type SearchResults = z.infer<typeof SearchResults>;
 export type LibraryFolder = z.infer<typeof LibraryFolder>;
 export type LibraryStatus = z.infer<typeof LibraryStatus>;
+export type GenreSummary = z.infer<typeof GenreSummary>;
 export type SetLibraryFolders = z.infer<typeof SetLibraryFolders>;
 export type StreamFormat = z.infer<typeof StreamFormat>;
 export type ApiError = z.infer<typeof ApiError>;

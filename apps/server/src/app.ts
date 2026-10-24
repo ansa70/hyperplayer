@@ -317,7 +317,9 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
 
   // ----------------------------------------------------------------- queue
   route.json(api.getQueue, ({ auth: a }) => queues.get(who(a)));
-  route.json(api.setQueue, ({ auth: a, body }) => queues.set(who(a), body.source, body.start, body.shuffle));
+  route.json(api.setQueue, ({ auth: a, body }) =>
+    queues.set(who(a), body.source, body.start, body.shuffle, body.shuffleScope),
+  );
   route.json(api.updateQueue, ({ auth: a, body }) => queues.update(who(a), body));
   route.json(api.clearQueue, ({ auth: a }) => queues.clear(who(a)));
   route.json(api.addToQueue, ({ auth: a, body }) => queues.add(who(a), body.source, body.placement));

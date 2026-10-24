@@ -375,3 +375,71 @@ test("the shuffle button's draw survives a server restart", async () => {
   q = await update({ shuffle: false });
   expect(order(q)).toEqual(ALBUM.includes(current(q)!) ? ALBUM : [...ALBUM, current(q)]);
 });
+
+test("a whole genre can be added to a playlist, or played", async () => {
+  await addAlbum("Quartet", "Jazz Album", JAZZ, "Jazz");
+  await addAlbum("Band", "Second", ["Loud"], "jazz");
+  let p = await call("POST", "/api/playlists", Playlist, { name: "Jazz" });
+  p = await call("POST", `/api/playlists/${p.id}/entries`, Playlist, {
+    source: { kind: "genre", name: "JAZZ" },
+  });
+  // By artist (sort name), then album and track order.
+  expect(titles(p)).toEqual(["Loud", ...JAZZ]);
+  const q = await call("PUT", DEVICE, QueueState, { source: { kind: "genre", name: "Jazz" }, start: 0 });
+  expect(q.origin).toMatchObject({ kind: "genre", name: "Jazz" });
+  const none = await inject({
+    method: "PUT",
+    url: DEVICE,
+    payload: { source: { kind: "genre", name: "Polka" }, start: 0 },
+  });
+  expect(none.statusCode).toBe(400);
+});
+
+test("a playlist's Shuffle draws from that playlist, as the shuffle button's playlist scope", async () => {
+  await addAlbum("Quartet", "Jazz Album", JAZZ, "Jazz");
+  const album = await albumId();
+  let p = await call("POST", "/api/playlists", Playlist, { name: "Mix" });
+  const two = (
+    await call("PUT", DEVICE, QueueState, { source: { kind: "album", id: album }, start: 0 })
+  ).entries
+    .slice(0, 2)
+    .map((e) => e.track.id);
+  p = await call("POST", `/api/playlists/${p.id}/entries`, Playlist, {
+    source: { kind: "tracks", trackIds: two },
+  });
+  p = await call("POST", `/api/playlists/${p.id}/entries`, Playlist, {
+    source: { kind: "genre", name: "Jazz" },
+  });
+  p = await call("POST", `/api/playlists/${p.id}/entries`, Playlist, {
+    source: { kind: "tracks", trackIds: two },
+  });
+  expect(p.entries).toHaveLength(7); // One and Two are listed twice
+
+  let q = await call("PUT", DEVICE, QueueState, {
+    source: { kind: "playlist", id: p.id },
+    start: 0,
+    shuffle: true,
+    shuffleScope: "playlist",
+  });
+  expect(q).toMatchObject({
+    shuffle: true,
+    shuffleScope: "playlist",
+    origin: { kind: "shuffle", name: "Mix" },
+  });
+  expect([...order(q)].sort()).toEqual(["Blue", "Green", "One", "Red", "Two"]); // each track once
+  // The user's own choice is left as it was.
+  expect((await inject("/api/me/preferences")).json()).toMatchObject({ shuffleScope: "library" });
+  q = await update({ shuffle: false });
+  expect(order(q)).toEqual(titles(p));
+  expect(q.origin).toMatchObject({ kind: "playlist", name: "Mix" });
+
+  // Chosen in the button's menu, it follows whichever playlist is playing...
+  await setScope("playlist");
+  q = await update({ shuffle: true });
+  expect(q).toMatchObject({ shuffleScope: "playlist", origin: { name: "Mix" } });
+  // ...and falls back to the library for anything else.
+  await update({ shuffle: false });
+  await playAlbum(0);
+  q = await update({ shuffle: true });
+  expect(q).toMatchObject({ shuffleScope: "library", origin: { name: "Library" } });
+});

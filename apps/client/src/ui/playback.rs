@@ -524,6 +524,7 @@ pub fn refresh_playing_marks() {
         let playing = current_track(app).map(|t| t.id.to_string());
         ui.set_album_tracks(track_model(&app.album_tracks, playing.as_deref()));
         ui.set_search_tracks(search_track_model(&app.search_tracks, playing.as_deref()));
+        super::library::refresh_playlist_playing(app, &ui, playing.as_deref());
         super::history::refresh_playing(app, &ui);
     });
 }

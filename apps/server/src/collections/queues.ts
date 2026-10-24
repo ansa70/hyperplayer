@@ -1,6 +1,7 @@
 import type { QueueOrigin, QueueState, RepeatMode, ShuffleScope, TrackSource } from "@hyperplayer/schemas";
 import type { Catalog } from "../catalog/catalog.ts";
 import type { Db } from "../db.ts";
+import { IN_GENRE } from "../catalog/genres.ts";
 import { HttpError, notFound } from "../http/contract.ts";
 import { newId, resolveSource } from "./sources.ts";
 
@@ -117,8 +118,11 @@ export class Queues {
     return this.#state(this.#load(who.deviceId));
   }
 
-  /** Replaces the queue with `source`, current at `start` (an index in source order). */
-  set(who: Who, source: TrackSource, start: number, shuffle?: boolean): QueueState {
+  /**
+   * Replaces the queue with `source`, current at `start` (an index in source order). With
+   * `shuffle` and a `scope`, it's drawn from that scope (the user's choice stays as it is).
+   */
+  set(who: Who, source: TrackSource, start: number, shuffle?: boolean, scope?: ShuffleScope): QueueState {
     const { trackIds, origin } = resolveSource(this.#db, source, who.userId);
     if (!trackIds.length) throw new HttpError(400, "empty_source", "Nothing to play");
     const q = this.#load(who.deviceId);
@@ -127,7 +131,9 @@ export class Queues {
     q.origin = origin;
     q.positionMs = 0;
     q.base = null;
-    if (shuffle === undefined && q.shuffle && q.context) {
+    if (shuffle && scope) {
+      this.#startShuffle(q, who.userId, scope);
+    } else if (shuffle === undefined && q.shuffle && q.context) {
       // The shuffle button is on: draw around the chosen track; turning it off returns here.
       this.#startShuffle(q, who.userId);
     } else {
@@ -254,15 +260,14 @@ export class Queues {
    * The shuffle button went on (or its scope changed): the current track, then tracks drawn
    * from the user's scope around it. With nothing playing, the first drawn track starts.
    */
-  #startShuffle(q: Loaded, userId: string) {
+  #startShuffle(q: Loaded, userId: string, scope = this.#shuffleScope(userId)) {
     const current = q.index === null ? undefined : q.entries[q.index];
     if (!q.base) {
       // A shuffled source goes back to its own order.
       const entries = q.shuffle ? [...q.entries].sort((a, b) => a.sourceIndex - b.sourceIndex) : q.entries;
       q.base = { entries, origin: q.origin };
     }
-    const scope = this.#shuffleScope(userId);
-    const { key, origin } = this.#scopeOf(scope, current?.trackId);
+    const { key, origin } = this.#scopeOf(scope, current?.trackId, q.base.origin);
     q.context = {
       scope,
       key,
@@ -308,9 +313,21 @@ export class Queues {
     q.index = at;
   }
 
-  /** What `scope` means around `trackId`: the library when there's no track (or genre) to go by. */
-  #scopeOf(scope: ShuffleScope, trackId: string | undefined): { key: string | null; origin: QueueOrigin } {
+  /**
+   * What `scope` means around `trackId`, in a queue started from `from`: the library when
+   * there's nothing to go by (no track, no genre, not a playlist).
+   */
+  #scopeOf(
+    scope: ShuffleScope,
+    trackId: string | undefined,
+    from: QueueOrigin | null,
+  ): { key: string | null; origin: QueueOrigin } {
     const library = { key: null, origin: { kind: "shuffle" as const, id: null, name: "Library" } };
+    if (scope === "playlist") {
+      return from?.kind === "playlist" && from.id
+        ? { key: from.id, origin: { kind: "shuffle", id: from.id, name: from.name } }
+        : library;
+    }
     if (scope === "library" || !trackId) return library;
     const row = this.#db
       .prepare(
@@ -353,13 +370,16 @@ export class Queues {
           c.key,
           c.key,
         );
+      case "playlist":
+        // Each track once, however often it's listed; entries whose file is missing are skipped.
+        return ids(
+          `SELECT DISTINCT e.track_id AS id FROM playlist_entries e JOIN tracks t ON t.id = e.track_id
+           WHERE e.playlist_id = ? ORDER BY e.track_id`,
+          c.key,
+        );
       default:
         return ids(
-          `SELECT t.id FROM tracks t JOIN artists ar ON ar.id = t.artist_id
-           WHERE EXISTS (
-             SELECT 1 FROM json_each(CASE WHEN t.genres = '[]' THEN coalesce(ar.mb_genres, '[]') ELSE t.genres END)
-             WHERE value = ? COLLATE NOCASE)
-           ORDER BY t.id`,
+          `SELECT t.id FROM tracks t JOIN artists ar ON ar.id = t.artist_id WHERE ${IN_GENRE} ORDER BY t.id`,
           c.key,
         );
     }

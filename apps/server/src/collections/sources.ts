@@ -1,5 +1,6 @@
 import type { QueueOrigin, TrackSource } from "@hyperplayer/schemas";
 import type { Db } from "../db.ts";
+import { IN_GENRE } from "../catalog/genres.ts";
 import { notFound } from "../http/contract.ts";
 
 type Row = Record<string, unknown>;
@@ -77,6 +78,17 @@ export function resolveSource(
           id: source.id,
           name: name("SELECT name FROM playlists WHERE id = ?", source.id, "Playlist"),
         },
+      };
+    case "genre":
+      return {
+        // By artist, then each artist's albums as they came out.
+        trackIds: ids(
+          `SELECT t.id FROM tracks t JOIN artists ar ON ar.id = t.artist_id JOIN albums al ON al.id = t.album_id
+           WHERE ${IN_GENRE}
+           ORDER BY ar.sort_name COLLATE NOCASE, al.year, al.title COLLATE NOCASE, t.disc_number, t.track_number`,
+          source.name,
+        ),
+        origin: { kind: "genre", id: null, name: source.name },
       };
   }
 }
