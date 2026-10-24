@@ -16,7 +16,9 @@
     </p>
   </description>
   <launchable type="desktop-id">io.ansaloni.HyperPlayer.desktop</launchable>
-  <url type="homepage">https://gitlab.ansaloni.io/default/hyperplayer</url>
+  <url type="homepage">https://github.com/ansa70/hyperplayer</url>
+  <url type="bugtracker">https://github.com/ansa70/hyperplayer/issues</url>
+  <url type="vcs-browser">https://github.com/ansa70/hyperplayer</url>
   <content_rating type="oars-1.1"/>
   <categories>
     <category>AudioVideo</category>

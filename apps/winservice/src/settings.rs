@@ -71,8 +71,8 @@ mod tests {
     #[test]
     fn finds_the_shares_of_library_folders() {
         assert_eq!(
-            shares(r"\\vault\storage\Music\Lidarr;D:\Music;\\vault\storage\Other;\\nas\Media"),
-            vec![r"\\nas\Media".to_string(), r"\\vault\storage".to_string()]
+            shares(r"\\nas\music\Music\Lidarr;D:\Music;\\nas\music\Other;\\nas\Media"),
+            vec![r"\\nas\Media".to_string(), r"\\nas\music".to_string()]
         );
     }
 }

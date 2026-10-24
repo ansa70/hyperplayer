@@ -31,7 +31,7 @@ const Env = z.object({
   /** Fetch credits and artist profiles from MusicBrainz / Wikipedia / fanart.tv. */
   HP_ENRICH: z.stringbool().default(true),
   /** Contact info sent in the User-Agent, as MusicBrainz asks of API clients (URL or email). */
-  HP_CONTACT: z.string().default("https://github.com/hyperplayer"),
+  HP_CONTACT: z.string().default("https://github.com/ansa70/hyperplayer"),
   HP_WIKI_LANG: z
     .string()
     .regex(/^[a-z-]{2,12}$/)

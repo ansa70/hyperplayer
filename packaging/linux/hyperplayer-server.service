@@ -1,6 +1,6 @@
 [Unit]
 Description=HyperPlayer music server
-Documentation=https://gitlab.ansaloni.io/default/hyperplayer
+Documentation=https://github.com/ansa70/hyperplayer
 After=network-online.target remote-fs.target
 Wants=network-online.target
 
