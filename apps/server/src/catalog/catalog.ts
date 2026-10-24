@@ -1,3 +1,4 @@
+import { sep } from "node:path";
 import type {
   Album,
   AlbumPage,
@@ -290,6 +291,18 @@ export class Catalog {
   }
 
   /** Tracks by id (any order); ids not in the library are absent from the map. */
+  /** How many tracks have their file under `folder`. */
+  tracksUnder(folder: string): number {
+    const prefix = folder.endsWith(sep) ? folder : folder + sep;
+    return Number(
+      (
+        this.#db
+          .prepare("SELECT COUNT(*) AS n FROM tracks WHERE substr(path, 1, ?) = ?")
+          .get(prefix.length, prefix) as Row
+      ).n,
+    );
+  }
+
   artistSummaries(ids: string[]): Map<string, ArtistSummary> {
     const out = new Map<string, ArtistSummary>();
     const unique = [...new Set(ids)];

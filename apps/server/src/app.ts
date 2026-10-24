@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { mkdirSync } from "node:fs";
 import type { Readable } from "node:stream";
 import { join } from "node:path";
@@ -21,6 +21,7 @@ import { HttpError, notFound, Router, SESSION_COOKIE } from "./http/contract.ts"
 import { ArtworkStore } from "./library/artwork.ts";
 import { Scanner } from "./library/scanner.ts";
 import { LibraryWatcher } from "./library/watcher.ts";
+import { Waveforms } from "./library/waveform.ts";
 import {
   mimeForContainer,
   openFile,
@@ -45,6 +46,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   const scrobbler = new Scrobbler(db, app.log, { version: SERVER_VERSION, fetch: opts.fetch });
   app.addHook("onClose", async () => scrobbler.close());
   const history = new History(db, catalog, scrobbler);
+  const waveforms = new Waveforms(db, config.ffmpeg);
   // LRCLIB is an online lookup like enrichment, so it's off when enrichment is.
   const lyrics = new LyricsService(
     db,
@@ -101,8 +103,21 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   });
   void watcher.start();
   app.addHook("onClose", async () => watcher.close());
-  const status = (): LibraryStatus => ({
+  /** Folder paths describe the server's filesystem: only admins see them. */
+  const status = async (admin: boolean): Promise<LibraryStatus> => ({
     scanning: scanning !== null,
+    folders: admin
+      ? await Promise.all(
+          config.libraryPaths.map(async (path) => ({
+            path,
+            available: await readdir(path).then(
+              (entries) => entries.length > 0,
+              () => false,
+            ),
+            tracks: catalog.tracksUnder(path),
+          })),
+        )
+      : [],
     lastScanAt: catalog.lastScanAt(),
     ...catalog.counts(),
     enrichmentQueue: enricher.queueSize,
@@ -167,8 +182,8 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   );
 
   // --------------------------------------------------------------- library
-  route.json(api.libraryStatus, () => status());
-  route.json(api.libraryScan, () => (void startScan(), status()));
+  route.json(api.libraryStatus, ({ auth: a }) => status(a.user.admin));
+  route.json(api.libraryScan, () => (void startScan(), status(true)));
   route.json(api.listArtists, ({ query }) => catalog.listArtists(query.offset, query.limit));
   route.json(
     api.getArtist,
@@ -186,11 +201,12 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     enricher.prioritizeTrack(params.id);
     return catalog.trackCredits(params.id) ?? Promise.reject(notFound("Track"));
   });
+  route.json(api.waveform, ({ params }) => waveforms.get(params.id) ?? Promise.reject(notFound("Track")));
   route.json(api.lyrics, ({ params }) => lyrics.get(params.id) ?? Promise.reject(notFound("Track")));
   route.json(api.enrichArtist, ({ params }) => {
     if (!catalog.getArtist(params.id)) throw notFound("Artist");
     enricher.refreshArtist(params.id);
-    return status();
+    return status(true);
   });
   route.json(api.search, ({ query }) => catalog.search(query.q, query.limit));
 
@@ -198,6 +214,9 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   route.json(api.recordListen, ({ auth: a, body }) => history.record(a.user.id, body));
   route.json(api.listHistory, ({ auth: a, query }) => history.list(a.user.id, query.offset, query.limit));
   route.json(api.historyStats, ({ auth: a, query }) => history.stats(a.user.id, query.days, query.limit));
+  route.json(api.updateMe, ({ auth: a, body }) => auth.updateMe(a.user.id, body));
+  route.json(api.updateUser, ({ auth: a, params, body }) => auth.updateUser(a, params.id, body));
+  route.json(api.deleteUser, ({ auth: a, params }) => auth.deleteUser(a, params.id));
   route.json(api.getScrobbling, ({ auth: a }) => scrobbler.status(a.user.id));
   route.json(api.connectListenBrainz, ({ auth: a, body }) => scrobbler.connect(a.user.id, body.token));
   route.json(api.disconnectListenBrainz, ({ auth: a }) => scrobbler.disconnect(a.user.id));

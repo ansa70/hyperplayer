@@ -98,7 +98,8 @@ pub fn queue_op(
                     Then::PlayIfChanged => before != current_entry_id(app),
                     Then::Show => false,
                     Then::Continue => {
-                        current_track(app).map(|t| &t.id) != app.session.as_ref().map(|s| &s.track.id)
+                        current_track(app).map(|t| &t.id)
+                            != app.session.as_ref().map(|s| &s.track.id)
                     }
                 }
             });
@@ -250,8 +251,7 @@ pub fn start_stream(track: types::Track, quality: Quality, start: Duration, foll
                 if let Some(kbps) = opened.measured_kbps {
                     app.bandwidth.update(kbps);
                 }
-                if follow
-                    && let Some(old) = app.session.as_ref().filter(|s| s.track.id == track.id)
+                if follow && let Some(old) = app.session.as_ref().filter(|s| s.track.id == track.id)
                 {
                     let new = opened.offset + opened.pipeline.position();
                     opened.pipeline.skip(old.position().saturating_sub(new));
@@ -292,13 +292,20 @@ fn gain_for(app: &App, track: &types::Track) -> replaygain::Applied {
                 .as_ref()
                 .is_some_and(|o| o.kind == types::QueueOriginKind::Album)
     });
-    replaygain::compute(&track.replay_gain, app.rg_mode, in_album_order, app.rg_preamp)
+    replaygain::compute(
+        &track.replay_gain,
+        app.rg_mode,
+        in_album_order,
+        app.rg_preamp,
+    )
 }
 
 /// (Re)computes the current (and preloaded) track's ReplayGain, and applies it.
 pub fn apply_replaygain(app: &mut App) {
     if let Some(p) = &app.preload {
-        p.session.pipeline.set_gain(gain_for(app, &p.session.track).linear);
+        p.session
+            .pipeline
+            .set_gain(gain_for(app, &p.session.track).linear);
     }
     if let Some(gain) = app.session.as_ref().map(|s| gain_for(app, &s.track))
         && let Some(s) = app.session.as_mut()
@@ -329,7 +336,11 @@ pub fn revalidate_preload(app: &mut App) {
     if app.preload.as_ref().is_some_and(|p| !wanted(&p.entry_id)) {
         cancel_preload(app);
     }
-    if app.preload_tried.as_ref().is_some_and(|(_, id)| !wanted(id)) {
+    if app
+        .preload_tried
+        .as_ref()
+        .is_some_and(|(_, id)| !wanted(id))
+    {
         app.preload_tried = None;
     }
 }
@@ -348,6 +359,7 @@ fn maybe_preload(app: &mut App) {
         return; // done, in progress, or failed (then the track starts normally at the end)
     }
     let track = entry.track.clone();
+    super::visuals::prefetch(track.id.to_string());
     let quality = adaptive::choose(&track, app.mode, app.bandwidth.get());
     let (api, mode) = (app.api.clone(), app.mode);
     app.preload_tried = Some(key.clone());
@@ -421,6 +433,7 @@ fn promote_preload() -> bool {
 
 pub fn update_stream_info(app: &App) {
     let Some(ui) = app.ui.upgrade() else { return };
+    super::settings::show_preferences(app, &ui);
     ui.set_quality_mode(app.mode.label().into());
     ui.set_replaygain_mode(format!("RG {}", app.rg_mode.name().to_uppercase()).into());
     let info = match &app.session {
@@ -495,6 +508,7 @@ pub fn tick() {
             return (false, None);
         };
         let paused = app.audio.as_ref().is_none_or(|a| a.is_paused());
+        super::window::sync(&ui);
         ui.set_playing((app.session.is_some() && !paused) || app.loading);
         super::desktop::sync(app);
         let Some(s) = &app.session else {

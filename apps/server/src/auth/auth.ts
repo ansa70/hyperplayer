@@ -202,6 +202,85 @@ export class Auth {
     return this.#user(this.#db.prepare("SELECT * FROM users WHERE id = ?").get(id) as Row);
   }
 
+  #userById(id: string): User {
+    const r = this.#db.prepare("SELECT * FROM users WHERE id = ?").get(id) as Row | undefined;
+    if (!r) throw notFound("User");
+    return this.#user(r);
+  }
+
+  #otherAdmins(id: string): number {
+    return Number(
+      (this.#db.prepare("SELECT COUNT(*) AS n FROM users WHERE admin = 1 AND id <> ?").get(id) as Row).n,
+    );
+  }
+
+  updateMe(userId: string, changes: { fullName?: string | null }): User {
+    if (changes.fullName !== undefined) {
+      this.#db
+        .prepare("UPDATE users SET full_name = ? WHERE id = ?")
+        .run(changes.fullName?.trim() || null, userId);
+    }
+    return this.#userById(userId);
+  }
+
+  /** An admin changing another account (or their own name and rights). */
+  async updateUser(
+    actor: AuthContext,
+    id: string,
+    changes: { fullName?: string | null; admin?: boolean; password?: string },
+  ): Promise<User> {
+    const user = this.#userById(id);
+    if (changes.admin === false && user.admin && this.#otherAdmins(id) === 0) {
+      throw new HttpError(409, "last_admin", "The server needs at least one admin");
+    }
+    if (changes.password !== undefined && id === actor.user.id) {
+      throw new HttpError(400, "own_password", "Change your own password from your account instead");
+    }
+    const db = this.#db;
+    const hash = changes.password === undefined ? null : await hashPassword(changes.password);
+    db.exec("BEGIN");
+    try {
+      if (changes.fullName !== undefined) {
+        db.prepare("UPDATE users SET full_name = ? WHERE id = ?").run(changes.fullName?.trim() || null, id);
+      }
+      if (changes.admin !== undefined)
+        db.prepare("UPDATE users SET admin = ? WHERE id = ?").run(changes.admin ? 1 : 0, id);
+      if (hash) {
+        // A temporary password: it only lets them choose their own, and every session using the old one ends.
+        db.prepare("UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?").run(hash, id);
+        db.prepare("DELETE FROM devices WHERE user_id = ?").run(id);
+      }
+      db.exec("COMMIT");
+    } catch (err) {
+      db.exec("ROLLBACK");
+      throw err;
+    }
+    return this.#userById(id);
+  }
+
+  /** Deletes an account and everything it owns. */
+  deleteUser(actor: AuthContext, id: string) {
+    const user = this.#userById(id);
+    if (id === actor.user.id)
+      throw new HttpError(409, "self", "You can't delete the account you're signed in with");
+    if (user.admin && this.#otherAdmins(id) === 0) {
+      throw new HttpError(409, "last_admin", "The server needs at least one admin");
+    }
+    const db = this.#db;
+    db.exec("BEGIN");
+    try {
+      // Playlists and queues reference their owner without a foreign key; the rest cascades.
+      db.prepare("DELETE FROM playlists WHERE owner_id = ?").run(id);
+      db.prepare("DELETE FROM queues WHERE user_id = ?").run(id);
+      db.prepare("DELETE FROM users WHERE id = ?").run(id);
+      db.exec("COMMIT");
+    } catch (err) {
+      db.exec("ROLLBACK");
+      throw err;
+    }
+    return { ok: true as const };
+  }
+
   /**
    * First run, from the admin's session: registers the person who'll actually listen, and
    * hands them this device (keeping its queue) and the playlists made so far. The admin

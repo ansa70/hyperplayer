@@ -235,7 +235,10 @@ fn track_target(app: &App, list: &str, index: i32) -> Option<Target> {
             .get(index as usize)
             .map(|t| track(t, None)),
         "history-top" => app.history_top.get(index as usize).map(|t| track(t, None)),
-        "history-recent" => app.history_recent.get(index as usize).map(|t| track(t, None)),
+        "history-recent" => app
+            .history_recent
+            .get(index as usize)
+            .map(|t| track(t, None)),
         "playlist" => {
             let e = app.playlist.as_ref()?.entries.get(index as usize)?;
             let source = e

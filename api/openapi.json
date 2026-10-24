@@ -147,6 +147,51 @@
             }
           }
         }
+      },
+      "patch": {
+        "operationId": "updateMe",
+        "summary": "Update the caller's profile",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMe"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update the caller's profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/me/password": {
@@ -474,6 +519,108 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "patch": {
+        "operationId": "updateUser",
+        "summary": "Change a user's name or admin rights, or give them a temporary password",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUser"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Change a user's name or admin rights, or give them a temporary password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteUser",
+        "summary": "Delete a user with their devices, playlists, queues, history and scrobbling",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delete a user with their devices, playlists, queues, history and scrobbling",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
                 }
               }
             }
@@ -978,6 +1125,53 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TrackCredits"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracks/{id}/waveform": {
+      "get": {
+        "operationId": "waveform",
+        "summary": "A track's waveform for seek bars (computed on first request, then cached)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A track's waveform for seek bars (computed on first request, then cached)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Waveform"
                 }
               }
             }
@@ -3050,6 +3244,27 @@
         ],
         "additionalProperties": false
       },
+      "Waveform": {
+        "type": "object",
+        "properties": {
+          "trackId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        },
+        "required": [
+          "trackId",
+          "points"
+        ],
+        "additionalProperties": false
+      },
       "LyricLine": {
         "type": "object",
         "properties": {
@@ -3278,11 +3493,39 @@
         ],
         "additionalProperties": false
       },
+      "LibraryFolder": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "tracks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "path",
+          "available",
+          "tracks"
+        ],
+        "additionalProperties": false
+      },
       "LibraryStatus": {
         "type": "object",
         "properties": {
           "scanning": {
             "type": "boolean"
+          },
+          "folders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryFolder"
+            }
           },
           "lastScanAt": {
             "nullable": true,
@@ -3313,6 +3556,7 @@
         },
         "required": [
           "scanning",
+          "folders",
           "lastScanAt",
           "artists",
           "albums",
@@ -4115,6 +4359,36 @@
         ],
         "additionalProperties": false
       },
+      "UpdateMe": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "nullable": true,
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateUser": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "nullable": true,
+            "type": "string",
+            "maxLength": 200
+          },
+          "admin": {
+            "type": "boolean"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 1024
+          }
+        },
+        "additionalProperties": false
+      },
       "Onboard": {
         "type": "object",
         "properties": {
@@ -4167,12 +4441,28 @@
             "type": "number",
             "minimum": -15,
             "maximum": 15
+          },
+          "accent": {
+            "default": "cover",
+            "type": "string",
+            "pattern": "^(cover|#[0-9a-f]{6})$"
+          },
+          "coverBackground": {
+            "default": true,
+            "type": "boolean"
+          },
+          "visualizer": {
+            "default": true,
+            "type": "boolean"
           }
         },
         "required": [
           "quality",
           "replayGain",
-          "replayGainPreamp"
+          "replayGainPreamp",
+          "accent",
+          "coverBackground",
+          "visualizer"
         ],
         "additionalProperties": false
       },
@@ -4200,6 +4490,16 @@
             "type": "number",
             "minimum": -15,
             "maximum": 15
+          },
+          "accent": {
+            "type": "string",
+            "pattern": "^(cover|#[0-9a-f]{6})$"
+          },
+          "coverBackground": {
+            "type": "boolean"
+          },
+          "visualizer": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false

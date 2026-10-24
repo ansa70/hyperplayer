@@ -4,9 +4,11 @@
 pub mod adaptive;
 pub mod api;
 pub mod credentials;
+pub mod palette;
 pub mod pipeline;
 pub mod playback;
 pub mod player;
 pub mod replaygain;
 pub mod settings;
+pub mod spectrum;
 pub mod stream;

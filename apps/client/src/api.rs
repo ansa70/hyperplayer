@@ -14,10 +14,12 @@ use std::time::Duration;
 use reqwest::Method;
 use serde::Serialize;
 use types::{
-    AddToPlaylist, AddToQueue, AddToQueuePlacement, Advance, Album, AlbumList, AlbumPage, ApiError, Artist,
-    ArtistPage, AuthStatus, ConnectListenBrainz, HistoryStats, ListenPage, RecordListen, ScrobbleSettings, CreatePlaylist, Jump, Me, MoveEntry, NowPlaying, Ok as OkResponse,
-    Lyrics, Playlist, PlaylistList, Preferences, QueueState, RepeatMode, SearchResults, Session, SetQueue,
-    TrackSource, UpdatePlaylist, UpdateQueue, UserList,
+    AddToPlaylist, AddToQueue, AddToQueuePlacement, Advance, Album, AlbumList, AlbumPage, ApiError,
+    Artist, ArtistPage, AuthStatus, ConnectListenBrainz, CreatePlaylist, DeviceList, HistoryStats,
+    Jump, LibraryStatus, ListenPage, Lyrics, Me, MoveEntry, NowPlaying, Ok as OkResponse, Playlist,
+    PlaylistList, Preferences, QueueState, RecordListen, RepeatMode, ScrobbleSettings,
+    SearchResults, Session, SetQueue, TrackSource, UpdatePlaylist, UpdateQueue, User, UserList,
+    Waveform,
 };
 
 use crate::adaptive::Quality;
@@ -179,6 +181,59 @@ impl Api {
         self.send(Method::PATCH, "/api/me/preferences", Some(&body))
     }
 
+    /// `changes` holds any of the preferences' fields.
+    pub fn update_preferences(&self, changes: serde_json::Value) -> Result<Preferences> {
+        self.send(Method::PATCH, "/api/me/preferences", Some(&changes))
+    }
+
+    pub fn set_preamp_preference(&self, db: f32) -> Result<Preferences> {
+        let body = serde_json::json!({ "replayGainPreamp": db });
+        self.send(Method::PATCH, "/api/me/preferences", Some(&body))
+    }
+
+    pub fn update_me(&self, full_name: Option<&str>) -> Result<User> {
+        let body = serde_json::json!({ "fullName": full_name });
+        self.send(Method::PATCH, "/api/me", Some(&body))
+    }
+
+    pub fn devices(&self) -> Result<DeviceList> {
+        self.get("/api/me/devices")
+    }
+
+    pub fn revoke_device(&self, id: &str) -> Result<()> {
+        self.send::<OkResponse, ()>(Method::DELETE, &format!("/api/me/devices/{id}"), None)
+            .map(|_| ())
+    }
+
+    pub fn create_user(
+        &self,
+        username: &str,
+        password: &str,
+        full_name: Option<&str>,
+        admin: bool,
+    ) -> Result<User> {
+        let body = serde_json::json!({ "username": username, "password": password, "fullName": full_name, "admin": admin });
+        self.send(Method::POST, "/api/users", Some(&body))
+    }
+
+    /// `changes` holds any of `fullName`, `admin` and `password` (a temporary one).
+    pub fn update_user(&self, id: &str, changes: serde_json::Value) -> Result<User> {
+        self.send(Method::PATCH, &format!("/api/users/{id}"), Some(&changes))
+    }
+
+    pub fn delete_user(&self, id: &str) -> Result<()> {
+        self.send::<OkResponse, ()>(Method::DELETE, &format!("/api/users/{id}"), None)
+            .map(|_| ())
+    }
+
+    pub fn library_status(&self) -> Result<LibraryStatus> {
+        self.get("/api/library/status")
+    }
+
+    pub fn rescan_library(&self) -> Result<LibraryStatus> {
+        self.send::<_, ()>(Method::POST, "/api/library/scan", None)
+    }
+
     pub fn me(&self) -> Result<Me> {
         self.get("/api/me")
     }
@@ -248,7 +303,13 @@ impl Api {
     }
 
     pub fn albums(&self, offset: i64, limit: i64, sort: &str) -> Result<AlbumPage> {
-        self.get(&format!("/api/albums?offset={offset}&limit={limit}&sort={sort}"))
+        self.get(&format!(
+            "/api/albums?offset={offset}&limit={limit}&sort={sort}"
+        ))
+    }
+
+    pub fn waveform(&self, track_id: &str) -> Result<Waveform> {
+        self.get(&format!("/api/tracks/{track_id}/waveform"))
     }
 
     pub fn lyrics(&self, track_id: &str) -> Result<Lyrics> {

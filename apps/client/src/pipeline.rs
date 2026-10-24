@@ -8,7 +8,7 @@
 use std::{
     sync::{
         Arc, Condvar, Mutex, MutexGuard,
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering},
     },
     thread,
     time::Duration,
@@ -49,7 +49,15 @@ struct Shared {
     gain: AtomicU32,
     /// Frames the audio side should drop before playing on (see `PipelineHandle::skip`).
     skip_frames: AtomicU64,
+    /// The last `TAP` frames played, mixed to mono, for the visualizer: written by the
+    /// audio side without locking, read whenever (a torn read only costs a glitchy frame).
+    tap: Box<[AtomicU32]>,
+    tap_pos: AtomicUsize,
+    tap_on: AtomicBool,
 }
+
+/// Frames kept for the visualizer (a power of two, at least `spectrum::WINDOW`).
+const TAP: usize = 4096;
 
 impl Shared {
     fn control(&self) -> MutexGuard<'_, Control> {
@@ -115,6 +123,25 @@ impl PipelineHandle {
         self.0.skip_frames.store(frames, Ordering::Relaxed);
     }
 
+    /// Starts or stops recording played audio for `latest_played`.
+    pub fn set_tap(&self, on: bool) {
+        self.0.tap_on.store(on, Ordering::Relaxed);
+    }
+
+    /// Fills `out` with the most recently played frames (mono), oldest first.
+    pub fn latest_played(&self, out: &mut [f32]) {
+        let end = self.0.tap_pos.load(Ordering::Acquire);
+        let n = out.len().min(TAP);
+        for (i, slot) in out.iter_mut().take(n).enumerate() {
+            let at = (end + TAP - n + i) % TAP;
+            *slot = f32::from_bits(self.0.tap[at].load(Ordering::Relaxed));
+        }
+    }
+
+    pub fn sample_rate(&self) -> u32 {
+        self.0.sample_rate.get()
+    }
+
     pub fn stop(&self) {
         self.0.control().stopped = true;
         self.0.cond.notify_all();
@@ -130,6 +157,8 @@ pub struct BufferedSource {
     started: bool,
     /// Plays silence (not counted as played or underrun) until this pipeline has ended.
     after: Option<Arc<Shared>>,
+    /// The current frame's samples so far, summed for the visualizer tap.
+    frame_sum: f32,
 }
 
 /// Starts decoding `source` on a background thread.
@@ -150,6 +179,9 @@ where
         replace: AtomicBool::new(false),
         gain: AtomicU32::new(1.0f32.to_bits()),
         skip_frames: AtomicU64::new(0),
+        tap: (0..TAP).map(|_| AtomicU32::new(0)).collect(),
+        tap_pos: AtomicUsize::new(0),
+        tap_on: AtomicBool::new(false),
     });
     let (producer, consumer) = RingBuffer::new(shared.capacity());
     let worker = shared.clone();
@@ -163,6 +195,7 @@ where
         channel: 0,
         started: false,
         after: None,
+        frame_sum: 0.0,
     };
     (source, PipelineHandle(shared))
 }
@@ -251,8 +284,18 @@ impl Iterator for BufferedSource {
             Some(sample) => {
                 self.started = true;
                 let sample = sample * f32::from_bits(self.shared.gain.load(Ordering::Relaxed));
+                if self.shared.tap_on.load(Ordering::Relaxed) {
+                    self.frame_sum += sample;
+                }
                 if last_in_frame {
                     self.shared.frames_played.fetch_add(1, Ordering::Relaxed);
+                    if self.shared.tap_on.load(Ordering::Relaxed) {
+                        let mono = self.frame_sum / self.shared.channels.get() as f32;
+                        let at = self.shared.tap_pos.load(Ordering::Relaxed);
+                        self.shared.tap[at % TAP].store(mono.to_bits(), Ordering::Relaxed);
+                        self.shared.tap_pos.store((at + 1) % TAP, Ordering::Release);
+                    }
+                    self.frame_sum = 0.0;
                 }
                 Some(sample)
             }
@@ -288,7 +331,9 @@ impl BufferedSource {
             && let Ok(chunk) = self.ring.read_chunk(frames as usize * channels)
         {
             chunk.commit_all();
-            self.shared.frames_played.fetch_add(frames, Ordering::Relaxed);
+            self.shared
+                .frames_played
+                .fetch_add(frames, Ordering::Relaxed);
             self.shared.skip_frames.fetch_sub(frames, Ordering::Relaxed);
         }
         pending > frames
@@ -419,7 +464,10 @@ mod tests {
         settle();
         handle.skip(Duration::from_millis(500));
         assert_eq!(src.next(), Some((RAMP_RATE / 2) as Sample));
-        assert_eq!(handle.position(), Duration::from_millis(500) + Duration::from_micros(125));
+        assert_eq!(
+            handle.position(),
+            Duration::from_millis(500) + Duration::from_micros(125)
+        );
         assert_eq!(handle.take_underrun(), Duration::ZERO);
     }
 
@@ -447,6 +495,20 @@ mod tests {
         );
         assert_eq!(second_handle.take_underrun(), Duration::ZERO);
         assert_eq!(second_handle.position(), Duration::from_secs(3) / RAMP_RATE);
+    }
+
+    #[test]
+    fn the_tap_holds_the_latest_played_frames() {
+        let (mut src, handle) = spawn(Ramp {
+            pos: 0,
+            len: RAMP_RATE,
+        });
+        settle();
+        handle.set_tap(true);
+        src.by_ref().take(5000).for_each(drop);
+        let mut out = [0.0; 4];
+        handle.latest_played(&mut out);
+        assert_eq!(out, [4996.0, 4997.0, 4998.0, 4999.0]);
     }
 
     #[test]

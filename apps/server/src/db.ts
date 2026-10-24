@@ -76,6 +76,12 @@ CREATE TABLE IF NOT EXISTS credits (
 );
 CREATE INDEX IF NOT EXISTS credits_track ON credits(track_id, source);
 
+CREATE TABLE IF NOT EXISTS waveforms (
+  track_id    TEXT PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+  track_mtime INTEGER NOT NULL,            -- the file's mtime when computed: a new file is recomputed
+  points      TEXT NOT NULL                -- JSON array of 0..100
+);
+
 CREATE TABLE IF NOT EXISTS lyrics (
   track_id      TEXT PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
   track_mtime   INTEGER NOT NULL,          -- the file's mtime when looked up: a retag invalidates

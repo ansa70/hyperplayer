@@ -1,4 +1,4 @@
-import { LineEdit, ListView, Slider, ScrollView } from "std-widgets.slint";
+import { CheckBox, LineEdit, ListView, Slider, ScrollView } from "std-widgets.slint";
 
 export struct ArtistItem {
     id: string,
@@ -121,12 +121,21 @@ global Icons {
     out property <string> lyrics: "M11 7.601l-5.994 8.19a1 1 0 0 0 .1 1.298l.817.818a1 1 0 0 0 1.314.087L15.09 12 M16.5 21.174C15.5 20.5 14.372 20 13 20c-2.058 0-3.928 2.356-6 2-2.072-.356-2.775-3.369-1.5-4.5 M11 7a5 5 0 1 0 10 0a5 5 0 1 0-10 0";
     out property <string> more: "M12 12h.01 M19 12h.01 M5 12h.01";
     out property <string> plus: "M5 12h14 M12 5v14";
+    out property <string> window-close: "M18 6 6 18 M6 6l12 12";
+    out property <string> window-minimize: "M6 12h12";
+    out property <string> window-maximize: "M6 6h12v12H6z";
+    out property <string> window-restore: "M9 9h10v10H9z M6 15V6h9";
 }
 
-global Theme {
+export global Theme {
     out property <color> bg: #0c0d10;
     out property <color> surface: #15171c;
     out property <color> surface-hi: #1e2128;
+    /// The user's accent (a fixed colour, or one taken from the playing album's cover).
+    in-out property <color> accent: #1ed760;
+    /// Panels let the window's album-colour gradient show through.
+    out property <color> panel: #15171c99;
+    out property <color> chrome: #0c0d10a6;
     out property <color> text: #f2f3f5;
     out property <color> muted: #9097a3;
     out property <color> faint: #5c6370;
@@ -173,7 +182,7 @@ component IconButton inherits Rectangle {
 component ToggleIcon inherits Rectangle {
     in property <string> commands;
     in property <bool> active;
-    in property <color> accent: #1ed760;
+    in property <color> accent: Theme.accent;
     in property <string> tooltip;
     callback clicked;
     width: 36px;
@@ -346,7 +355,7 @@ component TrackRow inherits Rectangle {
         Text {
             width: 28px;
             text: track.playing ? "♪" : track.number;
-            color: track.playing ? #1ed760 : Theme.faint;
+            color: track.playing ? Theme.accent : Theme.faint;
             vertical-alignment: center;
             horizontal-alignment: right;
         }
@@ -354,7 +363,7 @@ component TrackRow inherits Rectangle {
             alignment: center;
             Text {
                 text: track.title;
-                color: !track.available ? Theme.faint : track.playing ? #1ed760 : Theme.text;
+                color: !track.available ? Theme.faint : track.playing ? Theme.accent : Theme.text;
                 font-size: 14px;
                 overflow: elide;
             }
@@ -453,7 +462,7 @@ component Sidebar inherits Rectangle {
         root.search-changed("");
         return true;
     }
-    background: Theme.surface;
+    background: Theme.panel;
     VerticalLayout {
         padding: 16px;
         spacing: 12px;
@@ -484,19 +493,24 @@ component Sidebar inherits Rectangle {
         HorizontalLayout {
             Text { text: "PLAYLISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; vertical-alignment: center; }
             Rectangle {
-                width: 22px;
-                height: 22px;
-                border-radius: 11px;
-                background: plus-ta.has-hover ? Theme.surface-hi : transparent;
+                width: 24px;
+                height: 24px;
+                border-radius: 12px;
+                background: plus-ta.has-hover ? Theme.accent.brighter(0.15) : Theme.accent;
+                drop-shadow-blur: plus-ta.has-hover ? 10px : 4px;
+                drop-shadow-color: Theme.accent.with-alpha(0.5);
+                animate background, drop-shadow-blur { duration: 120ms; }
                 Path {
-                    width: 14px;
-                    height: 14px;
+                    x: 3px;
+                    y: 3px;
+                    width: 18px;
+                    height: 18px;
                     viewbox-width: 24;
                     viewbox-height: 24;
                     commands: Icons.plus;
                     fill: transparent;
-                    stroke: plus-ta.has-hover ? Theme.text : Theme.muted;
-                    stroke-width: 2px;
+                    stroke: Theme.bg;
+                    stroke-width: 2.25px;
                 }
                 plus-ta := TouchArea { mouse-cursor: pointer; clicked => { root.new-playlist(); } }
             }
@@ -1052,13 +1066,15 @@ component QueuePage inherits Rectangle {
 }
 
 component NowPlayingPanel inherits Rectangle {
+    in property <[float]> spectrum;
+    in property <bool> visualizer;
     in property <NowPlayingView> np;
     in property <[AlbumItem]> more-from;
     in property <[CreditItem]> credits;
     in property <[CreditItem]> members;
     callback select-album(string);
     callback select-artist(string);
-    background: Theme.surface;
+    background: Theme.panel;
     clip: true;
     // Blurred, darkened cover fills the panel; the accent colour tints it.
     Image {
@@ -1069,7 +1085,7 @@ component NowPlayingPanel inherits Rectangle {
         opacity: 0.55;
     }
     Rectangle {
-        background: @linear-gradient(180deg, np.accent.with-alpha(0.25) 0%, Theme.surface.with-alpha(0.85) 45%, Theme.surface 100%);
+        background: @linear-gradient(180deg, np.accent.with-alpha(0.25) 0%, Theme.surface.with-alpha(0.75) 45%, Theme.surface.with-alpha(0.6) 100%);
     }
     if !np.active: Text {
         text: "Nothing playing";
@@ -1088,6 +1104,18 @@ component NowPlayingPanel inherits Rectangle {
                 size: root.width - 44px;
                 drop-shadow-blur: 40px;
                 drop-shadow-color: np.accent.with-alpha(0.45);
+            }
+            if root.visualizer: Rectangle {
+                height: 44px;
+                property <length> step: self.width / max(1, root.spectrum.length);
+                for level[i] in root.spectrum: Rectangle {
+                    x: i * parent.step + parent.step * 0.15;
+                    width: parent.step * 0.7;
+                    height: max(2px, level * parent.height);
+                    y: parent.height - self.height;
+                    border-radius: 2px;
+                    background: @linear-gradient(0deg, Theme.accent.with-alpha(0.55) 0%, Theme.accent 100%);
+                }
             }
             VerticalLayout {
                 spacing: 2px;
@@ -1211,7 +1239,41 @@ component LyricsPage inherits Rectangle {
     }
 }
 
+/// The seek bar drawn as the track's waveform: the played part in the accent colour.
+/// Click or drag anywhere to seek.
+component WaveformBar inherits Rectangle {
+    in property <[float]> points;
+    in property <float> position;
+    in property <float> duration;
+    callback seek(float);
+    height: 30px;
+    property <float> progress: root.duration > 0 ? root.position / root.duration : 0;
+    property <float> hover-at: clamp(ta.mouse-x / max(1px, root.width), 0, 1);
+    property <float> shown: ta.pressed ? root.hover-at : root.progress;
+    property <length> step: root.width / max(1, root.points.length);
+    for p[i] in root.points: Rectangle {
+        x: i * root.step;
+        width: max(1px, root.step * 0.62);
+        height: max(2px, p * root.height);
+        y: (root.height - self.height) / 2;
+        border-radius: 1px;
+        background: (i + 0.5) / root.points.length <= root.shown ? Theme.accent
+            : ta.has-hover && (i + 0.5) / root.points.length <= root.hover-at ? Theme.muted
+            : Theme.faint.with-alpha(0.8);
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+                root.seek(root.hover-at * root.duration);
+            }
+        }
+    }
+}
+
 component TransportBar inherits Rectangle {
+    in property <[float]> waveform;
+    in property <bool> waveform-ready;
     in property <NowPlayingView> np;
     in property <bool> playing;
     in property <float> position;
@@ -1226,7 +1288,7 @@ component TransportBar inherits Rectangle {
     in property <bool> shuffle;
     in property <RepeatMode> repeat;
     // Same green as the playing-track marker, so "active" reads the same everywhere.
-    in property <color> accent: #1ed760;
+    in property <color> accent: Theme.accent;
     in property <bool> queue-open;
     in property <bool> lyrics-open;
     callback show-lyrics();
@@ -1245,7 +1307,7 @@ component TransportBar inherits Rectangle {
         }
     }
     height: 84px;
-    background: Theme.bg;
+    background: Theme.chrome;
     Rectangle { y: 0; height: 1px; background: Theme.surface-hi; }
     HorizontalLayout {
         padding-left: 16px;
@@ -1290,7 +1352,17 @@ component TransportBar inherits Rectangle {
             HorizontalLayout {
                 spacing: 10px;
                 Text { text: root.position-text; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
+                if root.waveform-ready: WaveformBar {
+                    points: root.waveform;
+                    position: root.position;
+                    duration: root.duration;
+                    seek(v) => { root.seek(v); }
+                }
+                // The plain bar until the waveform has arrived (it's computed on first play).
                 seek-bar := Slider {
+                    visible: !root.waveform-ready;
+                    width: root.waveform-ready ? 0 : self.preferred-width;
+                    horizontal-stretch: root.waveform-ready ? 0 : 1;
                     // Dragging assigns `value`, which would break a `value: root.position`
                     // binding for good: the position is pushed in below instead.
                     property <bool> dragging;
@@ -1339,10 +1411,11 @@ component TransportBar inherits Rectangle {
                     height: 20px;
                     border-radius: 10px;
                     border-width: 1px;
-                    border-color: rg-ta.has-hover ? Theme.text : Theme.faint;
+                    border-color: rg-ta.has-hover ? Theme.accent : Theme.accent.with-alpha(0.55);
+                    background: Theme.accent.with-alpha(rg-ta.has-hover ? 0.28 : 0.16);
                     rg-label := Text {
                         text: root.replaygain-mode;
-                        color: Theme.muted;
+                        color: Theme.accent.brighter(0.3);
                         font-size: 10px;
                         font-weight: 700;
                         horizontal-alignment: center;
@@ -1358,10 +1431,11 @@ component TransportBar inherits Rectangle {
                     height: 20px;
                     border-radius: 10px;
                     border-width: 1px;
-                    border-color: mode-ta.has-hover ? Theme.text : Theme.faint;
+                    border-color: mode-ta.has-hover ? Theme.accent : Theme.accent.with-alpha(0.55);
+                    background: Theme.accent.with-alpha(mode-ta.has-hover ? 0.28 : 0.16);
                     mode-label := Text {
                         text: root.quality-mode;
-                        color: Theme.muted;
+                        color: Theme.accent.brighter(0.3);
                         font-size: 10px;
                         font-weight: 700;
                         horizontal-alignment: center;
@@ -1594,7 +1668,65 @@ component ShortcutHelp inherits Rectangle {
     }
 }
 
-component SettingsPage inherits Rectangle {
+export struct DeviceItem {
+    id: string,
+    name: string,
+    detail: string,
+    current: bool,
+}
+
+export struct UserItem {
+    id: string,
+    username: string,
+    detail: string,
+    admin: bool,
+    me: bool,
+}
+
+export struct FolderItem {
+    path: string,
+    detail: string,
+    available: bool,
+}
+
+/// State and actions of the Settings page, driven from Rust (`ui.global::<SettingsState>()`).
+export global SettingsState {
+    in-out property <string> tab: "playback";
+    in property <bool> is-admin;
+
+    // Appearance.
+    in property <string> accent;
+    in property <bool> cover-background;
+    in property <bool> visualizer;
+    callback set-accent(string);
+    callback set-cover-background(bool);
+    callback set-visualizer(bool);
+    in property <bool> system-title-bar;
+    callback set-system-title-bar(bool);
+
+    // Playback (the user's preferences).
+    in property <string> quality;
+    in property <string> replaygain;
+    in property <float> preamp;
+    callback set-quality(string);
+    callback set-replaygain(string);
+    callback preamp-changed(float);
+    callback preamp-released(float);
+
+    // Account.
+    in-out property <string> full-name;
+    in property <string> name-message;
+    callback save-name();
+    in-out property <string> pw-current;
+    in-out property <string> pw-new;
+    in-out property <string> pw-confirm;
+    in property <string> pw-message;
+    in property <bool> pw-error;
+    callback change-password();
+    in property <[DeviceItem]> devices;
+    callback revoke-device(string);
+
+    // Scrobbling.
     in property <bool> lb-connected;
     in property <string> lb-username;
     in property <string> lb-status;
@@ -1604,74 +1736,496 @@ component SettingsPage inherits Rectangle {
     in-out property <string> lb-token;
     callback lb-connect(string);
     callback lb-disconnect();
+
+    // Admin: library.
+    in property <string> library-summary;
+    in property <[FolderItem]> folders;
+    in property <bool> scanning;
+    callback rescan();
+
+    // Admin: users.
+    in property <[UserItem]> users;
+    in property <string> users-message;
+    in property <bool> users-error;
+    callback set-admin(string, bool);
+    callback reset-password(string, string);
+    callback delete-user(string);
+    in-out property <string> new-username;
+    in-out property <string> new-full-name;
+    in-out property <string> new-password;
+    in-out property <bool> new-admin;
+    callback create-user();
+}
+
+component Segmented inherits HorizontalLayout {
+    in property <[{ key: string, label: string }]> options;
+    in property <string> selected;
+    callback pick(string);
+    spacing: 6px;
+    alignment: start;
+    for option in root.options: Rectangle {
+        height: 30px;
+        width: seg-label.preferred-width + 24px;
+        border-radius: 15px;
+        border-width: 1px;
+        border-color: option.key == root.selected ? Theme.text : (seg-ta.has-hover ? Theme.muted : Theme.faint);
+        background: option.key == root.selected ? Theme.surface-hi : transparent;
+        seg-label := Text {
+            text: option.label;
+            color: option.key == root.selected ? Theme.text : Theme.muted;
+            font-size: 12px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        seg-ta := TouchArea { mouse-cursor: pointer; clicked => { root.pick(option.key); } }
+    }
+}
+
+component OutlineButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> danger;
+    callback clicked();
+    height: 30px;
+    width: ob-label.preferred-width + 24px;
+    border-radius: 15px;
+    border-width: 1px;
+    border-color: ob-ta.has-hover ? (root.danger ? #ff8a80 : Theme.text) : Theme.faint;
+    ob-label := Text {
+        text: root.text;
+        color: root.danger && ob-ta.has-hover ? #ff8a80 : Theme.muted;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    ob-ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+component Card inherits Rectangle {
+    in property <string> title;
+    background: Theme.surface;
+    border-radius: Theme.radius;
+    max-width: 720px;
+    VerticalLayout {
+        padding: 18px;
+        spacing: 12px;
+        if root.title != "": Text { text: root.title; color: Theme.text; font-size: 15px; font-weight: 700; }
+        @children
+    }
+}
+
+component Note inherits Text {
+    color: Theme.muted;
+    font-size: 12px;
+    wrap: word-wrap;
+}
+
+component SettingsPage inherits Rectangle {
+    // Per-row admin actions waiting for input or confirmation.
+    property <string> resetting;
+    property <string> reset-password;
+    property <string> deleting;
     ScrollView {
         VerticalLayout {
             alignment: start;
             padding: 28px;
             spacing: 18px;
             Text { text: "Settings"; color: Theme.text; font-size: 28px; font-weight: 800; }
-            Text { text: "Scrobbling"; color: Theme.text; font-size: 18px; font-weight: 700; }
-            Rectangle {
-                background: Theme.surface;
-                border-radius: Theme.radius;
-                max-width: 640px;
-                VerticalLayout {
-                    padding: 18px;
+            Segmented {
+                selected: SettingsState.tab;
+                options: SettingsState.is-admin
+                    ? [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }, { key: "admin", label: "Server" }]
+                    : [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }];
+                pick(key) => { SettingsState.tab = key; }
+            }
+
+            // ------------------------------------------------------------ playback
+            if SettingsState.tab == "playback": Card {
+                title: "Streaming quality";
+                Note { text: "Auto picks the best quality your connection sustains and adapts as it changes. Original always streams the file as it is; Data saver uses about 128 kbit/s."; }
+                Segmented {
+                    selected: SettingsState.quality;
+                    options: [{ key: "auto", label: "Auto" }, { key: "original", label: "Original" }, { key: "data-saver", label: "Data saver" }];
+                    pick(key) => { SettingsState.set-quality(key); }
+                }
+            }
+            if SettingsState.tab == "playback": Card {
+                title: "Volume levelling (ReplayGain)";
+                Note { text: "Evens out loudness between tracks using their ReplayGain tags. Auto keeps an album's own dynamics while it plays in order, and levels track by track otherwise."; }
+                Segmented {
+                    selected: SettingsState.replaygain;
+                    options: [{ key: "auto", label: "Auto" }, { key: "track", label: "Track" }, { key: "album", label: "Album" }, { key: "off", label: "Off" }];
+                    pick(key) => { SettingsState.set-replaygain(key); }
+                }
+                HorizontalLayout {
                     spacing: 12px;
-                    HorizontalLayout {
-                        spacing: 10px;
-                        Text { text: "ListenBrainz"; color: Theme.text; font-size: 15px; font-weight: 700; vertical-alignment: center; }
-                        if root.lb-connected: VerticalLayout {
-                            alignment: center;
-                            Chip { text: "Connected as " + root.lb-username; accent: #1ed760; }
-                        }
-                        Rectangle { horizontal-stretch: 1; }
+                    Text { text: "Pre-amp"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+                    Slider {
+                        minimum: -15;
+                        maximum: 15;
+                        step: 0.5;
+                        value: SettingsState.preamp;
+                        changed(v) => { SettingsState.preamp-changed(round(v * 2) / 2); }
+                        released(v) => { SettingsState.preamp-released(round(v * 2) / 2); }
                     }
                     Text {
-                        text: "Sends what you listen to to your ListenBrainz profile, for a public listening history, statistics and recommendations. Listens are sent from the moment you connect; earlier history stays here.";
-                        color: Theme.muted;
-                        font-size: 13px;
-                        wrap: word-wrap;
-                    }
-                    if root.lb-connected: Text {
-                        text: root.lb-status;
-                        color: root.lb-failing ? #ff8a80 : Theme.muted;
+                        width: 60px;
+                        text: (SettingsState.preamp > 0 ? "+" : "") + SettingsState.preamp + " dB";
+                        color: Theme.text;
                         font-size: 12px;
-                        wrap: word-wrap;
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
                     }
-                    // Shown to connect, and to replace a token ListenBrainz no longer accepts.
-                    if !root.lb-connected || root.lb-failing: Field {
-                        label: "USER TOKEN";
-                        token := LineEdit {
-                            text <=> root.lb-token;
-                            input-type: InputType.password;
-                            placeholder-text: "Copy it from listenbrainz.org/settings";
-                            accepted(t) => { root.lb-connect(t); }
-                        }
+                }
+                Note { text: "Added to every ReplayGain adjustment; boosts are still limited so peaks never clip."; }
+            }
+
+            // ---------------------------------------------------------- appearance
+            if SettingsState.tab == "appearance": Card {
+                title: "Accent colour";
+                Note { text: "Used for highlights, active controls and the waveform. “From the album” follows the cover of what's playing."; }
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    for swatch in [
+                        { key: "cover", colour: #00000000 },
+                        { key: "#1ed760", colour: #1ed760 },
+                        { key: "#2dd4bf", colour: #2dd4bf },
+                        { key: "#5b8cff", colour: #5b8cff },
+                        { key: "#a77bff", colour: #a77bff },
+                        { key: "#ff5fa2", colour: #ff5fa2 },
+                        { key: "#ff5c5c", colour: #ff5c5c },
+                        { key: "#ff9f43", colour: #ff9f43 },
+                        { key: "#f5c542", colour: #f5c542 },
+                    ]: Rectangle {
+                        width: 34px;
+                        height: 34px;
+                        border-radius: 17px;
+                        border-width: SettingsState.accent == swatch.key ? 3px : 0px;
+                        border-color: Theme.text;
+                        // "From the album": the current accent, ringed to tell it apart.
+                        background: swatch.key == "cover" ? @linear-gradient(135deg, #ff5fa2 0%, #f5c542 50%, #2dd4bf 100%) : swatch.colour;
+                        drop-shadow-blur: swatch-ta.has-hover ? 10px : 0px;
+                        drop-shadow-color: (swatch.key == "cover" ? Theme.accent : swatch.colour).with-alpha(0.6);
+                        swatch-ta := TouchArea { mouse-cursor: pointer; clicked => { SettingsState.set-accent(swatch.key); } }
                     }
-                    if root.lb-error != "": Text { text: root.lb-error; color: #ff8a80; font-size: 12px; wrap: word-wrap; }
-                    HorizontalLayout {
-                        alignment: start;
-                        spacing: 12px;
-                        if !root.lb-connected || root.lb-failing: PrimaryButton {
-                            width: 160px;
-                            text: root.lb-connected ? "Reconnect" : "Connect";
-                            busy: root.lb-busy;
-                            clicked => { root.lb-connect(root.lb-token); }
-                        }
-                        if root.lb-connected: Rectangle {
-                            height: 40px;
-                            width: disconnect-label.preferred-width + 36px;
-                            border-radius: 20px;
-                            border-width: 1px;
-                            border-color: disconnect-ta.has-hover ? Theme.text : Theme.faint;
-                            disconnect-label := Text { text: "Disconnect"; color: Theme.muted; font-size: 13px; horizontal-alignment: center; vertical-alignment: center; }
-                            disconnect-ta := TouchArea { mouse-cursor: pointer; clicked => { root.lb-disconnect(); } }
-                        }
+                }
+                Note { text: SettingsState.accent == "cover" ? "From the album" : "Fixed colour " + SettingsState.accent; color: Theme.text; }
+            }
+            if SettingsState.tab == "appearance": Card {
+                title: "Window";
+                CheckBox {
+                    text: "Tint the window with the colours of the album playing";
+                    checked: SettingsState.cover-background;
+                    toggled => { SettingsState.set-cover-background(self.checked); }
+                }
+                CheckBox {
+                    text: "Show the live spectrum under the cover";
+                    checked: SettingsState.visualizer;
+                    toggled => { SettingsState.set-visualizer(self.checked); }
+                }
+                CheckBox {
+                    text: "Use the desktop's title bar instead of HyperPlayer's (from the next start; this computer only)";
+                    checked: SettingsState.system-title-bar;
+                    toggled => { SettingsState.set-system-title-bar(self.checked); }
+                }
+            }
+
+            // ------------------------------------------------------------- account
+            if SettingsState.tab == "account": Card {
+                title: "Profile";
+                Field {
+                    label: "FULL NAME";
+                    LineEdit { text <=> SettingsState.full-name; placeholder-text: "Optional"; accepted => { SettingsState.save-name(); } }
+                }
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+                    OutlineButton { text: "Save"; clicked => { SettingsState.save-name(); } }
+                    if SettingsState.name-message != "": Note { text: SettingsState.name-message; vertical-alignment: center; }
+                }
+            }
+            if SettingsState.tab == "account": Card {
+                title: "Password";
+                Field {
+                    label: "CURRENT PASSWORD";
+                    LineEdit { text <=> SettingsState.pw-current; input-type: InputType.password; }
+                }
+                Field {
+                    label: "NEW PASSWORD";
+                    LineEdit { text <=> SettingsState.pw-new; input-type: InputType.password; placeholder-text: "At least 8 characters"; }
+                }
+                Field {
+                    label: "REPEAT THE NEW PASSWORD";
+                    LineEdit { text <=> SettingsState.pw-confirm; input-type: InputType.password; accepted => { SettingsState.change-password(); } }
+                }
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+                    OutlineButton { text: "Change password"; clicked => { SettingsState.change-password(); } }
+                    if SettingsState.pw-message != "": Note {
+                        text: SettingsState.pw-message;
+                        color: SettingsState.pw-error ? #ff8a80 : Theme.muted;
+                        vertical-alignment: center;
+                    }
+                }
+                Note { text: "Changing it signs out your other devices."; }
+            }
+            if SettingsState.tab == "account": Card {
+                title: "Signed-in devices";
+                for device in SettingsState.devices: HorizontalLayout {
+                    spacing: 12px;
+                    VerticalLayout {
+                        alignment: center;
+                        horizontal-stretch: 1;
+                        Text { text: device.name + (device.current ? "  (this device)" : ""); color: Theme.text; font-size: 13px; overflow: elide; }
+                        Note { text: device.detail; }
+                    }
+                    if !device.current: VerticalLayout {
+                        alignment: center;
+                        OutlineButton { text: "Sign out"; clicked => { SettingsState.revoke-device(device.id); } }
                     }
                 }
             }
+
+            // ---------------------------------------------------------- scrobbling
+            if SettingsState.tab == "scrobbling": Card {
+                HorizontalLayout {
+                    spacing: 10px;
+                    Text { text: "ListenBrainz"; color: Theme.text; font-size: 15px; font-weight: 700; vertical-alignment: center; }
+                    if SettingsState.lb-connected: VerticalLayout {
+                        alignment: center;
+                        Chip { text: "Connected as " + SettingsState.lb-username; accent: Theme.accent; }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                Text {
+                    text: "Sends what you listen to to your ListenBrainz profile, for a public listening history, statistics and recommendations. Listens are sent from the moment you connect; earlier history stays here.";
+                    color: Theme.muted;
+                    font-size: 13px;
+                    wrap: word-wrap;
+                }
+                if SettingsState.lb-connected: Note {
+                    text: SettingsState.lb-status;
+                    color: SettingsState.lb-failing ? #ff8a80 : Theme.muted;
+                }
+                // Shown to connect, and to replace a token ListenBrainz no longer accepts.
+                if !SettingsState.lb-connected || SettingsState.lb-failing: Field {
+                    label: "USER TOKEN";
+                    LineEdit {
+                        text <=> SettingsState.lb-token;
+                        input-type: InputType.password;
+                        placeholder-text: "Copy it from listenbrainz.org/settings";
+                        accepted(t) => { SettingsState.lb-connect(t); }
+                    }
+                }
+                if SettingsState.lb-error != "": Note { text: SettingsState.lb-error; color: #ff8a80; }
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 12px;
+                    if !SettingsState.lb-connected || SettingsState.lb-failing: PrimaryButton {
+                        width: 160px;
+                        text: SettingsState.lb-connected ? "Reconnect" : "Connect";
+                        busy: SettingsState.lb-busy;
+                        clicked => { SettingsState.lb-connect(SettingsState.lb-token); }
+                    }
+                    if SettingsState.lb-connected: VerticalLayout {
+                        alignment: center;
+                        OutlineButton { text: "Disconnect"; clicked => { SettingsState.lb-disconnect(); } }
+                    }
+                }
+            }
+
+            // --------------------------------------------------------------- admin
+            if SettingsState.tab == "admin": Card {
+                title: "Library";
+                Note { text: SettingsState.library-summary; }
+                for folder in SettingsState.folders: HorizontalLayout {
+                    spacing: 10px;
+                    Text { text: folder.path; color: Theme.text; font-size: 13px; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+                    Text { text: folder.detail; color: folder.available ? Theme.muted : #ff8a80; font-size: 12px; vertical-alignment: center; }
+                }
+                HorizontalLayout {
+                    alignment: start;
+                    OutlineButton { text: SettingsState.scanning ? "Scanning…" : "Rescan now"; clicked => { SettingsState.rescan(); } }
+                }
+                Note { text: "The server also rescans every few minutes and watches folders where the filesystem allows. Folders are set with HP_LIBRARY on the server."; }
+            }
+            if SettingsState.tab == "admin": Card {
+                title: "Users";
+                for user in SettingsState.users: VerticalLayout {
+                    spacing: 8px;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        VerticalLayout {
+                            alignment: center;
+                            horizontal-stretch: 1;
+                            Text { text: user.username + (user.me ? "  (you)" : ""); color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
+                            Note { text: user.detail; }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            OutlineButton {
+                                text: user.admin ? "Remove admin" : "Make admin";
+                                clicked => { SettingsState.set-admin(user.id, !user.admin); }
+                            }
+                        }
+                        if !user.me: VerticalLayout {
+                            alignment: center;
+                            OutlineButton {
+                                text: "Reset password";
+                                clicked => {
+                                    root.resetting = root.resetting == user.id ? "" : user.id;
+                                    root.reset-password = "";
+                                }
+                            }
+                        }
+                        if !user.me: VerticalLayout {
+                            alignment: center;
+                            OutlineButton {
+                                danger: true;
+                                text: root.deleting == user.id ? "Confirm delete" : "Delete";
+                                clicked => {
+                                    if root.deleting == user.id {
+                                        root.deleting = "";
+                                        SettingsState.delete-user(user.id);
+                                    } else {
+                                        root.deleting = user.id;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if root.resetting == user.id: HorizontalLayout {
+                        spacing: 8px;
+                        LineEdit {
+                            text <=> root.reset-password;
+                            input-type: InputType.password;
+                            placeholder-text: "Temporary password (at least 8 characters)";
+                        }
+                        OutlineButton {
+                            text: "Set";
+                            clicked => {
+                                SettingsState.reset-password(user.id, root.reset-password);
+                                root.resetting = "";
+                            }
+                        }
+                    }
+                }
+                if SettingsState.users-message != "": Note {
+                    text: SettingsState.users-message;
+                    color: SettingsState.users-error ? #ff8a80 : Theme.muted;
+                }
+            }
+            if SettingsState.tab == "admin": Card {
+                title: "Add a user";
+                HorizontalLayout {
+                    spacing: 12px;
+                    Field {
+                        label: "USERNAME";
+                        LineEdit { text <=> SettingsState.new-username; }
+                    }
+                    Field {
+                        label: "FULL NAME";
+                        LineEdit { text <=> SettingsState.new-full-name; placeholder-text: "Optional"; }
+                    }
+                }
+                Field {
+                    label: "PASSWORD";
+                    LineEdit { text <=> SettingsState.new-password; input-type: InputType.password; placeholder-text: "At least 8 characters"; }
+                }
+                CheckBox { text: "Admin (can manage the server and its users)"; checked <=> SettingsState.new-admin; }
+                HorizontalLayout {
+                    alignment: start;
+                    OutlineButton { text: "Add user"; clicked => { SettingsState.create-user(); } }
+                }
+            }
         }
+    }
+}
+
+component WindowButton inherits Rectangle {
+    in property <string> kind;
+    in property <bool> maximized;
+    callback clicked();
+    width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    background: wb-ta.has-hover ? (root.kind == "close" ? #e5484d : Theme.surface-hi.brighter(0.4)) : Theme.surface-hi;
+    animate background { duration: 100ms; }
+    Path {
+        x: 4px;
+        y: 4px;
+        width: 16px;
+        height: 16px;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: root.kind == "close" ? Icons.window-close
+            : root.kind == "minimize" ? Icons.window-minimize
+            : root.maximized ? Icons.window-restore : Icons.window-maximize;
+        fill: transparent;
+        stroke: wb-ta.has-hover && root.kind == "close" ? #ffffff : Theme.text;
+        stroke-width: 1.6px;
+    }
+    wb-ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+/// Drawn by us instead of the desktop: drag to move, double-click to maximise.
+component TitleBar inherits Rectangle {
+    in property <string> title;
+    in property <bool> maximized;
+    in property <[string]> left;
+    in property <[string]> right;
+    callback drag();
+    callback button(string);
+    height: 36px;
+    background: Theme.chrome;
+    property <bool> dragging;
+    bar-ta := TouchArea {
+        // Moving starts once the pointer actually moves, so a double-click still registers.
+        moved => {
+            if self.pressed && !root.dragging
+                && (abs(self.mouse-x - self.pressed-x) > 4px || abs(self.mouse-y - self.pressed-y) > 4px) {
+                root.dragging = true;
+                root.drag();
+            }
+        }
+        changed pressed => { if !self.pressed { root.dragging = false; } }
+        double-clicked => { root.button("maximize"); }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 8px;
+        for b in root.left: VerticalLayout {
+            alignment: center;
+            WindowButton { kind: b; maximized: root.maximized; clicked => { root.button(b); } }
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: root.title;
+            color: Theme.muted;
+            font-size: 12px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        for b in root.right: VerticalLayout {
+            alignment: center;
+            WindowButton { kind: b; maximized: root.maximized; clicked => { root.button(b); } }
+        }
+    }
+}
+
+/// An invisible strip along the window's edge that resizes it (without the desktop's frame).
+component ResizeEdge inherits TouchArea {
+    in property <string> edge;
+    callback resize(string);
+    mouse-cursor: root.edge == "n" || root.edge == "s" ? MouseCursor.ns-resize
+        : root.edge == "e" || root.edge == "w" ? MouseCursor.ew-resize
+        : root.edge == "nw" || root.edge == "se" ? MouseCursor.nwse-resize : MouseCursor.nesw-resize;
+    pointer-event(e) => {
+        if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { root.resize(root.edge); }
     }
 }
 
@@ -1681,8 +2235,29 @@ export component AppWindow inherits Window {
     preferred-height: 880px;
     min-width: 960px;
     min-height: 600px;
-    background: Theme.bg;
     default-font-family: "Inter";
+    in property <bool> custom-title-bar: true;
+    in property <[float]> waveform;
+    in property <bool> waveform-ready;
+    in property <[float]> spectrum;
+    in property <bool> visualizer;
+    no-frame: root.custom-title-bar;
+    in property <[string]> title-buttons-left;
+    in property <[string]> title-buttons-right;
+    in-out property <bool> window-maximized;
+    callback window-drag();
+    callback window-resize(string);
+    callback window-button(string);
+    /// The album-colour gradient behind everything (plain when off or nothing plays).
+    in property <color> tint-a: Theme.bg;
+    in property <color> tint-b: Theme.bg;
+    in property <color> tint-c: Theme.bg;
+    // Cross-fades to a new album's colours.
+    property <color> shown-a: root.tint-a;
+    property <color> shown-b: root.tint-b;
+    property <color> shown-c: root.tint-c;
+    animate shown-a, shown-b, shown-c { duration: 900ms; easing: ease-in-out; }
+    background: @linear-gradient(150deg, root.shown-a 0%, root.shown-b 55%, root.shown-c 100%);
 
     in property <[ArtistItem]> artists;
     in property <string> selected-artist-id;
@@ -1728,15 +2303,6 @@ export component AppWindow inherits Window {
     callback show-history();
     callback show-albums();
     callback show-settings();
-    callback lb-connect(string);
-    callback lb-disconnect();
-    in property <bool> lb-connected;
-    in property <string> lb-username;
-    in property <string> lb-status;
-    in property <bool> lb-failing;
-    in property <bool> lb-busy;
-    in property <string> lb-error;
-    in-out property <string> lb-token;
     callback albums-sort-by(string);
     callback albums-columns(int);
     callback albums-visible(int, int);
@@ -1848,6 +2414,14 @@ export component AppWindow inherits Window {
         return reject;
     }
     VerticalLayout {
+        if root.custom-title-bar: TitleBar {
+            title: root.title;
+            maximized: root.window-maximized;
+            left: root.title-buttons-left;
+            right: root.title-buttons-right;
+            drag => { root.window-drag(); }
+            button(b) => { root.window-button(b); }
+        }
         HorizontalLayout {
             sidebar := Sidebar {
                 width: 260px;
@@ -1907,17 +2481,7 @@ export component AppWindow inherits Window {
                     delete => { root.delete-playlist(); }
                     track-action(i, kind, id) => { root.track-action("playlist", i, kind, id); }
                 }
-                if root.page == Page.settings: SettingsPage {
-                    lb-connected: root.lb-connected;
-                    lb-username: root.lb-username;
-                    lb-status: root.lb-status;
-                    lb-failing: root.lb-failing;
-                    lb-busy: root.lb-busy;
-                    lb-error: root.lb-error;
-                    lb-token <=> root.lb-token;
-                    lb-connect(t) => { root.lb-connect(t); }
-                    lb-disconnect => { root.lb-disconnect(); }
-                }
+                if root.page == Page.settings: SettingsPage { }
                 if root.page == Page.albums: AlbumsPage {
                     summary: root.albums-summary;
                     sort: root.albums-sort;
@@ -1970,6 +2534,8 @@ export component AppWindow inherits Window {
             NowPlayingPanel {
                 width: 360px;
                 np: root.np;
+                spectrum: root.spectrum;
+                visualizer: root.visualizer;
                 more-from: root.more-from;
                 credits: root.credits;
                 members: root.np-members;
@@ -1979,6 +2545,8 @@ export component AppWindow inherits Window {
         }
         TransportBar {
             np: root.np;
+            waveform: root.waveform;
+            waveform-ready: root.waveform-ready;
             playing: root.playing;
             position: root.position;
             duration: root.duration;
@@ -2022,5 +2590,17 @@ export component AppWindow inherits Window {
         full-name <=> root.login-full-name;
         onboard => { root.login-onboard(); }
         skip-onboarding => { root.login-skip-onboarding(); }
+    }
+    // Last, so the edges stay usable above every page and the sign-in screen.
+    if root.custom-title-bar && !root.window-maximized: Rectangle {
+        property <length> grip: 5px;
+        ResizeEdge { edge: "n"; x: grip; y: 0; width: parent.width - 2 * grip; height: grip; resize(e) => { root.window-resize(e); } }
+        ResizeEdge { edge: "s"; x: grip; y: parent.height - grip; width: parent.width - 2 * grip; height: grip; resize(e) => { root.window-resize(e); } }
+        ResizeEdge { edge: "w"; x: 0; y: grip; width: grip; height: parent.height - 2 * grip; resize(e) => { root.window-resize(e); } }
+        ResizeEdge { edge: "e"; x: parent.width - grip; y: grip; width: grip; height: parent.height - 2 * grip; resize(e) => { root.window-resize(e); } }
+        ResizeEdge { edge: "nw"; x: 0; y: 0; width: 2 * grip; height: 2 * grip; resize(e) => { root.window-resize(e); } }
+        ResizeEdge { edge: "ne"; x: parent.width - 2 * grip; y: 0; width: 2 * grip; height: 2 * grip; resize(e) => { root.window-resize(e); } }
+        ResizeEdge { edge: "sw"; x: 0; y: parent.height - 2 * grip; width: 2 * grip; height: 2 * grip; resize(e) => { root.window-resize(e); } }
+        ResizeEdge { edge: "se"; x: parent.width - 2 * grip; y: parent.height - 2 * grip; width: 2 * grip; height: 2 * grip; resize(e) => { root.window-resize(e); } }
     }
 }

@@ -219,6 +219,7 @@ const NP_MAX_POLLS: u32 = 30;
 
 pub fn fetch_now_playing(track_id: String) {
     super::lyrics::load(track_id.clone());
+    super::visuals::show_waveform(track_id.clone());
     let api = with_app(|app| app.api.clone());
     background(
         move || api.now_playing(&track_id),
@@ -275,6 +276,7 @@ pub fn show_now_playing(app: &mut App, np: types::NowPlaying) {
     });
     ui.set_credits(credit_model(&np.credits));
     ui.set_np_members(member_model(&np.artist.members, "MEMBERS"));
+    super::appearance::cover_changed(app, cover);
 
     if pending && app.np_polls < NP_MAX_POLLS {
         app.np_polls += 1;

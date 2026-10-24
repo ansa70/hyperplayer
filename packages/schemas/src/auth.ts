@@ -111,6 +111,18 @@ export const CreateUser = named(
   }),
 );
 
+export const UpdateMe = named("UpdateMe", z.object({ fullName: FullName.nullable().optional() }));
+
+export const UpdateUser = named(
+  "UpdateUser",
+  z.object({
+    fullName: FullName.nullable().optional(),
+    admin: z.boolean().optional(),
+    /** A temporary password: the user is signed out everywhere and must choose a new one at sign-in. */
+    password: Password.optional(),
+  }),
+);
+
 export const Onboard = named(
   "Onboard",
   z.object({
@@ -120,6 +132,8 @@ export const Onboard = named(
   }),
   "First-run registration of the everyday user, made from the admin's session.",
 );
+
+const Accent = z.string().regex(/^(cover|#[0-9a-f]{6})$/);
 
 export const Preferences = named(
   "Preferences",
@@ -133,6 +147,12 @@ export const Preferences = named(
     replayGain: z.enum(["auto", "track", "album", "off"]).default("auto"),
     /** Extra gain in dB applied on top of ReplayGain (still limited by the peak). */
     replayGainPreamp: z.number().min(-15).max(15).default(0),
+    /** Accent colour: `cover` follows the playing album's artwork, otherwise a `#rrggbb` colour. */
+    accent: Accent.default("cover"),
+    /** Tint the window with a gradient of the playing album's colours. */
+    coverBackground: z.boolean().default(true),
+    /** Show the live spectrum in the now-playing panel. */
+    visualizer: z.boolean().default(true),
   }),
   "Per-user settings that follow the account to every device.",
 );
@@ -143,6 +163,9 @@ export const UpdatePreferences = named(
     quality: z.enum(["auto", "original", "data-saver"]).optional(),
     replayGain: z.enum(["auto", "track", "album", "off"]).optional(),
     replayGainPreamp: z.number().min(-15).max(15).optional(),
+    accent: Accent.optional(),
+    coverBackground: z.boolean().optional(),
+    visualizer: z.boolean().optional(),
   }),
 );
 
@@ -151,3 +174,5 @@ export type Device = z.infer<typeof Device>;
 export type Session = z.infer<typeof Session>;
 export type AuthStatus = z.infer<typeof AuthStatus>;
 export type Preferences = z.infer<typeof Preferences>;
+export type UpdateMe = z.infer<typeof UpdateMe>;
+export type UpdateUser = z.infer<typeof UpdateUser>;

@@ -92,11 +92,7 @@ impl Audio {
         let p = self.players();
         let pause = !self.is_paused_locked(&p);
         for player in [&p.current, &p.next].into_iter().flatten() {
-            if pause {
-                player.pause()
-            } else {
-                player.play()
-            }
+            if pause { player.pause() } else { player.play() }
         }
     }
 

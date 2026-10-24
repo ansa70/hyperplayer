@@ -59,10 +59,17 @@ pub fn toggle_page() {
         app.page_before_albums = ui.get_page();
         ui.set_page(Page::Albums);
         // Loaded once; sorting reloads, and a rescan shows up the next time the app starts.
-        app.albums.albums.is_empty().then(|| app.albums.sort.clone())
+        app.albums
+            .albums
+            .is_empty()
+            .then(|| app.albums.sort.clone())
     });
     if let Some(sort) = open {
-        load(if sort.is_empty() { "artist".into() } else { sort });
+        load(if sort.is_empty() {
+            "artist".into()
+        } else {
+            sort
+        });
     }
 }
 
@@ -82,7 +89,8 @@ pub fn load(sort: String) {
             let mut all = Vec::new();
             loop {
                 let page = api.albums(all.len() as i64, PAGE, &sort)?;
-                let done = page.items.is_empty() || all.len() + page.items.len() >= page.total as usize;
+                let done =
+                    page.items.is_empty() || all.len() + page.items.len() >= page.total as usize;
                 all.extend(page.items);
                 if done {
                     return Ok(all);
@@ -129,14 +137,19 @@ fn regroup(app: &mut App) {
         .chunks(view.columns)
         .map(|chunk| {
             Rc::new(VecModel::from(
-                chunk.iter().map(|a| album_item(a, subtitle(a))).collect::<Vec<_>>(),
+                chunk
+                    .iter()
+                    .map(|a| album_item(a, subtitle(a)))
+                    .collect::<Vec<_>>(),
             ))
         })
         .collect();
     let rows: Vec<AlbumRow> = view
         .rows
         .iter()
-        .map(|r| AlbumRow { items: ModelRc::from(r.clone()) })
+        .map(|r| AlbumRow {
+            items: ModelRc::from(r.clone()),
+        })
         .collect();
     if let Some(ui) = app.ui.upgrade() {
         ui.set_albums_rows(ModelRc::new(VecModel::from(rows)));
@@ -167,13 +180,24 @@ fn show_rows(app: &mut App, first: usize, last: usize) {
     view.visible.first.store(first, Ordering::Relaxed);
     view.visible.last.store(last, Ordering::Relaxed);
     let columns = view.columns.max(1);
-    for i in std::mem::take(&mut *view.visible.skipped.lock().unwrap_or_else(|e| e.into_inner())) {
+    for i in std::mem::take(
+        &mut *view
+            .visible
+            .skipped
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()),
+    ) {
         view.covered.remove(&i);
     }
 
     // Far out of view: release the pixels.
     let far = |row: usize| row + KEEP_ROWS < first || row > last + KEEP_ROWS;
-    let dropped: Vec<usize> = view.covered.iter().copied().filter(|&i| far(i / columns)).collect();
+    let dropped: Vec<usize> = view
+        .covered
+        .iter()
+        .copied()
+        .filter(|&i| far(i / columns))
+        .collect();
     for i in dropped {
         view.covered.remove(&i);
         if let Some(row) = view.rows.get(i / columns)
@@ -211,10 +235,17 @@ fn show_rows(app: &mut App, first: usize, last: usize) {
             }),
             Some(Box::new(move || {
                 let row = i / columns;
-                let (first, last) = (visible.first.load(Ordering::Relaxed), visible.last.load(Ordering::Relaxed));
+                let (first, last) = (
+                    visible.first.load(Ordering::Relaxed),
+                    visible.last.load(Ordering::Relaxed),
+                );
                 let wanted = row + PRELOAD_ROWS + 1 >= first && row <= last + PRELOAD_ROWS + 1;
                 if !wanted {
-                    visible.skipped.lock().unwrap_or_else(|e| e.into_inner()).push(i);
+                    visible
+                        .skipped
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .push(i);
                 }
                 wanted
             })),

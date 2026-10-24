@@ -71,7 +71,23 @@ test("ReplayGain preferences have defaults and are validated", async () => {
     quality: "auto",
     replayGain: "auto",
     replayGainPreamp: 0,
+    accent: "cover",
+    coverBackground: true,
+    visualizer: true,
   });
+  // Appearance preferences validate too: an accent is "cover" or a #rrggbb colour.
+  const accent = await inject({
+    method: "PATCH",
+    url: "/api/me/preferences",
+    payload: { accent: "#ff5fa2" },
+  });
+  expect(accent.json()).toMatchObject({ accent: "#ff5fa2" });
+  const notAColour = await inject({
+    method: "PATCH",
+    url: "/api/me/preferences",
+    payload: { accent: "pink" },
+  });
+  expect(notAColour.statusCode).toBe(400);
   const set = await inject({
     method: "PATCH",
     url: "/api/me/preferences",

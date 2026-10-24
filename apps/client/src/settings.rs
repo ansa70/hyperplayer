@@ -24,6 +24,8 @@ pub struct Settings {
     pub volume: f32,
     /// `auto`, `original` or `data-saver`.
     pub quality: String,
+    /// Let the desktop draw the title bar instead of our own (applies at the next start).
+    pub system_title_bar: bool,
 }
 
 impl Default for Settings {
@@ -35,6 +37,7 @@ impl Default for Settings {
             onboarding_skipped: false,
             volume: 0.8,
             quality: "auto".into(),
+            system_title_bar: false,
         }
     }
 }

@@ -53,7 +53,9 @@ pub fn begin(app: &mut App, track: &types::Track) {
 /// Called from the playback tick with the current position.
 pub fn follow(app: &mut App, position: Duration, playing: bool) {
     let session_track = app.session.as_ref().map(|s| s.track.id.to_string());
-    let Some(l) = app.listening.as_mut() else { return };
+    let Some(l) = app.listening.as_mut() else {
+        return;
+    };
     // The previous track can still be playing while the next one opens.
     if session_track.as_deref() != Some(l.track_id.as_str()) {
         return;
@@ -81,11 +83,19 @@ pub fn follow(app: &mut App, position: Duration, playing: bool) {
                     eprintln!("recording listen: {e:#}");
                     return;
                 }
-                if let Some(l) = app.listening.as_mut().filter(|l| l.track_id == id && l.started_at == started) {
+                if let Some(l) = app
+                    .listening
+                    .as_mut()
+                    .filter(|l| l.track_id == id && l.started_at == started)
+                {
                     l.reported = true;
                 }
                 // Keep an open History page current.
-                if app.ui.upgrade().is_some_and(|ui| ui.get_page() == Page::History) {
+                if app
+                    .ui
+                    .upgrade()
+                    .is_some_and(|ui| ui.get_page() == Page::History)
+                {
                     load();
                 }
             })
@@ -136,7 +146,8 @@ fn show(app: &mut App, stats: types::HistoryStats, recent: types::ListenPage) {
         .into(),
     );
 
-    let artists: Vec<types::ArtistSummary> = stats.top_artists.iter().map(|a| a.artist.clone()).collect();
+    let artists: Vec<types::ArtistSummary> =
+        stats.top_artists.iter().map(|a| a.artist.clone()).collect();
     let model = artist_model(app, &artists, |ui| ui.get_history_artists());
     for (i, a) in stats.top_artists.iter().enumerate() {
         if let Some(mut row) = model.row_data(i) {
@@ -210,7 +221,10 @@ fn ago(now: DateTime<Utc>, then: DateTime<Utc>) -> String {
         3600..86_400 => format!("{} h ago", secs / 3600),
         86_400..172_800 => "yesterday".into(),
         172_800..604_800 => format!("{} days ago", secs / 86_400),
-        _ => then.with_timezone(&chrono::Local).format("%-d %b %Y").to_string(),
+        _ => then
+            .with_timezone(&chrono::Local)
+            .format("%-d %b %Y")
+            .to_string(),
     }
 }
 

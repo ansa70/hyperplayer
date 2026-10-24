@@ -210,6 +210,15 @@ export const TrackCredits = named(
   }),
 );
 
+export const Waveform = named(
+  "Waveform",
+  z.object({
+    trackId: Id,
+    /** The track's loudness envelope from start to end, as heights from 0 to 100. */
+    points: z.array(z.int().min(0).max(100)),
+  }),
+);
+
 export const LyricLine = named(
   "LyricLine",
   z.object({
@@ -275,10 +284,22 @@ export const SearchResults = named(
   }),
 );
 
+export const LibraryFolder = named(
+  "LibraryFolder",
+  z.object({
+    path: z.string(),
+    /** Present and readable now (an unmounted share isn't; its tracks are kept meanwhile). */
+    available: z.boolean(),
+    tracks: Count,
+  }),
+);
+
 export const LibraryStatus = named(
   "LibraryStatus",
   z.object({
     scanning: z.boolean(),
+    /** The music folders, for admins; empty for everyone else. */
+    folders: z.array(LibraryFolder),
     lastScanAt: z.iso.datetime().nullable(),
     artists: Count,
     albums: Count,
@@ -308,6 +329,7 @@ export type BandMember = z.infer<typeof BandMember>;
 export type Credit = z.infer<typeof Credit>;
 export type CreditCategory = z.infer<typeof CreditCategory>;
 export type TrackCredits = z.infer<typeof TrackCredits>;
+export type Waveform = z.infer<typeof Waveform>;
 export type LyricLine = z.infer<typeof LyricLine>;
 export type Lyrics = z.infer<typeof Lyrics>;
 export type ExternalLink = z.infer<typeof ExternalLink>;
@@ -323,6 +345,7 @@ export type ArtistPage = z.infer<typeof ArtistPage>;
 export type AlbumPage = z.infer<typeof AlbumPage>;
 export type TrackPage = z.infer<typeof TrackPage>;
 export type SearchResults = z.infer<typeof SearchResults>;
+export type LibraryFolder = z.infer<typeof LibraryFolder>;
 export type LibraryStatus = z.infer<typeof LibraryStatus>;
 export type StreamFormat = z.infer<typeof StreamFormat>;
 export type ApiError = z.infer<typeof ApiError>;

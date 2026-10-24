@@ -510,6 +510,7 @@ fn load_preferences() {
                     hyperplayer::replaygain::Mode::from_name(&prefs.replay_gain.to_string());
                 app.rg_preamp = prefs.replay_gain_preamp as f32;
                 playback::apply_replaygain(app);
+                super::appearance::set_preferences(app, &prefs);
             })
         },
     );

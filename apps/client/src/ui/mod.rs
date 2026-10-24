@@ -3,6 +3,7 @@
 
 mod account;
 mod albums;
+mod appearance;
 mod browse;
 mod desktop;
 mod history;
@@ -11,6 +12,8 @@ mod lyrics;
 mod models;
 mod playback;
 mod settings;
+mod visuals;
+mod window;
 
 use std::{
     cell::RefCell,
@@ -50,6 +53,8 @@ pub struct App {
     page_before_albums: Page,
     page_before_settings: Page,
     albums: albums::AlbumsView,
+    appearance: appearance::Appearance,
+    visuals: visuals::Visuals,
     playlists: Vec<types::PlaylistSummary>,
     playlist: Option<types::Playlist>,
 
@@ -144,7 +149,7 @@ fn current_entry_id(app: &App) -> Option<String> {
     current_entry(app).map(|e| e.entry_id.to_string())
 }
 
-fn mode_from(name: &str) -> Mode {
+pub fn mode_from(name: &str) -> Mode {
     match name {
         "original" => Mode::Original,
         "data-saver" => Mode::DataSaver,
@@ -152,7 +157,7 @@ fn mode_from(name: &str) -> Mode {
     }
 }
 
-fn mode_name(mode: Mode) -> &'static str {
+pub fn mode_name(mode: Mode) -> &'static str {
     match mode {
         Mode::Auto => "auto",
         Mode::Original => "original",
@@ -160,8 +165,64 @@ fn mode_name(mode: Mode) -> &'static str {
     }
 }
 
+/// Switches the streaming quality mode (saved locally and as the user's preference),
+/// restarting the stream if it changes what should be playing.
+pub fn set_quality_mode(mode: Mode) {
+    let switch = with_app(|app| {
+        app.mode = mode;
+        app.settings.quality = mode_name(app.mode).into();
+        app.settings.save();
+        let (api, quality) = (app.api.clone(), mode_name(app.mode));
+        thread::spawn(move || {
+            if let Err(e) = api.set_quality_preference(quality) {
+                eprintln!("saving preference: {e:#}");
+            }
+        });
+        playback::update_stream_info(app);
+        let s = app.session.as_ref()?;
+        let q = adaptive::choose(&s.track, app.mode, app.bandwidth.get());
+        (q != s.quality).then(|| (s.track.clone(), q, s.position()))
+    });
+    if let Some((track, quality, at)) = switch {
+        playback::start_stream(track, quality, at, true);
+    }
+}
+
+pub fn set_replaygain_mode(mode: hyperplayer::replaygain::Mode) {
+    with_app(|app| {
+        app.rg_mode = mode;
+        playback::apply_replaygain(app);
+        let (api, mode) = (app.api.clone(), app.rg_mode.name());
+        thread::spawn(move || {
+            if let Err(e) = api.set_replaygain_preference(mode) {
+                eprintln!("saving preference: {e:#}");
+            }
+        });
+    })
+}
+
+/// Pre-amplification added to ReplayGain, in dB (applied at once; saved as a preference).
+pub fn set_replaygain_preamp(db: f32) {
+    with_app(|app| {
+        app.rg_preamp = db;
+        playback::apply_replaygain(app);
+    });
+}
+
+pub fn save_replaygain_preamp() {
+    let (api, db) = with_app(|app| (app.api.clone(), app.rg_preamp));
+    thread::spawn(move || {
+        if let Err(e) = api.set_preamp_preference(db) {
+            eprintln!("saving preference: {e:#}");
+        }
+    });
+}
+
 pub fn run() -> anyhow::Result<()> {
     let settings = Settings::load();
+    // HP_TITLEBAR=system forces the desktop's title bar for this run.
+    let system_title_bar =
+        settings.system_title_bar || std::env::var("HP_TITLEBAR").is_ok_and(|v| v == "system");
     let server = account::initial_server(&settings.server);
     let token = (!settings.username.is_empty())
         .then(|| hyperplayer::credentials::load(&server, &settings.username))
@@ -200,6 +261,8 @@ pub fn run() -> anyhow::Result<()> {
             page_before_albums: Page::Welcome,
             page_before_settings: Page::Welcome,
             albums: Default::default(),
+            appearance: Default::default(),
+            visuals: Default::default(),
             listening: None,
             history_top: Vec::new(),
             history_recent: Vec::new(),
@@ -260,18 +323,27 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_show_history(history::toggle_page);
     ui.on_show_albums(albums::toggle_page);
     ui.on_show_settings(settings::toggle_page);
-    ui.on_lb_connect(settings::connect_listenbrainz);
-    ui.on_lb_disconnect(settings::disconnect_listenbrainz);
+    settings::init(&ui);
+    window::init(&ui, system_title_bar);
+    visuals::init(&ui);
     ui.on_albums_sort_by(|key| albums::load(key.to_string()));
     ui.on_albums_columns(albums::set_columns);
     ui.on_albums_visible(albums::visible_rows);
     ui.on_play_history_track(|list, i| {
         let ids = with_app(|app| {
-            let tracks = if list == "history-top" { &app.history_top } else { &app.history_recent };
+            let tracks = if list == "history-top" {
+                &app.history_top
+            } else {
+                &app.history_recent
+            };
             tracks.iter().map(|t| t.id.clone()).collect::<Vec<_>>()
         });
         if !ids.is_empty() {
-            playback::play_from(types::TrackSource::Tracks { track_ids: ids }, i as usize, None);
+            playback::play_from(
+                types::TrackSource::Tracks { track_ids: ids },
+                i as usize,
+                None,
+            );
         }
     });
     ui.on_play_search_track(|i| {
@@ -297,40 +369,8 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_toggle_shuffle(playback::toggle_shuffle);
     ui.on_cycle_repeat(playback::cycle_repeat);
     ui.on_seek(|secs| playback::seek_to(Duration::from_secs_f32(secs.max(0.0))));
-    ui.on_cycle_quality_mode(|| {
-        // Apply the new mode right away if it changes what should be streaming.
-        let switch = with_app(|app| {
-            app.mode = app.mode.next();
-            app.settings.quality = mode_name(app.mode).into();
-            app.settings.save();
-            // The mode is a per-user preference: remember it on the server too.
-            let (api, quality) = (app.api.clone(), mode_name(app.mode));
-            thread::spawn(move || {
-                if let Err(e) = api.set_quality_preference(quality) {
-                    eprintln!("saving preference: {e:#}");
-                }
-            });
-            playback::update_stream_info(app);
-            let s = app.session.as_ref()?;
-            let q = adaptive::choose(&s.track, app.mode, app.bandwidth.get());
-            (q != s.quality).then(|| (s.track.clone(), q, s.position()))
-        });
-        if let Some((track, quality, at)) = switch {
-            playback::start_stream(track, quality, at, true);
-        }
-    });
-    ui.on_cycle_replaygain(|| {
-        with_app(|app| {
-            app.rg_mode = app.rg_mode.next();
-            playback::apply_replaygain(app);
-            let (api, mode) = (app.api.clone(), app.rg_mode.name());
-            thread::spawn(move || {
-                if let Err(e) = api.set_replaygain_preference(mode) {
-                    eprintln!("saving preference: {e:#}");
-                }
-            });
-        })
-    });
+    ui.on_cycle_quality_mode(|| set_quality_mode(with_app(|app| app.mode.next())));
+    ui.on_cycle_replaygain(|| set_replaygain_mode(with_app(|app| app.rg_mode.next())));
     ui.on_volume_changed(|v| {
         with_app(|app| {
             if let Some(a) = &app.audio {
