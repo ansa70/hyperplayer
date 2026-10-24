@@ -221,6 +221,11 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   route.json(api.updateMe, ({ auth: a, body }) => auth.updateMe(a.user.id, body));
   route.json(api.updateUser, ({ auth: a, params, body }) => auth.updateUser(a, params.id, body));
   route.json(api.deleteUser, ({ auth: a, params }) => auth.deleteUser(a, params.id));
+  route.json(api.playingNow, ({ auth: a, body }) => {
+    if (!catalog.getTrack(body.trackId)) throw notFound("Track");
+    scrobbler.nowPlaying(a.user.id, body.trackId);
+    return { ok: true as const };
+  });
   route.json(api.getScrobbling, ({ auth: a }) => scrobbler.status(a.user.id));
   route.json(api.connectListenBrainz, ({ auth: a, body }) => scrobbler.connect(a.user.id, body.token));
   route.json(api.disconnectListenBrainz, ({ auth: a }) => scrobbler.disconnect(a.user.id, "listenbrainz"));

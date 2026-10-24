@@ -2119,6 +2119,19 @@
       ],
       "additionalProperties": false
     },
+    "PlayingNow": {
+      "type": "object",
+      "properties": {
+        "trackId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "trackId"
+      ],
+      "additionalProperties": false
+    },
     "Listen": {
       "type": "object",
       "properties": {

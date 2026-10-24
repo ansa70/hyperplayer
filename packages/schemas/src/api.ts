@@ -36,6 +36,7 @@ import {
   HistoryStats,
   LastfmAuthorization,
   ListenPage,
+  PlayingNow,
   RecordListen,
   ScrobbleSettings,
 } from "./history.ts";
@@ -492,6 +493,15 @@ export const api = {
     response: HistoryStats,
   }),
 
+  playingNow: json({
+    method: "POST",
+    path: "/api/me/now-playing",
+    summary: 'Report the track that just started playing, for the scrobbling services\' "now playing"',
+    params: NoParams,
+    query: NoQuery,
+    body: PlayingNow,
+    response: Ok,
+  }),
   getScrobbling: json({
     method: "GET",
     path: "/api/me/scrobbling",

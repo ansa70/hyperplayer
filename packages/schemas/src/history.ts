@@ -21,6 +21,12 @@ export const RecordListen = named(
   }),
 );
 
+export const PlayingNow = named(
+  "PlayingNow",
+  z.object({ trackId: z.string().min(1) }),
+  'A track that just started (or resumed) playing, shown as "now playing" on the user\'s scrobbling services.',
+);
+
 export const Listen = named(
   "Listen",
   z.object({
@@ -100,6 +106,7 @@ export type ScrobbleSettings = z.infer<typeof ScrobbleSettings>;
 export type ConnectListenBrainz = z.infer<typeof ConnectListenBrainz>;
 export type LastfmAuthorization = z.infer<typeof LastfmAuthorization>;
 export type ConnectLastfm = z.infer<typeof ConnectLastfm>;
+export type PlayingNow = z.infer<typeof PlayingNow>;
 export type Listen = z.infer<typeof Listen>;
 export type ListenPage = z.infer<typeof ListenPage>;
 export type TopTrack = z.infer<typeof TopTrack>;

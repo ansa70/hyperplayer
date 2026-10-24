@@ -24,6 +24,13 @@ const MAX_BACKOFF_MS = 6 * 3600_000;
 /** Pending listens of a rejected token wait for the user to reconnect. */
 const NEVER = "9999-12-31T00:00:00.000Z";
 
+/** What the services are told about a track (`t` tracks, `ar` its artist, `al` album, `aa` album artist). */
+const TRACK_COLUMNS = `t.title, t.duration_ms, t.track_number, t.musicbrainz_recording_id,
+  COALESCE(t.artist_credit, ar.name) AS artist, al.title AS album, al.musicbrainz_id AS release_mbid,
+  aa.name AS album_artist`;
+const TRACK_JOINS = `JOIN artists ar ON ar.id = t.artist_id JOIN albums al ON al.id = t.album_id
+  JOIN artists aa ON aa.id = al.artist_id`;
+
 /** The service rejected the token. */
 class Rejected extends Error {}
 /** The service will never accept these listens (malformed): retrying is pointless. */
@@ -54,6 +61,8 @@ export class Scrobbler {
   #timer: NodeJS.Timeout | null = null;
   #running: Promise<void> | null = null;
   #again = false;
+  /** "Now playing" announcements in flight. */
+  readonly #announcing = new Set<Promise<unknown>>();
   #closed = false;
 
   constructor(
@@ -209,6 +218,45 @@ export class Scrobbler {
     if (queued.changes) this.kick();
   }
 
+  /**
+   * Tells the user's services that `trackId` started playing. Sent once and not
+   * queued: a late "now playing" would be wrong, and the listen itself follows.
+   */
+  nowPlaying(userId: string, trackId: string) {
+    const accounts = this.#db
+      .prepare("SELECT service, token FROM scrobble_accounts WHERE user_id = ?")
+      .all(userId) as Row[];
+    if (accounts.length === 0) return;
+    const track = this.#db
+      .prepare(`SELECT ${TRACK_COLUMNS} FROM tracks t ${TRACK_JOINS} WHERE t.id = ?`)
+      .get(trackId) as Row | undefined;
+    if (!track) return;
+    for (const a of accounts) {
+      const service = a.service as Service;
+      const sent = this.#sendNowPlaying(service, String(a.token), track)
+        .catch((err: unknown) =>
+          this.#log.warn({ service, user: userId, error: (err as Error).message }, "now playing not sent"),
+        )
+        .finally(() => this.#announcing.delete(sent));
+      this.#announcing.add(sent);
+    }
+  }
+
+  async #sendNowPlaying(service: Service, token: string, track: Row) {
+    if (service === "lastfm") {
+      await this.#lastfmCall(
+        "track.updateNowPlaying",
+        { sk: token, ...this.#lastfmTrackParams(track) },
+        "POST",
+      );
+      return;
+    }
+    const res = await this.#listenBrainzSubmit(token, "playing_now", [
+      { track_metadata: this.#listenBrainzMetadata(track) },
+    ]);
+    if (!res.ok) throw new Error(`ListenBrainz answered ${res.status}`);
+  }
+
   /** Submits whatever is due, now (or right after a submission in progress). */
   kick() {
     if (this.#closed) return;
@@ -239,7 +287,9 @@ export class Scrobbler {
 
   /** Resolves once nothing is being submitted (for tests). */
   async idle() {
-    while (this.#running) await this.#running;
+    while (this.#running || this.#announcing.size) {
+      await Promise.all([this.#running, ...this.#announcing]);
+    }
   }
 
   close() {
@@ -276,12 +326,8 @@ export class Scrobbler {
       if (!account) continue;
       const rows = this.#db
         .prepare(
-          `SELECT s.track_id, s.started_at, s.attempts, t.title, t.duration_ms, t.track_number,
-                  t.musicbrainz_recording_id, COALESCE(t.artist_credit, ar.name) AS artist, al.title AS album,
-                  al.musicbrainz_id AS release_mbid, aa.name AS album_artist
-           FROM scrobbles s JOIN tracks t ON t.id = s.track_id
-           JOIN artists ar ON ar.id = t.artist_id JOIN albums al ON al.id = t.album_id
-           JOIN artists aa ON aa.id = al.artist_id
+          `SELECT s.track_id, s.started_at, s.attempts, ${TRACK_COLUMNS}
+           FROM scrobbles s JOIN tracks t ON t.id = s.track_id ${TRACK_JOINS}
            WHERE s.user_id = ? AND s.service = ? AND s.next_attempt_at <= ?
            ORDER BY s.started_at LIMIT ?`,
         )
@@ -332,26 +378,9 @@ export class Scrobbler {
   async #submitListenBrainz(token: string, rows: Row[]) {
     const payload = rows.map((r) => ({
       listened_at: Math.floor(Date.parse(String(r.started_at)) / 1000),
-      track_metadata: {
-        artist_name: String(r.artist),
-        track_name: String(r.title),
-        release_name: String(r.album),
-        additional_info: {
-          duration_ms: Number(r.duration_ms),
-          ...(r.track_number ? { tracknumber: Number(r.track_number) } : {}),
-          ...(r.musicbrainz_recording_id ? { recording_mbid: r.musicbrainz_recording_id as string } : {}),
-          ...(r.release_mbid ? { release_mbid: r.release_mbid as string } : {}),
-          media_player: this.#client.name,
-          submission_client: this.#client.name,
-          submission_client_version: this.#client.version,
-        },
-      },
+      track_metadata: this.#listenBrainzMetadata(r),
     }));
-    const res = await this.#fetch(`${LISTENBRAINZ}/1/submit-listens`, {
-      method: "POST",
-      headers: { Authorization: `Token ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ listen_type: payload.length === 1 ? "single" : "import", payload }),
-    });
+    const res = await this.#listenBrainzSubmit(token, payload.length === 1 ? "single" : "import", payload);
     if (res.status === 401) throw new Rejected("ListenBrainz rejected the token; reconnect in Settings");
     if (!res.ok) {
       const detail = ((await res.json().catch(() => ({}))) as { error?: string }).error;
@@ -360,17 +389,50 @@ export class Scrobbler {
     }
   }
 
+  #listenBrainzMetadata(r: Row) {
+    return {
+      artist_name: String(r.artist),
+      track_name: String(r.title),
+      release_name: String(r.album),
+      additional_info: {
+        duration_ms: Number(r.duration_ms),
+        ...(r.track_number ? { tracknumber: Number(r.track_number) } : {}),
+        ...(r.musicbrainz_recording_id ? { recording_mbid: r.musicbrainz_recording_id as string } : {}),
+        ...(r.release_mbid ? { release_mbid: r.release_mbid as string } : {}),
+        media_player: this.#client.name,
+        submission_client: this.#client.name,
+        submission_client_version: this.#client.version,
+      },
+    };
+  }
+
+  #listenBrainzSubmit(token: string, listenType: string, payload: object[]) {
+    return this.#fetch(`${LISTENBRAINZ}/1/submit-listens`, {
+      method: "POST",
+      headers: { Authorization: `Token ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ listen_type: listenType, payload }),
+    });
+  }
+
+  /** Last.fm's track parameters; `index` numbers them for a batch (`artist[0]`, ...). */
+  #lastfmTrackParams(r: Row, index?: number): Record<string, string> {
+    const at = (name: string) => (index === undefined ? name : `${name}[${index}]`);
+    return {
+      [at("artist")]: String(r.artist),
+      [at("track")]: String(r.title),
+      [at("album")]: String(r.album),
+      [at("albumArtist")]: String(r.album_artist),
+      [at("duration")]: String(Math.round(Number(r.duration_ms) / 1000)),
+      ...(r.track_number ? { [at("trackNumber")]: String(Number(r.track_number)) } : {}),
+      ...(r.musicbrainz_recording_id ? { [at("mbid")]: r.musicbrainz_recording_id as string } : {}),
+    };
+  }
+
   async #submitLastfm(sessionKey: string, rows: Row[]) {
     const params: Record<string, string> = { sk: sessionKey };
     rows.forEach((r, i) => {
-      params[`artist[${i}]`] = String(r.artist);
-      params[`track[${i}]`] = String(r.title);
+      Object.assign(params, this.#lastfmTrackParams(r, i));
       params[`timestamp[${i}]`] = String(Math.floor(Date.parse(String(r.started_at)) / 1000));
-      params[`album[${i}]`] = String(r.album);
-      params[`albumArtist[${i}]`] = String(r.album_artist);
-      params[`duration[${i}]`] = String(Math.round(Number(r.duration_ms) / 1000));
-      if (r.track_number) params[`trackNumber[${i}]`] = String(Number(r.track_number));
-      if (r.musicbrainz_recording_id) params[`mbid[${i}]`] = r.musicbrainz_recording_id as string;
     });
     let body: Row;
     try {

@@ -1914,6 +1914,53 @@
         }
       }
     },
+    "/api/me/now-playing": {
+      "post": {
+        "operationId": "playingNow",
+        "summary": "Report the track that just started playing, for the scrobbling services' \"now playing\"",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayingNow"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Report the track that just started playing, for the scrobbling services' \"now playing\"",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me/scrobbling": {
       "get": {
         "operationId": "getScrobbling",
@@ -4645,6 +4692,19 @@
           "trackId",
           "startedAt",
           "playedMs"
+        ],
+        "additionalProperties": false
+      },
+      "PlayingNow": {
+        "type": "object",
+        "properties": {
+          "trackId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "trackId"
         ],
         "additionalProperties": false
       },

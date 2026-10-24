@@ -17,6 +17,7 @@ const fm = {
   allowed: new Set<string>(),
   issued: 0,
   scrobbled: [] as Record<string, string>[],
+  nowPlaying: [] as Record<string, string>[],
   async fetch(url: string, init: RequestInit): Promise<Response> {
     const params = new URLSearchParams(init.method === "POST" ? (init.body as string) : new URL(url).search);
     const p = Object.fromEntries(params);
@@ -41,6 +42,10 @@ const fm = {
         if (!p.token?.startsWith("tok")) return error(4, "Invalid authentication token");
         if (!fm.allowed.has(p.token)) return error(14, "Unauthorized Token");
         return Response.json({ session: { name: "fmuser", key: "session-key", subscriber: 0 } });
+      case "track.updateNowPlaying":
+        if (p.sk !== "session-key") return error(9, "Invalid session key");
+        fm.nowPlaying.push(p);
+        return Response.json({ nowplaying: {} });
       case "track.scrobble": {
         if (fm.mode === "down") return error(16, "Temporarily unavailable");
         if (fm.mode === "revoked" || p.sk !== "session-key") return error(9, "Invalid session key");
@@ -80,6 +85,7 @@ afterAll(async () => {
 beforeEach(() => {
   fm.mode = "ok";
   fm.scrobbled = [];
+  fm.nowPlaying = [];
 });
 
 let minute = 0;
@@ -140,6 +146,22 @@ test("new listens are scrobbled, signed, with their metadata", async () => {
     }),
   ]);
   expect((await status()).lastSubmittedAt).not.toBeNull();
+});
+
+test("now playing goes to Last.fm, signed", async () => {
+  const res = await inject({ method: "POST", url: "/api/me/now-playing", payload: { trackId } });
+  expect(res.statusCode).toBe(200);
+  await ctx.scrobbler.idle();
+  expect(fm.nowPlaying).toEqual([
+    expect.objectContaining({
+      sk: "session-key",
+      artist: "Band",
+      track: "Song",
+      album: "Record",
+      duration: "60",
+    }),
+  ]);
+  expect(fm.scrobbled).toEqual([]);
 });
 
 test("listens wait while Last.fm is down, then go together", async () => {

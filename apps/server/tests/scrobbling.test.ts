@@ -163,3 +163,22 @@ test("disconnecting forgets the token and drops unsent listens", async () => {
   await ctx.scrobbler.idle();
   expect(lb.submitted).toEqual([]);
 });
+
+test("now playing is passed on at once, and never queued", async () => {
+  expect((await connect("good-token")).statusCode).toBe(200);
+  const playing = () => inject({ method: "POST", url: "/api/me/now-playing", payload: { trackId } });
+  expect((await playing()).statusCode).toBe(200);
+  await ctx.scrobbler.idle();
+  expect(lb.submitted.map((s) => s.body)).toEqual([
+    {
+      listen_type: "playing_now",
+      payload: [{ track_metadata: expect.objectContaining({ artist_name: "Band", track_name: "Song" }) }],
+    },
+  ]);
+  lb.mode = "down";
+  expect((await playing()).statusCode).toBe(200);
+  await ctx.scrobbler.idle();
+  expect(await status()).toMatchObject({ pending: 0, lastError: null });
+  const unknown = await inject({ method: "POST", url: "/api/me/now-playing", payload: { trackId: "nope" } });
+  expect(unknown.statusCode).toBe(404);
+});

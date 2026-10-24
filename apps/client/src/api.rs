@@ -17,9 +17,9 @@ use types::{
     AddToPlaylist, AddToQueue, AddToQueuePlacement, Advance, Album, AlbumList, AlbumPage, ApiError,
     Artist, ArtistPage, AuthStatus, ConnectLastfm, ConnectListenBrainz, CreatePlaylist, DeviceList,
     HistoryStats, Jump, LastfmAuthorization, LibraryStatus, ListenPage, Lyrics, Me, MoveEntry,
-    NowPlaying, Ok as OkResponse, Playlist, PlaylistList, Preferences, QueueState, RecordListen,
-    RepeatMode, ScrobbleSettings, SearchResults, Session, SetQueue, TrackSource, UpdatePlaylist,
-    UpdateQueue, User, UserList, Waveform,
+    NowPlaying, Ok as OkResponse, PlayingNow, Playlist, PlaylistList, Preferences, QueueState,
+    RecordListen, RepeatMode, ScrobbleSettings, SearchResults, Session, SetQueue, TrackSource,
+    UpdatePlaylist, UpdateQueue, User, UserList, Waveform,
 };
 
 use crate::adaptive::Quality;
@@ -293,6 +293,15 @@ impl Api {
     }
 
     /// Reports a listen (see the listen rule in the history schema).
+    /// Tells the server `track_id` just started playing (for scrobbling services' "now playing").
+    pub fn playing_now(&self, track_id: &str) -> Result<()> {
+        let body = PlayingNow {
+            track_id: track_id.try_into().map_err(|e| anyhow::anyhow!("{e}"))?,
+        };
+        self.send::<OkResponse, _>(Method::POST, "/api/me/now-playing", Some(&body))
+            .map(|_| ())
+    }
+
     pub fn record_listen(
         &self,
         track_id: &str,

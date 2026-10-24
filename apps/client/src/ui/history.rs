@@ -22,6 +22,8 @@ const ENOUGH: Duration = Duration::from_secs(4 * 60);
 /// Position jumps bigger than this between ticks are seeks, not playing.
 const MAX_STEP: Duration = Duration::from_secs(2);
 const RETRY_AFTER: Duration = Duration::from_secs(30);
+/// Resuming within this long of the last "now playing" doesn't announce it again.
+const ANNOUNCE_GAP: Duration = Duration::from_secs(30);
 /// The History page's window for "most played".
 const STATS_DAYS: i64 = 30;
 
@@ -33,6 +35,9 @@ pub struct Listening {
     played: Duration,
     last_position: Option<Duration>,
     reported: bool,
+    /// "Now playing" was sent since the track started or last resumed.
+    announced: bool,
+    last_announced: Option<Instant>,
     /// While a report is in flight or after one failed, don't send another before this.
     next_attempt: Option<Instant>,
 }
@@ -46,6 +51,8 @@ pub fn begin(app: &mut App, track: &types::Track) {
         played: Duration::ZERO,
         last_position: None,
         reported: false,
+        announced: false,
+        last_announced: None,
         next_attempt: None,
     });
 }
@@ -60,14 +67,33 @@ pub fn follow(app: &mut App, position: Duration, playing: bool) {
     if session_track.as_deref() != Some(l.track_id.as_str()) {
         return;
     }
+    let mut advanced = false;
     if playing
         && let Some(last) = l.last_position
-        && position >= last
+        && position > last
         && position - last < MAX_STEP
     {
         l.played += position - last;
+        advanced = true;
     }
     l.last_position = Some(position);
+
+    // Announced once audio really plays (not while it loads), and again after a pause.
+    if !playing {
+        l.announced = false;
+    } else if advanced
+        && !l.announced
+        && l.last_announced.is_none_or(|t| t.elapsed() >= ANNOUNCE_GAP)
+    {
+        l.announced = true;
+        l.last_announced = Some(Instant::now());
+        let (api, id) = (app.api.clone(), l.track_id.clone());
+        thread::spawn(move || {
+            if let Err(e) = api.playing_now(&id) {
+                eprintln!("reporting now playing: {e:#}");
+            }
+        });
+    }
 
     let counts = l.length >= MIN_TRACK && l.played >= (l.length / 2).min(ENOUGH);
     if !counts || l.reported || l.next_attempt.is_some_and(|t| Instant::now() < t) {
