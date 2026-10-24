@@ -4,7 +4,7 @@
 #
 #   flatpak install --user hyperplayer-<version>-x86_64.flatpak
 #
-# Needs Flathub's builder and SDK (once, per user):
+# Needs Flathub's builder (or a native flatpak-builder, as in CI) and SDK (once, per user):
 #   flatpak install --user flathub org.flatpak.Builder org.freedesktop.Sdk//26.08 \
 #     org.freedesktop.Sdk.Extension.rust-stable//26.08
 set -euo pipefail
@@ -15,8 +15,12 @@ WORK=$ROOT/release/flatpak
 OUT=$ROOT/release/hyperplayer-$VERSION-x86_64.flatpak
 mkdir -p "$WORK"
 
-flatpak run --filesystem="$ROOT" org.flatpak.Builder \
-  --force-clean --disable-rofiles-fuse \
+if command -v flatpak-builder >/dev/null; then
+  BUILDER=(flatpak-builder)
+else
+  BUILDER=(flatpak run --filesystem="$ROOT" org.flatpak.Builder)
+fi
+"${BUILDER[@]}" --force-clean --disable-rofiles-fuse \
   --state-dir="$WORK/state" --repo="$WORK/repo" \
   "$WORK/build" "$ROOT/packaging/flatpak/io.ansaloni.HyperPlayer.yml"
 flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \

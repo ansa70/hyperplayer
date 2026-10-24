@@ -52,15 +52,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libasound2-dev libudev-dev libfontconfig-dev dpkg-dev fakeroot flatpak
+            libasound2-dev libudev-dev libfontconfig-dev dpkg-dev fakeroot flatpak flatpak-builder
 
-      # Flathub's builder and SDK for the Flatpak. The builder's sandbox needs
-      # unprivileged user namespaces, which Ubuntu restricts by default.
+      # Flathub's SDK for the Flatpak (built with Ubuntu's flatpak-builder: Flathub's own
+      # doesn't find the SDK here). The build sandbox needs unprivileged user
+      # namespaces, which Ubuntu restricts by default.
       - name: Set up Flatpak
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y --noninteractive flathub org.flatpak.Builder \
+          flatpak install --user -y --noninteractive flathub \
             org.freedesktop.Platform//26.08 org.freedesktop.Sdk//26.08 \
             org.freedesktop.Sdk.Extension.rust-stable//26.08
 
