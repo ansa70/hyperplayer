@@ -7,7 +7,7 @@
     <name>Enrico Ansaloni</name>
   </developer>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>LicenseRef-proprietary</project_license>
+  <project_license>GPL-3.0-or-later</project_license>
   <description>
     <p>
       The player for a self-hosted HyperPlayer server: browse your library by artist and album,

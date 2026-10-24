@@ -2,6 +2,7 @@
   "name": "@hyperplayer/server",
   "version": "0.1.0-beta.1",
   "private": true,
+  "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vpx --watch src/main.ts",

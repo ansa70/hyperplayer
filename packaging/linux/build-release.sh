@@ -74,7 +74,7 @@ cat >"$DEB/DEBIAN/control" <<EOF
 Package: hyperplayer
 Version: ${VERSION/-/\~}
 Architecture: amd64
-Maintainer: Enrico Ansaloni <ansa@ansaloni.io>
+Maintainer: Enrico Ansaloni <enrico.ansaloni@gmail.com>
 Depends: $SHLIBS, libxkbcommon0, libwayland-client0 | libx11-6, libegl1 | libgl1
 Section: sound
 Priority: optional

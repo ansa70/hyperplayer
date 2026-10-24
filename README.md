@@ -91,6 +91,15 @@ Choose HTTPS **off** in the installer, and point the proxy's rule for your domai
 `Range` requests: don't set short timeouts or response buffering on the rule. Players then connect to
 `https://<your domain>`.
 
+## License
+
+HyperPlayer is free software: you can redistribute it and/or modify it under the terms of the
+[GNU General Public License](LICENSE), version 3 or (at your option) any later version.
+
+The releases bundle third-party software under its own licenses: Node.js (MIT), FFmpeg (LGPL-2.1 or later)
+and libvips through sharp (LGPL-3.0 or later, sharp itself Apache-2.0). The player is built with
+[Slint](https://slint.dev), used under the GPL-3.0.
+
 ## Development
 
 | Path               | What                                                                                                         |

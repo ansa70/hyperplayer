@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Native Rust + Slint client. Tasks are defined in vite.config.ts and wrap cargo.",
+  "license": "GPL-3.0-or-later",
   "devDependencies": {
     "@hyperplayer/schemas": "workspace:*"
   }
