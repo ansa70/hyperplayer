@@ -4,10 +4,7 @@
 
 use std::process::Command;
 
-use slint::{
-    ComponentHandle, ModelRc, SharedString, VecModel,
-    winit_030::{WinitWindowAccessor, winit::window::ResizeDirection},
-};
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel, winit_030::WinitWindowAccessor};
 
 use super::{AppWindow, with_app};
 
@@ -57,19 +54,6 @@ pub fn init(ui: &AppWindow, system_title_bar: bool) {
     ui.set_title_buttons_right(model(right));
 
     ui.on_window_drag(|| with_window(|w| drop(w.drag_window())));
-    ui.on_window_resize(|edge| {
-        let direction = match edge.as_str() {
-            "n" => ResizeDirection::North,
-            "s" => ResizeDirection::South,
-            "e" => ResizeDirection::East,
-            "w" => ResizeDirection::West,
-            "ne" => ResizeDirection::NorthEast,
-            "nw" => ResizeDirection::NorthWest,
-            "se" => ResizeDirection::SouthEast,
-            _ => ResizeDirection::SouthWest,
-        };
-        with_window(|w| drop(w.drag_resize_window(direction)));
-    });
     ui.on_window_button(|button| {
         let Some(ui) = with_app(|app| app.ui.upgrade()) else {
             return;

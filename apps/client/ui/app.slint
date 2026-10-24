@@ -1112,6 +1112,8 @@ component NowPlayingPanel inherits Rectangle {
         horizontal-alignment: center;
         vertical-alignment: center;
     }
+    // Every line in here wraps or elides: one that can't would widen the whole
+    // column past the panel's edge.
     if np.active: ScrollView {
         VerticalLayout {
             alignment: start;
@@ -1139,8 +1141,8 @@ component NowPlayingPanel inherits Rectangle {
             VerticalLayout {
                 spacing: 2px;
                 Text { text: np.title; color: Theme.art-text; font-size: 22px; font-weight: 800; wrap: word-wrap; }
-                Text { text: np.artist; color: Theme.art-text; font-size: 15px; font-weight: 600; }
-                Text { text: np.album + (np.year == "" ? "" : "  ·  " + np.year); color: Theme.art-muted; font-size: 13px; }
+                Text { text: np.artist; color: Theme.art-text; font-size: 15px; font-weight: 600; wrap: word-wrap; }
+                Text { text: np.album + (np.year == "" ? "" : "  ·  " + np.year); color: Theme.art-muted; font-size: 13px; wrap: word-wrap; }
             }
             HorizontalLayout {
                 alignment: start;
@@ -1172,6 +1174,7 @@ component NowPlayingPanel inherits Rectangle {
                     color: about-ta.has-hover ? np.accent.brighter(0.4) : Theme.art-text;
                     font-size: 15px;
                     font-weight: 700;
+                    wrap: word-wrap;
                     about-ta := TouchArea {
                         mouse-cursor: pointer;
                         clicked => { root.select-artist(np.artist-id); }
@@ -1193,7 +1196,7 @@ component NowPlayingPanel inherits Rectangle {
                 faint-color: Theme.art-faint;
                 select-artist(id) => { root.select-artist(id); }
             }
-            if more-from.length > 0: Text { text: "More from " + np.artist; color: Theme.art-text; font-size: 15px; font-weight: 700; }
+            if more-from.length > 0: Text { text: "More from " + np.artist; color: Theme.art-text; font-size: 15px; font-weight: 700; wrap: word-wrap; }
             if more-from.length > 0: AlbumGrid {
                 albums: root.more-from;
                 cell: (root.width - 44px - 20px) / 2;
@@ -1333,12 +1336,14 @@ component TransportBar inherits Rectangle {
             seek-bar.value = root.position;
         }
     }
-    height: 84px;
+    height: 98px;
     background: Theme.chrome;
     Rectangle { y: 0; height: 1px; background: Theme.surface-hi; }
     HorizontalLayout {
         padding-left: 16px;
         padding-right: 16px;
+        padding-top: 10px;
+        padding-bottom: 14px;
         spacing: 16px;
         HorizontalLayout {
             width: 280px;
@@ -2346,18 +2351,6 @@ component TitleBar inherits Rectangle {
     }
 }
 
-/// An invisible strip along the window's edge that resizes it (without the desktop's frame).
-component ResizeEdge inherits TouchArea {
-    in property <string> edge;
-    callback resize(string);
-    mouse-cursor: root.edge == "n" || root.edge == "s" ? MouseCursor.ns-resize
-        : root.edge == "e" || root.edge == "w" ? MouseCursor.ew-resize
-        : root.edge == "nw" || root.edge == "se" ? MouseCursor.nwse-resize : MouseCursor.nesw-resize;
-    pointer-event(e) => {
-        if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { root.resize(root.edge); }
-    }
-}
-
 export component AppWindow inherits Window {
     icon: @image-url("../icons/hyperplayer-256.png");
     title: np.active ? np.title + " — " + np.artist : "HyperPlayer";
@@ -2372,11 +2365,12 @@ export component AppWindow inherits Window {
     in property <[float]> spectrum;
     in property <bool> visualizer;
     no-frame: root.custom-title-bar;
+    // Without the desktop's frame, Slint resizes the window from its edges itself.
+    resize-border-width: root.custom-title-bar && !root.window-maximized ? 5px : 0px;
     in property <[string]> title-buttons-left;
     in property <[string]> title-buttons-right;
     in-out property <bool> window-maximized;
     callback window-drag();
-    callback window-resize(string);
     callback window-button(string);
     /// The album-colour gradient behind everything (plain when off or nothing plays).
     in property <color> tint-a: Theme.bg;
@@ -2724,17 +2718,5 @@ export component AppWindow inherits Window {
         skip-onboarding => { root.login-skip-onboarding(); }
         trust => { root.login-trust(); }
         cancel-trust => { root.login-cancel-trust(); }
-    }
-    // Last, so the edges stay usable above every page and the sign-in screen.
-    if root.custom-title-bar && !root.window-maximized: Rectangle {
-        property <length> grip: 5px;
-        ResizeEdge { edge: "n"; x: grip; y: 0; width: parent.width - 2 * grip; height: grip; resize(e) => { root.window-resize(e); } }
-        ResizeEdge { edge: "s"; x: grip; y: parent.height - grip; width: parent.width - 2 * grip; height: grip; resize(e) => { root.window-resize(e); } }
-        ResizeEdge { edge: "w"; x: 0; y: grip; width: grip; height: parent.height - 2 * grip; resize(e) => { root.window-resize(e); } }
-        ResizeEdge { edge: "e"; x: parent.width - grip; y: grip; width: grip; height: parent.height - 2 * grip; resize(e) => { root.window-resize(e); } }
-        ResizeEdge { edge: "nw"; x: 0; y: 0; width: 2 * grip; height: 2 * grip; resize(e) => { root.window-resize(e); } }
-        ResizeEdge { edge: "ne"; x: parent.width - 2 * grip; y: 0; width: 2 * grip; height: 2 * grip; resize(e) => { root.window-resize(e); } }
-        ResizeEdge { edge: "sw"; x: 0; y: parent.height - 2 * grip; width: 2 * grip; height: 2 * grip; resize(e) => { root.window-resize(e); } }
-        ResizeEdge { edge: "se"; x: parent.width - 2 * grip; y: parent.height - 2 * grip; width: 2 * grip; height: 2 * grip; resize(e) => { root.window-resize(e); } }
     }
 }
