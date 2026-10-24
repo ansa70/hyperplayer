@@ -153,6 +153,13 @@ global Icons {
     out property <string> window-minimize: "M6 12h12";
     out property <string> window-maximize: "M6 6h12v12H6z";
     out property <string> window-restore: "M9 9h10v10H9z M6 15V6h9";
+    // Lucide "play", "pause", "skip-back", "skip-forward", drawn filled.
+    out property <string> play: "M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z";
+    out property <string> pause: "M14 4h4v16h-4z M6 4h4v16H6z";
+    out property <string> previous: "M17.971 4.285A2 2 0 0 1 21 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z M3 20V4";
+    out property <string> next: "M21 4v16 M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z";
+    // Lucide "volume-2".
+    out property <string> volume: "M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z M16 9a5 5 0 0 1 0 6 M19.364 18.364a9 9 0 0 0 0-12.728";
 }
 
 export global Theme {
@@ -196,8 +203,11 @@ component Cover inherits Rectangle {
     }
 }
 
+/// A round button with a vector icon (not a font glyph: Windows draws ▶ ⏮ ⏭ as colour emoji).
 component IconButton inherits Rectangle {
-    in property <string> glyph;
+    in property <string> commands;
+    /// Solid shapes (the playback icons) rather than outlines.
+    in property <bool> filled;
     in property <length> size: 36px;
     in property <bool> primary;
     callback clicked;
@@ -206,12 +216,17 @@ component IconButton inherits Rectangle {
     border-radius: size / 2;
     background: primary ? (ta.has-hover ? #ffffff : #e8e9ec) : (ta.has-hover ? Theme.surface-hi : transparent);
     animate background { duration: 120ms; }
-    Text {
-        text: glyph;
-        color: primary ? Theme.bg : Theme.text;
-        font-size: size * 0.42;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+    Path {
+        width: size * 0.44;
+        height: size * 0.44;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: root.commands;
+        fill: root.filled ? (primary ? Theme.bg : Theme.text) : transparent;
+        stroke: primary ? Theme.bg : Theme.text;
+        stroke-width: root.filled ? 1px : 2px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
     }
     ta := TouchArea { clicked => { root.clicked(); } }
 }
@@ -956,8 +971,8 @@ component AlbumPage inherits Rectangle {
                     alignment: start;
                     padding-top: 8px;
                     spacing: 12px;
-                    IconButton { glyph: "▶"; primary: true; size: 48px; clicked => { root.play(0); } }
-                    IconButton { glyph: "⋯"; size: 48px; clicked => { album-menu.show(); } }
+                    IconButton { commands: Icons.play; filled: true; primary: true; size: 48px; clicked => { root.play(0); } }
+                    IconButton { commands: Icons.more; size: 48px; clicked => { album-menu.show(); } }
                 }
             }
         }
@@ -1367,7 +1382,7 @@ component SmartEditor inherits Rectangle {
                 accepted => { root.apply(); }
             }
             if !rule.needs-value: Rectangle { horizontal-stretch: 1; }
-            IconButton { glyph: "✕"; size: 32px; clicked => { root.remove-rule(i); } }
+            IconButton { commands: Icons.window-close; size: 32px; clicked => { root.remove-rule(i); } }
         }
         if root.rules.length == 0: Text {
             text: "No rules yet: any track in the library can be picked.";
@@ -1488,7 +1503,7 @@ component PlaylistPage inherits Rectangle {
                     alignment: start;
                     padding-top: 8px;
                     spacing: 12px;
-                    IconButton { glyph: "▶"; primary: true; size: 48px; clicked => { root.play(0); } }
+                    IconButton { commands: Icons.play; filled: true; primary: true; size: 48px; clicked => { root.play(0); } }
                     VerticalLayout {
                         alignment: center;
                         ToggleIcon { commands: Icons.shuffle; clicked => { root.shuffle-play(); } }
@@ -2009,9 +2024,9 @@ component TransportBar inherits Rectangle {
                     caption-width: self.x - 10px;
                     caption-clicked => { shuffle-menu.show(); }
                 }
-                IconButton { glyph: "⏮"; clicked => { root.prev(); } }
-                IconButton { glyph: root.playing ? "⏸" : "▶"; primary: true; size: 40px; clicked => { root.toggle(); } }
-                IconButton { glyph: "⏭"; clicked => { root.next(); } }
+                IconButton { commands: Icons.previous; filled: true; clicked => { root.prev(); } }
+                IconButton { commands: root.playing ? Icons.pause : Icons.play; filled: true; primary: true; size: 40px; clicked => { root.toggle(); } }
+                IconButton { commands: Icons.next; filled: true; clicked => { root.next(); } }
                 ToggleIcon {
                     commands: root.repeat == RepeatMode.one ? Icons.repeat-one : Icons.repeat;
                     active: root.repeat != RepeatMode.off;
@@ -2060,7 +2075,18 @@ component TransportBar inherits Rectangle {
             spacing: 4px;
             HorizontalLayout {
                 spacing: 8px;
-                Text { text: "🔊"; color: Theme.muted; vertical-alignment: center; }
+                Path {
+                    width: 16px;
+                    height: 16px;
+                    viewbox-width: 24;
+                    viewbox-height: 24;
+                    commands: Icons.volume;
+                    fill: transparent;
+                    stroke: Theme.muted;
+                    stroke-width: 1.6px;
+                    stroke-line-cap: round;
+                    stroke-line-join: round;
+                }
                 Slider {
                     minimum: 0;
                     maximum: 1;
