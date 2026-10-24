@@ -163,13 +163,32 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     scanProgress: scanner.progress,
   });
 
+  // A request without a body can still arrive with an empty one: a proxy turning HTTP/2
+  // into HTTP/1.1 sends an empty chunked body without a type, some clients an empty JSON
+  // one. Both mean no body.
+  const parseJson = app.getDefaultJsonParser("error", "error");
+  app.removeContentTypeParser("application/json");
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) =>
+    body === "" ? done(null, undefined) : parseJson(req, body as string, done),
+  );
+  app.addContentTypeParser("*", { parseAs: "string" }, (_req, body, done) =>
+    body === ""
+      ? done(null, undefined)
+      : done(new HttpError(415, "unsupported_media_type", "Request bodies are JSON"), undefined),
+  );
+
   app.setErrorHandler((err, _req, reply) => {
-    const body: ApiError =
-      err instanceof HttpError
-        ? { error: err.code, message: err.message }
-        : { error: "internal", message: "Internal server error" };
-    if (!(err instanceof HttpError)) app.log.error(err);
-    return reply.status(err instanceof HttpError ? err.status : 500).send(body);
+    if (err instanceof HttpError)
+      return reply.status(err.status).send({ error: err.code, message: err.message });
+    // Fastify's own refusals (a malformed body, say) are the client's error, not ours.
+    const status = (err as { statusCode?: number }).statusCode;
+    if (status && status >= 400 && status < 500) {
+      return reply
+        .status(status)
+        .send({ error: "bad_request", message: (err as Error).message } satisfies ApiError);
+    }
+    app.log.error(err);
+    return reply.status(500).send({ error: "internal", message: "Internal server error" } satisfies ApiError);
   });
 
   const auth = new Auth(db, config.defaultAdminPassword);
