@@ -1,6 +1,97 @@
 # HyperPlayer
 
-Client–server music player.
+A self-hosted music player: a server that keeps your music library and streams it, and native players
+for Linux and Windows that play it, at home or anywhere.
+
+- **Your library, kept current:** music folders on the server's disks or on network shares (SMB), rescanned
+  as files change. Tags, artwork and MusicBrainz ids are read from the files; credits and artist profiles
+  come from MusicBrainz and Wikipedia.
+- **Streaming that fits the connection:** original files when the link allows, otherwise transcoded on the
+  fly, switching quality mid-track when needed. Gapless playback and ReplayGain.
+- **Browse and play:** artists, albums, search, playlists, and a play queue that follows you from one
+  device to the next.
+- **While it plays:** synced lyrics, a waveform seek bar, a live spectrum, colours taken from the cover,
+  and the desktop's media keys and controls.
+- **Listening history** with your most played tracks and artists, and scrobbling to ListenBrainz and
+  Last.fm (including "now playing").
+- **For the household:** an account for everyone, with their own playlists, history and preferences. HTTPS
+  built in, or behind your reverse proxy.
+
+HyperPlayer is in beta (0.1.0-beta.1).
+
+## Installing
+
+Each release has two downloads:
+
+- `hyperplayer-<version>-linux-x64.tar.gz`: the server and the player for Linux (x86-64).
+- `hyperplayer-<version>-windows-x64-setup.exe`: the player and the server for Windows 10 and 11 (x64).
+
+Install the server once, on the machine that has (or reaches) the music, and the player on every computer
+you listen on. Server and player can be on the same machine.
+
+### Linux
+
+```bash
+tar xzf hyperplayer-<version>-linux-x64.tar.gz
+cd hyperplayer-<version>-linux-x64
+sudo ./install.sh
+```
+
+The wizard asks what to install on this machine: the server, the player, or both.
+
+- **Server:** choose how it runs, in a **Docker** container (needs Docker with the Compose plugin) or as a
+  **systemd service** (it installs ffmpeg with apt if needed). Then it asks for the music folders (in
+  Docker also SMB shares, which the container mounts itself), the port, HTTPS (a self-signed certificate,
+  your own certificate files, or off behind a reverse proxy) and, optionally, a Last.fm API account. At
+  the end it shows the address to connect players to and the certificate's fingerprint.
+- **Player:** a `.deb` package (Ubuntu 26.04 or newer) or a Flatpak (any distribution; Flatpak needs to be
+  installed). It appears in the applications menu. The Flatpak also installs on its own:
+  `flatpak install --user hyperplayer-<version>-x86_64.flatpak`.
+
+To upgrade, run the new version's `install.sh`: it keeps the settings (or lets you change them). To
+remove HyperPlayer, run `sudo ./install.sh --uninstall`; it asks before deleting the server's data.
+
+The server's settings are in `/etc/hyperplayer/server.env` (edit, then restart the server), its data in
+`/var/lib/hyperplayer`. Its log: `docker logs hyperplayer`, or `journalctl -u hyperplayer-server`.
+
+### Windows
+
+Run `hyperplayer-<version>-windows-x64-setup.exe`. The installer isn't signed yet, so Windows SmartScreen
+warns about it: click **More info**, then **Run anyway**. It needs administrator rights.
+
+- Choose the components: the **Player**, a desktop shortcut, and the **Server**.
+- With the server, the installer asks for the music folders (network shares like `\\nas\Music` work, with
+  the account to connect to them), the port, HTTPS and, optionally, a Last.fm API account. The server runs
+  as the "HyperPlayer server" service and starts with Windows; the finish page shows its address and
+  certificate fingerprint.
+- Other computers reach the server when the PC's network is set to **Private** in Windows (the installer
+  opens the firewall for private and domain networks).
+
+To upgrade, run the new installer: it offers to keep the server's settings. To remove HyperPlayer, use
+**Settings → Apps → Installed apps**; it asks before deleting the server's data.
+
+The server's settings are in `C:\ProgramData\HyperPlayer\server.env` (edit, then restart the HyperPlayer
+service), its data and logs next to them.
+
+### First sign-in
+
+1. Open the player and enter the server's address, e.g. `https://music-server:4533`.
+2. With a self-signed certificate, the player asks whether to trust the server and shows the
+   certificate's fingerprint: check it matches the one the installer showed, then trust it. A certificate
+   from a public authority (yours, or your reverse proxy's) needs no question.
+3. Sign in as `admin` with the password `hyperplayer`, and choose your own password right away; do it
+   before making the server reachable from the internet.
+4. Create your own account for everyday listening (the admin account stays for managing the server), and
+   accounts for everyone else in **Settings → Server**.
+
+### Behind a reverse proxy
+
+Choose HTTPS **off** in the installer, and point the proxy's rule for your domain at the whole server
+(`http://<server>:<port>`, no path prefix). Audio streams stay open for a whole track and seeking uses
+`Range` requests: don't set short timeouts or response buffering on the rule. Players then connect to
+`https://<your domain>`.
+
+## Development
 
 | Path               | What                                                                                                         |
 | ------------------ | ------------------------------------------------------------------------------------------------------------ |
@@ -37,12 +128,13 @@ vp run ready           # fmt + lint + typecheck + all tests + clippy + release b
 Server environment: `HP_LIBRARY`, `HP_DATA_DIR` (default `apps/server/.data`), `HP_HOST`, `HP_PORT` (4533),
 `HP_FFMPEG`, `HP_VALIDATE_RESPONSES`. The OpenAPI document is served at `/openapi.json`.
 
-## Installing
+## Building releases
 
-`packaging/linux/build-release.sh` builds `release/hyperplayer-<version>-linux-x64.tar.gz`: the bundled
-server with its own Node.js, the Docker build files, the systemd unit, the player's `.deb`, and
-`install.sh`. Unpack it on the target machine and run `sudo ./install.sh`, a wizard that installs the server,
-the player or both:
+`packaging/linux/build-release.sh` builds `release/hyperplayer-<version>-linux-x64.tar.gz`: the server
+bundled with `vp pack` and its own Node.js, the Docker build files, the systemd unit, the player's `.deb`
+(built against this machine's libraries, so it installs on the same distribution release or newer), the
+Flatpak (when Flathub's `org.flatpak.Builder` is installed; `packaging/flatpak/build.sh` builds it alone),
+and `install.sh`.
 
 - The server runs either in Docker (the image is built on the host from the bundle) or as a systemd
   service. Either way it runs as the `hyperplayer` user, reads its settings from `/etc/hyperplayer/server.env`
@@ -50,17 +142,14 @@ the player or both:
 - In Docker, the container can mount SMB shares itself (read-only); their credentials stay in
   `/etc/hyperplayer` and `/opt/hyperplayer/compose.yaml`, readable by root only. Docker in an unprivileged
   Proxmox LXC can't mount SMB: mount the share on the Proxmox host and pass the folder in instead.
-- Running it again upgrades in place (keeping the settings, or changing them); `--uninstall` removes it.
 
-The `.deb` is built against the build machine's libraries, so it installs on that distribution release or
-newer. The player is also a Flatpak (`packaging/flatpak/build.sh`, included in the bundle when Flathub's
-`org.flatpak.Builder` is installed), which runs on any distribution: the wizard offers it where there's no
-apt, or the `.deb` doesn't fit. On its own: `flatpak install --user hyperplayer-<version>-x86_64.flatpak`.
-
-The Windows player is cross-compiled from Linux: `packaging/windows/build.sh` (needs `clang lld llvm nsis`,
-the `x86_64-pc-windows-msvc` Rust target and `cargo install cargo-xwin`) builds
-`release/hyperplayer-<version>-windows-x64-setup.exe`. It installs for the current user without administrator
-rights, and needs nothing else on the PC (the C runtime is linked in).
+`packaging/windows/build.sh` cross-compiles the Windows release from Linux (needs `clang lld llvm nsis`,
+the `x86_64-pc-windows-msvc` Rust target and `cargo install cargo-xwin`; the C runtime is linked in, so
+nothing else is needed on the PC) and builds `release/hyperplayer-<version>-windows-x64-setup.exe` with
+NSIS. The server is bundled with Windows builds of Node.js, sharp and ffmpeg, and run as a service by
+`apps/winservice` (`hyperplayer-service.exe`), which also connects the network shares with the saved
+credentials; settings and data are in `%ProgramData%\HyperPlayer`, readable only by administrators and the
+service.
 
 Versions: the player's `Cargo.toml` and the server's `SERVER_VERSION` must match (the release scripts check).
 Pre-releases are written `0.1.0-beta.1`; the `.deb` spells it `0.1.0~beta.1` so it sorts before `0.1.0`.
