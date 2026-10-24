@@ -3,6 +3,7 @@
 use hyperplayer::{
     api::{Api, Unauthorized},
     credentials,
+    trust::{self, UntrustedCertificate},
 };
 
 use super::{
@@ -36,9 +37,14 @@ pub fn initial_server(settings_server: &str) -> String {
 fn normalize_server(url: &str) -> String {
     let url = url.trim().trim_end_matches('/');
     if url.contains("://") {
-        url.to_string()
-    } else {
+        return url.to_string();
+    }
+    // Servers speak HTTPS, except a development one only reachable from this machine.
+    let host = url.rsplit_once(':').map_or(url, |(h, _)| h);
+    if ["localhost", "127.0.0.1", "[::1]"].contains(&host) {
         format!("http://{url}")
+    } else {
+        format!("https://{url}")
     }
 }
 
@@ -94,6 +100,7 @@ pub fn begin(has_token: bool) {
                 });
                 continue_as(server, token, me.user);
             }
+            Err(e) if e.is::<UntrustedCertificate>() => ask_trust(&e),
             Err(e) if e.is::<Unauthorized>() => {
                 with_app(|app| credentials::delete(app.api.base(), &app.settings.username));
                 show_login(Some("Your session has ended; please sign in again.".into()));
@@ -115,9 +122,74 @@ pub fn show_login(error: Option<String>) {
             s.changing_password = false;
             s.onboarding = false;
             s.error = error.unwrap_or_default().into();
+            s.trust_fingerprint = "".into();
         });
     });
     check_server();
+}
+
+/// Asks whether to trust the certificate `err` (an `UntrustedCertificate`) is about.
+fn ask_trust(err: &anyhow::Error) {
+    let Some(e) = err.downcast_ref::<UntrustedCertificate>() else {
+        return;
+    };
+    with_app(|app| {
+        if let Some(ui) = app.ui.upgrade() {
+            ui.set_signed_in(false);
+        }
+        set_login(app, |l| {
+            l.busy = false;
+            l.error = "".into();
+            l.trust_server = e.server.clone().into();
+            l.trust_fingerprint = e.fingerprint.clone().into();
+        });
+    });
+}
+
+/// Trusts the server's certificate from now on, then carries on: resuming the saved
+/// session for that server, or back to signing in.
+pub fn trust_server() {
+    let (server, resume) = with_app(|app| {
+        let Some(ui) = app.ui.upgrade() else {
+            return (String::new(), false);
+        };
+        let login = ui.get_login();
+        let server = login.trust_server.to_string();
+        trust::trust(&server, &login.trust_fingerprint);
+        set_login(app, |l| {
+            l.trust_fingerprint = "".into();
+            l.trust_server = "".into();
+        });
+        let token = (app.settings.server == server)
+            .then(|| credentials::load(&server, &app.settings.username))
+            .flatten();
+        // Connections are set up with the trusted certificates, so make new ones.
+        app.api = Api::with_token(server.clone(), token.as_deref());
+        (server, token.is_some())
+    });
+    if server.is_empty() {
+        return;
+    }
+    if resume {
+        begin(true);
+    } else {
+        check_server();
+    }
+}
+
+/// Not trusted: stay on the sign-in form, without asking again until the server changes.
+pub fn cancel_trust() {
+    with_app(|app| {
+        set_login(app, |l| {
+            l.error = format!(
+                "{} isn't trusted, so HyperPlayer won't connect to it.",
+                l.trust_server
+            )
+            .into();
+            l.trust_fingerprint = "".into();
+            l.trust_server = "".into();
+        });
+    });
 }
 
 /// Asks the server whether it needs first-time setup (and whether it's reachable at all).
@@ -146,6 +218,7 @@ pub fn check_server() {
                         ui.set_login_username("admin".into());
                     }
                 }
+                Err(e) if e.is::<UntrustedCertificate>() => ask_trust(&e),
                 Err(e) => set_login(app, |l| {
                     l.error = format!("Cannot reach {server}: {e:#}").into()
                 }),
@@ -205,6 +278,9 @@ pub fn submit() {
 }
 
 fn show_error(e: &anyhow::Error) {
+    if e.is::<UntrustedCertificate>() {
+        return ask_trust(e);
+    }
     with_app(|app| {
         // The server's message ("Wrong username or password", "Too many failed sign-ins…") is the useful part.
         let msg = format!("{e:#}");
@@ -486,7 +562,12 @@ fn forget_session(app: &mut App) {
 
 /// Lets `background` route auth failures here without depending on this module's details.
 pub fn handle_error(err: &anyhow::Error) -> bool {
-    if err.is::<Unauthorized>() {
+    if err.is::<UntrustedCertificate>() {
+        // The server's certificate changed mid-session: nothing works until it's trusted.
+        playback::stop();
+        ask_trust(err);
+        true
+    } else if err.is::<Unauthorized>() {
         session_ended();
         true
     } else {

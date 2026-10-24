@@ -12,3 +12,4 @@ pub mod replaygain;
 pub mod settings;
 pub mod spectrum;
 pub mod stream;
+pub mod trust;

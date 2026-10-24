@@ -100,6 +100,9 @@ export struct LoginState {
     onboarding: bool,
     busy: bool,
     error: string,
+    /// A server with a certificate this computer doesn't trust: ask whether to (its SHA-256).
+    trust-fingerprint: string,
+    trust-server: string,
 }
 
 export enum Page { welcome, artist, album, search, playlist, queue, lyrics, history, albums, settings }
@@ -1501,6 +1504,8 @@ component LoginScreen inherits Rectangle {
     callback change-password();
     callback onboard();
     callback skip-onboarding();
+    callback trust();
+    callback cancel-trust();
     background: Theme.bg;
     // Swallow clicks so nothing behind the screen reacts.
     TouchArea { }
@@ -1517,7 +1522,36 @@ component LoginScreen inherits Rectangle {
                 drop-shadow-color: #00000090;
                 // A layout (unlike the Rectangle itself) sizes to whichever step is shown.
                 VerticalLayout {
-                    if !root.state.changing-password && !root.state.onboarding: VerticalLayout {
+                    if root.state.trust-fingerprint != "": VerticalLayout {
+                        padding: 32px;
+                        spacing: 14px;
+                        Text { text: "Trust this server?"; color: Theme.text; font-size: 22px; font-weight: 800; }
+                        Text {
+                            text: root.state.trust-server + " uses its own (self-signed) certificate, which this computer can't check by itself. Trust it only if this fingerprint matches the one the server shows in its log or the installer printed.";
+                            color: Theme.muted;
+                            font-size: 13px;
+                            wrap: word-wrap;
+                        }
+                        Field {
+                            label: "SHA-256 FINGERPRINT";
+                            Text {
+                                text: root.state.trust-fingerprint;
+                                color: Theme.text;
+                                font-family: "monospace";
+                                font-size: 12px;
+                                wrap: char-wrap;
+                            }
+                        }
+                        PrimaryButton { text: "Trust this server"; clicked => { root.trust(); } }
+                        Text {
+                            text: "Cancel";
+                            color: cancel-ta.has-hover ? Theme.text : Theme.faint;
+                            font-size: 12px;
+                            horizontal-alignment: center;
+                            cancel-ta := TouchArea { mouse-cursor: pointer; clicked => { root.cancel-trust(); } }
+                        }
+                    }
+                    if root.state.trust-fingerprint == "" && !root.state.changing-password && !root.state.onboarding: VerticalLayout {
                         padding: 32px;
                         spacing: 14px;
                         Text { text: "HyperPlayer"; color: Theme.text; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
@@ -1533,7 +1567,7 @@ component LoginScreen inherits Rectangle {
                             label: "SERVER";
                             LineEdit {
                                 text <=> root.server;
-                                placeholder-text: "http://127.0.0.1:4533";
+                                placeholder-text: "https://music.home:4533";
                                 accepted => { root.check-server(); }
                             }
                         }
@@ -1553,7 +1587,7 @@ component LoginScreen inherits Rectangle {
                         if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
                         PrimaryButton { text: "Sign in"; busy: root.state.busy; clicked => { root.submit(); } }
                     }
-                    if root.state.changing-password: VerticalLayout {
+                    if root.state.trust-fingerprint == "" && root.state.changing-password: VerticalLayout {
                         padding: 32px;
                         spacing: 14px;
                         Text { text: "Choose your password"; color: Theme.text; font-size: 22px; font-weight: 800; }
@@ -1582,7 +1616,7 @@ component LoginScreen inherits Rectangle {
                         if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
                         PrimaryButton { text: "Save and continue"; busy: root.state.busy; clicked => { root.change-password(); } }
                     }
-                    if root.state.onboarding: VerticalLayout {
+                    if root.state.trust-fingerprint == "" && root.state.onboarding: VerticalLayout {
                         padding: 32px;
                         spacing: 14px;
                         Text { text: "Who's listening?"; color: Theme.text; font-size: 22px; font-weight: 800; }
@@ -2295,6 +2329,7 @@ component ResizeEdge inherits TouchArea {
 }
 
 export component AppWindow inherits Window {
+    icon: @image-url("../icons/hyperplayer-256.png");
     title: np.active ? np.title + " — " + np.artist : "HyperPlayer";
     preferred-width: 1400px;
     preferred-height: 880px;
@@ -2419,6 +2454,8 @@ export component AppWindow inherits Window {
     callback login-change-password();
     callback login-onboard();
     callback login-skip-onboarding();
+    callback login-trust();
+    callback login-cancel-trust();
     callback sign-out();
     property <bool> show-help;
     init => { keys.focus(); }
@@ -2655,6 +2692,8 @@ export component AppWindow inherits Window {
         full-name <=> root.login-full-name;
         onboard => { root.login-onboard(); }
         skip-onboarding => { root.login-skip-onboarding(); }
+        trust => { root.login-trust(); }
+        cancel-trust => { root.login-cancel-trust(); }
     }
     // Last, so the edges stay usable above every page and the sign-in screen.
     if root.custom-title-bar && !root.window-maximized: Rectangle {

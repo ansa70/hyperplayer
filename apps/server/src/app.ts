@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { mkdirSync } from "node:fs";
+import type { Server as TlsServer } from "node:tls";
 import type { Readable } from "node:stream";
 import { join } from "node:path";
 import cors from "@fastify/cors";
@@ -18,6 +19,7 @@ import type { Config } from "./config.ts";
 import { openDb } from "./db.ts";
 import { Auth, type AuthContext } from "./auth/auth.ts";
 import { HttpError, notFound, Router, SESSION_COOKIE } from "./http/contract.ts";
+import { loadTls, stampOf } from "./http/tls.ts";
 import { ArtworkStore } from "./library/artwork.ts";
 import { Scanner } from "./library/scanner.ts";
 import { LibraryWatcher } from "./library/watcher.ts";
@@ -38,7 +40,30 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   const db = openDb(join(config.dataDir, "library.db"));
   const artwork = new ArtworkStore(db, config.dataDir);
   const scanner = new Scanner(db, artwork, { settleMs: config.scanSettleMs });
-  const app = Fastify({ logger: opts.logger ?? true, trustProxy: config.trustProxy });
+  const tls = config.tls ? loadTls(config.tls, config.dataDir) : null;
+  const app = Fastify({
+    logger: opts.logger ?? true,
+    trustProxy: config.trustProxy,
+    https: tls ? { key: tls.key, cert: tls.cert } : null,
+  });
+  if (tls && config.tls?.certFile && config.tls.keyFile) {
+    // Renewed certificate files (e.g. by certbot) are picked up without a restart.
+    const files = [config.tls.certFile, config.tls.keyFile];
+    let stamp = tls.stamp;
+    const timer = setInterval(() => {
+      try {
+        if (stampOf(files) === stamp) return;
+        const renewed = loadTls(config.tls!, config.dataDir);
+        (app.server as unknown as TlsServer).setSecureContext({ key: renewed.key, cert: renewed.cert });
+        stamp = renewed.stamp;
+        app.log.info(`TLS certificate reloaded (SHA-256 ${renewed.fingerprint})`);
+      } catch (err) {
+        app.log.warn({ err }, "reloading the TLS certificate failed");
+      }
+    }, 3600_000);
+    timer.unref();
+    app.addHook("onClose", async () => clearInterval(timer));
+  }
   const enricher = new Enricher(db, artwork, app.log, config.enrich);
   const catalog = new Catalog(db, enricher);
   const playlists = new Playlists(db, catalog);
@@ -307,5 +332,5 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     db.close();
   });
 
-  return { app, startScan, auth, scrobbler };
+  return { app, startScan, auth, scrobbler, tls };
 }

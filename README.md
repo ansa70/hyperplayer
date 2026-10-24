@@ -37,6 +37,42 @@ vp run ready           # fmt + lint + typecheck + all tests + clippy + release b
 Server environment: `HP_LIBRARY`, `HP_DATA_DIR` (default `apps/server/.data`), `HP_HOST`, `HP_PORT` (4533),
 `HP_FFMPEG`, `HP_VALIDATE_RESPONSES`. The OpenAPI document is served at `/openapi.json`.
 
+## Installing
+
+`packaging/linux/build-release.sh` builds `release/hyperplayer-<version>-linux-x64.tar.gz`: the bundled
+server with its own Node.js, the Docker build files, the systemd unit, the player's `.deb`, and
+`install.sh`. Unpack it on the target machine and run `sudo ./install.sh`, a wizard that installs the server,
+the player or both:
+
+- The server runs either in Docker (the image is built on the host from the bundle) or as a systemd
+  service. Either way it runs as the `hyperplayer` user, reads its settings from `/etc/hyperplayer/server.env`
+  and keeps its data in `/var/lib/hyperplayer`, so switching between the two keeps the library and accounts.
+- In Docker, the container can mount SMB shares itself (read-only); their credentials stay in
+  `/etc/hyperplayer` and `/opt/hyperplayer/compose.yaml`, readable by root only. Docker in an unprivileged
+  Proxmox LXC can't mount SMB: mount the share on the Proxmox host and pass the folder in instead.
+- Running it again upgrades in place (keeping the settings, or changing them); `--uninstall` removes it.
+
+The `.deb` is built against the build machine's libraries, so it installs on that distribution release or
+newer.
+
+## HTTPS
+
+`HP_TLS` (`auto` by default) serves HTTPS whenever the server listens beyond this machine, and plain HTTP
+when it only listens on `127.0.0.1` (development). `on` and `off` force it either way; use `off` behind a
+reverse proxy that does HTTPS.
+
+- With `HP_TLS_CERT` and `HP_TLS_KEY` (PEM files, e.g. from Let's Encrypt), the server uses them and picks
+  up renewed files within an hour, without a restart.
+- Without them it makes a self-signed certificate in `HP_DATA_DIR/tls`, valid for 10 years and naming the
+  host, its addresses and any extra `HP_TLS_NAMES` (comma-separated). It logs the certificate's SHA-256
+  fingerprint at startup.
+
+The client trusts certificates from public authorities as usual. The first time it meets a self-signed one,
+it shows the fingerprint and asks whether to trust it (compare it with the server's log); from then on it
+accepts only that certificate for that server. Trusted fingerprints are kept in
+`~/.config/hyperplayer/trusted-servers.json`. A server address typed without `https://` or `http://` uses
+HTTPS, except `localhost` and `127.0.0.1`.
+
 ## Library folders
 
 `HP_LIBRARY` lists one or more music folders, separated like `PATH`

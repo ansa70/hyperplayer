@@ -15,6 +15,16 @@ const Env = z.object({
   HP_WATCH: z.stringbool().default(true),
   HP_DATA_DIR: z.string().default(resolve(import.meta.dirname, "../.data")),
   HP_HOST: z.string().default("127.0.0.1"),
+  /**
+   * HTTPS: `auto` serves it unless the server only listens on this machine (127.0.0.1),
+   * `on` always, `off` never (e.g. behind a reverse proxy that does HTTPS).
+   */
+  HP_TLS: z.enum(["auto", "on", "off"]).default("auto"),
+  /** A certificate and its key (PEM files); without them a self-signed one is made in the data folder. */
+  HP_TLS_CERT: z.string().trim().min(1).optional(),
+  HP_TLS_KEY: z.string().trim().min(1).optional(),
+  /** More names (host names or IP addresses, comma-separated) for the self-signed certificate. */
+  HP_TLS_NAMES: z.string().default(""),
   HP_PORT: z.coerce.number().int().min(1).max(65535).default(4533),
   HP_FFMPEG: z.string().default("ffmpeg"),
   HP_VALIDATE_RESPONSES: z.stringbool().default(true),
@@ -42,6 +52,8 @@ const Env = z.object({
   HP_DEFAULT_ADMIN_PASSWORD: z.string().min(8).default("hyperplayer"),
 });
 
+export type TlsConfig = { certFile: string | null; keyFile: string | null; names: string[] };
+
 export type LastfmConfig = { apiKey: string; secret: string };
 
 export type Config = {
@@ -55,6 +67,8 @@ export type Config = {
   dataDir: string;
   host: string;
   port: number;
+  /** HTTPS settings, or null for plain HTTP. */
+  tls: TlsConfig | null;
   ffmpeg: string;
   validateResponses: boolean;
   enrich: EnrichConfig;
@@ -68,6 +82,11 @@ export type Config = {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const e = Env.parse(env);
+  if (!e.HP_TLS_CERT !== !e.HP_TLS_KEY) {
+    throw new Error("HP_TLS_CERT and HP_TLS_KEY go together: set both or neither");
+  }
+  const loopback = ["127.0.0.1", "localhost", "::1"].includes(e.HP_HOST);
+  const tls = e.HP_TLS === "on" || (e.HP_TLS === "auto" && (!loopback || e.HP_TLS_CERT !== undefined));
   if (!e.HP_LASTFM_API_KEY !== !e.HP_LASTFM_SECRET) {
     throw new Error("HP_LASTFM_API_KEY and HP_LASTFM_SECRET go together: set both or neither");
   }
@@ -85,6 +104,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     dataDir: resolve(e.HP_DATA_DIR),
     host: e.HP_HOST,
     port: e.HP_PORT,
+    tls: tls
+      ? {
+          certFile: e.HP_TLS_CERT ? resolve(e.HP_TLS_CERT) : null,
+          keyFile: e.HP_TLS_KEY ? resolve(e.HP_TLS_KEY) : null,
+          names: e.HP_TLS_NAMES.split(",")
+            .map((n) => n.trim())
+            .filter(Boolean),
+        }
+      : null,
     ffmpeg: e.HP_FFMPEG,
     validateResponses: e.HP_VALIDATE_RESPONSES,
     enrich: {

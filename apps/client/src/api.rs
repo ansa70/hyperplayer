@@ -22,7 +22,7 @@ use types::{
     UpdatePlaylist, UpdateQueue, User, UserList, Waveform,
 };
 
-use crate::adaptive::Quality;
+use crate::{adaptive::Quality, trust};
 
 /// The server rejected our credentials (missing, expired or revoked token).
 #[derive(Debug)]
@@ -63,6 +63,8 @@ pub struct Api {
     http: reqwest::blocking::Client,
     /// No overall timeout: an audio stream legitimately stays open for the whole track.
     stream_http: reqwest::blocking::Client,
+    /// A certificate refused while connecting, for `UntrustedCertificate`.
+    seen: trust::Seen,
 }
 
 impl Api {
@@ -81,18 +83,35 @@ impl Api {
             value.set_sensitive(true);
             headers.insert(reqwest::header::AUTHORIZATION, value);
         }
+        let base = base.into().trim_end_matches('/').to_owned();
+        let (tls, seen) = trust::tls_config(&base);
         Self {
-            base: base.into().trim_end_matches('/').to_owned(),
             http: reqwest::blocking::Client::builder()
                 .default_headers(headers.clone())
+                .tls_backend_preconfigured(tls.clone())
                 .build()
                 .expect("building HTTP client"),
             stream_http: reqwest::blocking::Client::builder()
                 .default_headers(headers)
+                .tls_backend_preconfigured(tls)
                 .timeout(None)
                 .connect_timeout(Duration::from_secs(10))
                 .build()
                 .expect("building HTTP client"),
+            base,
+            seen,
+        }
+    }
+
+    /// A failed request's error: `UntrustedCertificate` when that's why it failed.
+    fn transport_error(&self, err: reqwest::Error, request: String) -> anyhow::Error {
+        match self.seen.lock().unwrap().take() {
+            Some(fingerprint) => trust::UntrustedCertificate {
+                server: self.base.clone(),
+                fingerprint,
+            }
+            .into(),
+            None => anyhow::Error::new(err).context(request),
         }
     }
 
@@ -112,7 +131,9 @@ impl Api {
         if let Some(body) = body {
             req = req.json(body);
         }
-        let res = req.send().with_context(|| format!("{method} {url}"))?;
+        let res = req
+            .send()
+            .map_err(|e| self.transport_error(e, format!("{method} {url}")))?;
         if !res.status().is_success() {
             let status = res.status();
             if status == reqwest::StatusCode::UNAUTHORIZED {
@@ -145,7 +166,7 @@ impl Api {
             .http
             .get(&url)
             .send()
-            .with_context(|| format!("GET {url}"))?;
+            .map_err(|e| self.transport_error(e, format!("GET {url}")))?;
         if res.status() == reqwest::StatusCode::UNAUTHORIZED {
             return Err(Unauthorized(String::new()).into());
         }

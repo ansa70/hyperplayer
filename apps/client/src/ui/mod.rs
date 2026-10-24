@@ -218,6 +218,9 @@ pub fn save_replaygain_preamp() {
     });
 }
 
+/// The app's id on the desktop (Wayland app id, desktop entry, Flatpak).
+pub const APP_ID: &str = "io.ansaloni.HyperPlayer";
+
 pub fn run() -> anyhow::Result<()> {
     let settings = Settings::load();
     // HP_TITLEBAR=system forces the desktop's title bar for this run.
@@ -228,6 +231,8 @@ pub fn run() -> anyhow::Result<()> {
         .then(|| hyperplayer::credentials::load(&server, &settings.username))
         .flatten();
     let api = Api::with_token(server.clone(), token.as_deref());
+    // Matches the desktop entry, so the desktop shows our icon and name for the window.
+    slint::set_xdg_app_id(APP_ID)?;
     let ui = AppWindow::new()?;
 
     let audio = match Audio::open() {
@@ -419,6 +424,8 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_login_change_password(account::change_password);
     ui.on_login_onboard(account::onboard);
     ui.on_login_skip_onboarding(account::skip_onboarding);
+    ui.on_login_trust(account::trust_server);
+    ui.on_login_cancel_trust(account::cancel_trust);
     ui.on_sign_out(account::sign_out);
     account::begin(token.is_some());
 

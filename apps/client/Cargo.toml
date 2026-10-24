@@ -12,6 +12,10 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 keyring = "4.2"
 rtrb = "0.4"
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "json", "rustls"] }
+# The same rustls as reqwest's, for its certificate check (trusting self-signed servers).
+rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs", "std", "tls12"] }
+rustls-platform-verifier = "0.7"
+sha2 = "0.11"
 rodio = { version = "0.23", default-features = false, features = [
   "playback",
   "flac",

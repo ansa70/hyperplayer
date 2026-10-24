@@ -1,0 +1,29 @@
+[Unit]
+Description=HyperPlayer music server
+Documentation=https://gitlab.ansaloni.io/default/hyperplayer
+After=network-online.target remote-fs.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hyperplayer
+Group=hyperplayer
+EnvironmentFile=/etc/hyperplayer/server.env
+Environment=NODE_ENV=production HP_DATA_DIR=/var/lib/hyperplayer
+WorkingDirectory=/opt/hyperplayer/server
+ExecStart=/opt/hyperplayer/server/node dist/main.mjs
+Restart=on-failure
+RestartSec=5
+
+# Reads the music, writes only its data folder.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/hyperplayer
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

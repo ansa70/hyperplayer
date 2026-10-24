@@ -41,6 +41,7 @@ export function testConfig(libraryPath: string, dataDir: string, overrides: Part
     dataDir,
     host: "127.0.0.1",
     port: 0,
+    tls: null,
     ffmpeg: "ffmpeg",
     validateResponses: true,
     enrich: { enabled: false, contact: "test", wikiLang: "en", fanartKey: null },

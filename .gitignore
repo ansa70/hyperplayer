@@ -37,3 +37,6 @@ target/
 
 # Server runtime data
 .data/
+
+# Release bundles (packaging/linux/build-release.sh)
+release/

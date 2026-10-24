@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=HyperPlayer
+GenericName=Music Player
+Comment=Play the music on your HyperPlayer server
+Exec=hyperplayer
+Icon=io.ansaloni.HyperPlayer
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=music;player;audio;
+StartupWMClass=io.ansaloni.HyperPlayer
