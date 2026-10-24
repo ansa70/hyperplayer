@@ -2033,6 +2033,125 @@
         }
       }
     },
+    "/api/me/scrobbling/lastfm/authorize": {
+      "post": {
+        "operationId": "authorizeLastfm",
+        "summary": "Start connecting Last.fm: returns a page where the user allows HyperPlayer, and the token to connect with afterwards",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Start connecting Last.fm: returns a page where the user allows HyperPlayer, and the token to connect with afterwards",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LastfmAuthorization"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/scrobbling/lastfm": {
+      "put": {
+        "operationId": "connectLastfm",
+        "summary": "Send the caller's future listens to Last.fm, once they've allowed the token (409 not_authorized until then)",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectLastfm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Send the caller's future listens to Last.fm, once they've allowed the token (409 not_authorized until then)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrobbleSettings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "disconnectLastfm",
+        "summary": "Stop sending listens to Last.fm and forget the session (unsent listens are dropped)",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stop sending listens to Last.fm and forget the session (unsent listens are dropped)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrobbleSettings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/queue": {
       "get": {
         "operationId": "getQueue",
@@ -4665,6 +4784,9 @@
       "ScrobbleAccount": {
         "type": "object",
         "properties": {
+          "available": {
+            "type": "boolean"
+          },
           "connected": {
             "type": "boolean"
           },
@@ -4689,6 +4811,7 @@
           }
         },
         "required": [
+          "available",
           "connected",
           "username",
           "pending",
@@ -4702,14 +4825,49 @@
         "properties": {
           "listenbrainz": {
             "$ref": "#/components/schemas/ScrobbleAccount"
+          },
+          "lastfm": {
+            "$ref": "#/components/schemas/ScrobbleAccount"
           }
         },
         "required": [
-          "listenbrainz"
+          "listenbrainz",
+          "lastfm"
         ],
         "additionalProperties": false
       },
       "ConnectListenBrainz": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "additionalProperties": false
+      },
+      "LastfmAuthorization": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "token",
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "ConnectLastfm": {
         "type": "object",
         "properties": {
           "token": {

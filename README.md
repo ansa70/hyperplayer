@@ -68,6 +68,14 @@ jumps the queue):
 Settings: `HP_ENRICH` (default `true`), `HP_CONTACT` (sent in the User-Agent as MusicBrainz requests),
 `HP_WIKI_LANG` (biography language, falls back to English), `HP_FANART_KEY`.
 
+## Scrobbling
+
+Each user can send their listens to ListenBrainz (with their user token) and Last.fm (allowed in the
+browser from Settings). Listens are queued on the server and retried until the service has them.
+
+Last.fm needs an API account for the server: create one at https://www.last.fm/api/account/create and set
+`HP_LASTFM_API_KEY` and `HP_LASTFM_SECRET`. Without them, Last.fm shows as unavailable.
+
 ## Streaming
 
 The client plays while it downloads (bounded read-ahead; seeks in originals use HTTP Range requests) and

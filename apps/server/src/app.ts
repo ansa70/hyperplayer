@@ -43,7 +43,11 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   const catalog = new Catalog(db, enricher);
   const playlists = new Playlists(db, catalog);
   const queues = new Queues(db, catalog);
-  const scrobbler = new Scrobbler(db, app.log, { version: SERVER_VERSION, fetch: opts.fetch });
+  const scrobbler = new Scrobbler(db, app.log, {
+    version: SERVER_VERSION,
+    fetch: opts.fetch,
+    lastfm: config.lastfm,
+  });
   app.addHook("onClose", async () => scrobbler.close());
   const history = new History(db, catalog, scrobbler);
   const waveforms = new Waveforms(db, config.ffmpeg);
@@ -219,7 +223,10 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   route.json(api.deleteUser, ({ auth: a, params }) => auth.deleteUser(a, params.id));
   route.json(api.getScrobbling, ({ auth: a }) => scrobbler.status(a.user.id));
   route.json(api.connectListenBrainz, ({ auth: a, body }) => scrobbler.connect(a.user.id, body.token));
-  route.json(api.disconnectListenBrainz, ({ auth: a }) => scrobbler.disconnect(a.user.id));
+  route.json(api.disconnectListenBrainz, ({ auth: a }) => scrobbler.disconnect(a.user.id, "listenbrainz"));
+  route.json(api.authorizeLastfm, () => scrobbler.authorizeLastfm());
+  route.json(api.connectLastfm, ({ auth: a, body }) => scrobbler.connectLastfm(a.user.id, body.token));
+  route.json(api.disconnectLastfm, ({ auth: a }) => scrobbler.disconnect(a.user.id, "lastfm"));
   route.json(api.listPlaylists, ({ auth: a }) => playlists.list(a.user.id));
   route.json(api.createPlaylist, ({ auth: a, body }) =>
     playlists.create(a.user.id, body.name, body.description ?? null, body.trackIds),

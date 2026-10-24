@@ -1,4 +1,6 @@
-import type { ScrobbleAccount, ScrobbleSettings } from "@hyperplayer/schemas";
+import { createHash } from "node:crypto";
+import type { LastfmAuthorization, ScrobbleAccount, ScrobbleSettings } from "@hyperplayer/schemas";
+import type { LastfmConfig } from "../config.ts";
 import type { Db } from "../db.ts";
 import { HttpError } from "../http/contract.ts";
 
@@ -10,8 +12,14 @@ export interface ScrobbleLog {
 }
 
 const LISTENBRAINZ = "https://api.listenbrainz.org";
-/** ListenBrainz accepts up to 1000 listens per request; smaller batches fail more cheaply. */
-const BATCH = 100;
+const LASTFM = "https://ws.audioscrobbler.com/2.0/";
+type Service = "listenbrainz" | "lastfm";
+const SERVICES: Service[] = ["listenbrainz", "lastfm"];
+/**
+ * Listens per request. ListenBrainz accepts up to 1000 (smaller batches fail more
+ * cheaply), Last.fm 50.
+ */
+const BATCH: Record<Service, number> = { listenbrainz: 100, lastfm: 50 };
 const MAX_BACKOFF_MS = 6 * 3600_000;
 /** Pending listens of a rejected token wait for the user to reconnect. */
 const NEVER = "9999-12-31T00:00:00.000Z";
@@ -21,8 +29,18 @@ class Rejected extends Error {}
 /** The service will never accept these listens (malformed): retrying is pointless. */
 class Refused extends Error {}
 
+/** An error Last.fm reported (last.fm/api/errorcodes). */
+class LastfmError extends Error {
+  constructor(
+    readonly code: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 /**
- * Sends listens to the services users have connected (ListenBrainz for now).
+ * Sends listens to the services users have connected (ListenBrainz and Last.fm).
  * Listens are queued in the database and submitted in the background, so an
  * unreachable service only delays them; failures back off exponentially, and a
  * token the service rejects pauses that user's queue until they reconnect.
@@ -32,41 +50,60 @@ export class Scrobbler {
   readonly #fetch: Fetch;
   readonly #log: ScrobbleLog;
   readonly #client: { name: string; version: string };
+  readonly #lastfm: LastfmConfig | null;
   #timer: NodeJS.Timeout | null = null;
   #running: Promise<void> | null = null;
   #again = false;
   #closed = false;
 
-  constructor(db: Db, log: ScrobbleLog, opts: { version: string; fetch?: Fetch }) {
+  constructor(
+    db: Db,
+    log: ScrobbleLog,
+    opts: { version: string; fetch?: Fetch; lastfm?: LastfmConfig | null },
+  ) {
     this.#db = db;
     this.#log = log;
     this.#fetch = opts.fetch ?? ((url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(20_000) }));
     this.#client = { name: "HyperPlayer", version: opts.version };
+    this.#lastfm = opts.lastfm ?? null;
     // Whatever was left from before a restart.
     this.kick();
   }
 
   status(userId: string): ScrobbleSettings {
+    const [listenbrainz, lastfm] = SERVICES.map((service) => this.#account(userId, service));
+    return { listenbrainz: listenbrainz!, lastfm: lastfm! };
+  }
+
+  #account(userId: string, service: Service): ScrobbleAccount {
+    const available = service !== "lastfm" || this.#lastfm !== null;
     const r = this.#db
-      .prepare("SELECT * FROM scrobble_accounts WHERE user_id = ? AND service = 'listenbrainz'")
-      .get(userId) as Row | undefined;
+      .prepare("SELECT * FROM scrobble_accounts WHERE user_id = ? AND service = ?")
+      .get(userId, service) as Row | undefined;
+    if (!r)
+      return {
+        available,
+        connected: false,
+        username: null,
+        pending: 0,
+        lastError: null,
+        lastSubmittedAt: null,
+      };
     const pending = Number(
       (
         this.#db
-          .prepare("SELECT COUNT(*) AS n FROM scrobbles WHERE user_id = ? AND service = 'listenbrainz'")
-          .get(userId) as Row
+          .prepare("SELECT COUNT(*) AS n FROM scrobbles WHERE user_id = ? AND service = ?")
+          .get(userId, service) as Row
       ).n,
     );
-    const listenbrainz: ScrobbleAccount = r
-      ? {
-          connected: true,
-          username: String(r.username),
-          pending,
-          lastError: (r.last_error as string | null) ?? null,
-          lastSubmittedAt: (r.last_submitted_at as string | null) ?? null,
-        }
-      : { connected: false, username: null, pending: 0, lastError: null, lastSubmittedAt: null };
-    return { listenbrainz };
+    return {
+      available,
+      connected: true,
+      username: String(r.username),
+      pending,
+      lastError: (r.last_error as string | null) ?? null,
+      lastSubmittedAt: (r.last_submitted_at as string | null) ?? null,
+    };
   }
 
   /** Checks `token` with ListenBrainz and, if it's valid, sends this user's listens from now on. */
@@ -89,25 +126,75 @@ export class Scrobbler {
     }
     if (!body.valid || !body.user_name)
       throw new HttpError(400, "invalid_token", "ListenBrainz doesn't accept this token");
+    return this.#save(userId, "listenbrainz", token, body.user_name);
+  }
+
+  /** Starts connecting Last.fm: the user allows the returned token on last.fm, then it's passed to `connectLastfm`. */
+  async authorizeLastfm(): Promise<LastfmAuthorization> {
+    const lastfm = this.#lastfmConfig();
+    const body = await this.#lastfmCall("auth.getToken", {}).catch((err: unknown) => {
+      throw this.#lastfmHttpError(err);
+    });
+    const token = String(body.token);
+    const url = `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(lastfm.apiKey)}&token=${encodeURIComponent(token)}`;
+    return { token, url };
+  }
+
+  /** Exchanges an allowed token for a session, and sends this user's listens to Last.fm from now on. */
+  async connectLastfm(userId: string, token: string): Promise<ScrobbleSettings> {
+    this.#lastfmConfig();
+    let body: Row;
+    try {
+      body = await this.#lastfmCall("auth.getSession", { token });
+    } catch (err) {
+      if (err instanceof LastfmError && err.code === 14) {
+        throw new HttpError(409, "not_authorized", "Waiting for you to allow HyperPlayer on Last.fm");
+      }
+      if (err instanceof LastfmError && (err.code === 4 || err.code === 15)) {
+        throw new HttpError(400, "invalid_token", "This Last.fm authorization expired; connect again");
+      }
+      throw this.#lastfmHttpError(err);
+    }
+    const session = body.session as { name?: string; key?: string } | undefined;
+    if (!session?.name || !session.key) throw new HttpError(502, "service_error", "Last.fm sent no session");
+    return this.#save(userId, "lastfm", session.key, session.name);
+  }
+
+  #lastfmConfig(): LastfmConfig {
+    if (!this.#lastfm) {
+      throw new HttpError(
+        503,
+        "not_configured",
+        "This server has no Last.fm API account (HP_LASTFM_API_KEY and HP_LASTFM_SECRET)",
+      );
+    }
+    return this.#lastfm;
+  }
+
+  #lastfmHttpError(err: unknown): HttpError {
+    if (err instanceof LastfmError)
+      return new HttpError(502, "service_error", `Last.fm: ${err.message} (error ${err.code})`);
+    return new HttpError(502, "service_unreachable", `Last.fm is unreachable: ${(err as Error).message}`);
+  }
+
+  #save(userId: string, service: Service, token: string, username: string): ScrobbleSettings {
     this.#db
       .prepare(
-        `INSERT INTO scrobble_accounts (user_id, service, token, username, connected_at) VALUES (?, 'listenbrainz', ?, ?, ?)
+        `INSERT INTO scrobble_accounts (user_id, service, token, username, connected_at) VALUES (?, ?, ?, ?, ?)
          ON CONFLICT DO UPDATE SET token = excluded.token, username = excluded.username, last_error = NULL`,
       )
-      .run(userId, token, body.user_name, new Date().toISOString());
+      .run(userId, service, token, username, new Date().toISOString());
     // Listens paused by a previously rejected token can go now.
     this.#db
-      .prepare("UPDATE scrobbles SET next_attempt_at = ? WHERE user_id = ? AND service = 'listenbrainz'")
-      .run(new Date().toISOString(), userId);
+      .prepare("UPDATE scrobbles SET next_attempt_at = ? WHERE user_id = ? AND service = ?")
+      .run(new Date().toISOString(), userId, service);
     this.kick();
     return this.status(userId);
   }
 
-  disconnect(userId: string): ScrobbleSettings {
+  disconnect(userId: string, service: Service): ScrobbleSettings {
     // Unsent listens go with the account (foreign key cascade).
-    this.#db
-      .prepare("DELETE FROM scrobble_accounts WHERE user_id = ? AND service = 'listenbrainz'")
-      .run(userId);
+    this.#db.prepare("DELETE FROM scrobble_accounts WHERE user_id = ? AND service = ?").run(userId, service);
     return this.status(userId);
   }
 
@@ -181,7 +268,7 @@ export class Scrobbler {
         )
         .get(now) as Row | undefined;
       if (!head || this.#closed) return;
-      const [userId, service] = [String(head.user_id), String(head.service)];
+      const [userId, service] = [String(head.user_id), head.service as Service];
       const account = this.#db
         .prepare("SELECT token FROM scrobble_accounts WHERE user_id = ? AND service = ?")
         .get(userId, service) as Row | undefined;
@@ -191,15 +278,17 @@ export class Scrobbler {
         .prepare(
           `SELECT s.track_id, s.started_at, s.attempts, t.title, t.duration_ms, t.track_number,
                   t.musicbrainz_recording_id, COALESCE(t.artist_credit, ar.name) AS artist, al.title AS album,
-                  al.musicbrainz_id AS release_mbid
+                  al.musicbrainz_id AS release_mbid, aa.name AS album_artist
            FROM scrobbles s JOIN tracks t ON t.id = s.track_id
            JOIN artists ar ON ar.id = t.artist_id JOIN albums al ON al.id = t.album_id
+           JOIN artists aa ON aa.id = al.artist_id
            WHERE s.user_id = ? AND s.service = ? AND s.next_attempt_at <= ?
            ORDER BY s.started_at LIMIT ?`,
         )
-        .all(userId, service, now, BATCH) as Row[];
+        .all(userId, service, now, BATCH[service]) as Row[];
       try {
-        await this.#submitListenBrainz(String(account.token), rows);
+        if (service === "lastfm") await this.#submitLastfm(String(account.token), rows);
+        else await this.#submitListenBrainz(String(account.token), rows);
         const done = this.#db.prepare(
           "DELETE FROM scrobbles WHERE user_id = ? AND service = ? AND track_id = ? AND started_at = ?",
         );
@@ -269,5 +358,82 @@ export class Scrobbler {
       const message = `ListenBrainz answered ${res.status}${detail ? `: ${detail}` : ""}`;
       throw res.status === 400 ? new Refused(message) : new Error(message);
     }
+  }
+
+  async #submitLastfm(sessionKey: string, rows: Row[]) {
+    const params: Record<string, string> = { sk: sessionKey };
+    rows.forEach((r, i) => {
+      params[`artist[${i}]`] = String(r.artist);
+      params[`track[${i}]`] = String(r.title);
+      params[`timestamp[${i}]`] = String(Math.floor(Date.parse(String(r.started_at)) / 1000));
+      params[`album[${i}]`] = String(r.album);
+      params[`albumArtist[${i}]`] = String(r.album_artist);
+      params[`duration[${i}]`] = String(Math.round(Number(r.duration_ms) / 1000));
+      if (r.track_number) params[`trackNumber[${i}]`] = String(Number(r.track_number));
+      if (r.musicbrainz_recording_id) params[`mbid[${i}]`] = r.musicbrainz_recording_id as string;
+    });
+    let body: Row;
+    try {
+      body = await this.#lastfmCall("track.scrobble", params, "POST");
+    } catch (err) {
+      if (!(err instanceof LastfmError)) throw err;
+      const message = `Last.fm: ${err.message} (error ${err.code})`;
+      // 9: the session was revoked (or the user removed HyperPlayer's access).
+      if (err.code === 9)
+        throw new Rejected("Last.fm no longer accepts this connection; reconnect in Settings");
+      if (err.code === 6) throw new Refused(message);
+      throw new Error(message);
+    }
+    // Ignored listens (e.g. older than Last.fm accepts) are final, like accepted ones.
+    const scrobbles = body.scrobbles as { "@attr"?: { ignored?: number }; scrobble?: unknown } | undefined;
+    if (Number(scrobbles?.["@attr"]?.ignored ?? 0) > 0) {
+      const list = [scrobbles?.scrobble].flat() as { ignoredMessage?: { code?: string; "#text"?: string } }[];
+      const reasons = list
+        .map((x) => x?.ignoredMessage)
+        .filter((m) => m && m.code !== "0")
+        .map((m) => m?.["#text"] || `code ${m?.code}`);
+      this.#log.warn(
+        { service: "lastfm", ignored: scrobbles?.["@attr"]?.ignored, reasons },
+        "Last.fm ignored listens",
+      );
+    }
+  }
+
+  /** A signed Last.fm API call (last.fm/api/authspec); errors become `LastfmError`. */
+  async #lastfmCall(
+    method: string,
+    params: Record<string, string>,
+    http: "GET" | "POST" = "GET",
+  ): Promise<Row> {
+    const lastfm = this.#lastfmConfig();
+    const all: Record<string, string> = { ...params, method, api_key: lastfm.apiKey };
+    const signed = Object.keys(all)
+      .sort()
+      .map((k) => k + all[k])
+      .join("");
+    const query = new URLSearchParams({
+      ...all,
+      api_sig: createHash("md5")
+        .update(signed + lastfm.secret, "utf8")
+        .digest("hex"),
+      format: "json",
+    });
+    const res =
+      http === "GET"
+        ? await this.#fetch(`${LASTFM}?${query.toString()}`, { headers: { "User-Agent": this.#userAgent() } })
+        : await this.#fetch(LASTFM, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": this.#userAgent() },
+            body: query.toString(),
+          });
+    const body = (await res.json().catch(() => null)) as Row | null;
+    if (body && typeof body.error === "number")
+      throw new LastfmError(body.error, (body.message as string | undefined) ?? "");
+    if (!res.ok || !body) throw new Error(`Last.fm answered ${res.status}`);
+    return body;
+  }
+
+  #userAgent() {
+    return `${this.#client.name}/${this.#client.version}`;
   }
 }

@@ -81,6 +81,7 @@ test("only a token ListenBrainz accepts connects, and it's never given back", as
   expect(res.statusCode).toBe(200);
   expect(res.body).not.toContain("good-token");
   expect(await status()).toEqual({
+    available: true,
     connected: true,
     username: "listener",
     pending: 0,

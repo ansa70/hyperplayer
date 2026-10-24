@@ -15,11 +15,11 @@ use reqwest::Method;
 use serde::Serialize;
 use types::{
     AddToPlaylist, AddToQueue, AddToQueuePlacement, Advance, Album, AlbumList, AlbumPage, ApiError,
-    Artist, ArtistPage, AuthStatus, ConnectListenBrainz, CreatePlaylist, DeviceList, HistoryStats,
-    Jump, LibraryStatus, ListenPage, Lyrics, Me, MoveEntry, NowPlaying, Ok as OkResponse, Playlist,
-    PlaylistList, Preferences, QueueState, RecordListen, RepeatMode, ScrobbleSettings,
-    SearchResults, Session, SetQueue, TrackSource, UpdatePlaylist, UpdateQueue, User, UserList,
-    Waveform,
+    Artist, ArtistPage, AuthStatus, ConnectLastfm, ConnectListenBrainz, CreatePlaylist, DeviceList,
+    HistoryStats, Jump, LastfmAuthorization, LibraryStatus, ListenPage, Lyrics, Me, MoveEntry,
+    NowPlaying, Ok as OkResponse, Playlist, PlaylistList, Preferences, QueueState, RecordListen,
+    RepeatMode, ScrobbleSettings, SearchResults, Session, SetQueue, TrackSource, UpdatePlaylist,
+    UpdateQueue, User, UserList, Waveform,
 };
 
 use crate::adaptive::Quality;
@@ -35,6 +35,27 @@ impl std::fmt::Display for Unauthorized {
 }
 
 impl std::error::Error for Unauthorized {}
+
+/// The server refused a request, with its error code (e.g. `not_authorized`).
+#[derive(Debug)]
+pub struct ServerError {
+    pub request: String,
+    pub status: reqwest::StatusCode,
+    pub code: String,
+    pub message: String,
+}
+
+impl std::fmt::Display for ServerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}: {} {}: {}",
+            self.request, self.status, self.code, self.message
+        )
+    }
+}
+
+impl std::error::Error for ServerError {}
 
 #[derive(Clone)]
 pub struct Api {
@@ -102,7 +123,15 @@ impl Api {
                 return Err(Unauthorized(message).into());
             }
             match res.json::<ApiError>() {
-                Ok(e) => bail!("{method} {url}: {status} {}: {}", e.error, e.message),
+                Ok(e) => {
+                    return Err(ServerError {
+                        request: format!("{method} {url}"),
+                        status,
+                        code: e.error,
+                        message: e.message,
+                    }
+                    .into());
+                }
                 Err(_) => bail!("{method} {url}: {status}"),
             }
         }
@@ -292,6 +321,23 @@ impl Api {
 
     pub fn disconnect_listenbrainz(&self) -> Result<ScrobbleSettings> {
         self.send::<_, ()>(Method::DELETE, "/api/me/scrobbling/listenbrainz", None)
+    }
+
+    /// Starts connecting Last.fm: the page where the user allows HyperPlayer, and the token to connect with.
+    pub fn authorize_lastfm(&self) -> Result<LastfmAuthorization> {
+        self.send::<_, ()>(Method::POST, "/api/me/scrobbling/lastfm/authorize", None)
+    }
+
+    /// Fails with the `not_authorized` code until the user has allowed the token.
+    pub fn connect_lastfm(&self, token: &str) -> Result<ScrobbleSettings> {
+        let body = ConnectLastfm {
+            token: token.try_into().map_err(|e| anyhow::anyhow!("{e}"))?,
+        };
+        self.send(Method::PUT, "/api/me/scrobbling/lastfm", Some(&body))
+    }
+
+    pub fn disconnect_lastfm(&self) -> Result<ScrobbleSettings> {
+        self.send::<_, ()>(Method::DELETE, "/api/me/scrobbling/lastfm", None)
     }
 
     pub fn history(&self, offset: i64, limit: i64) -> Result<ListenPage> {

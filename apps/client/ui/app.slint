@@ -1736,6 +1736,20 @@ export global SettingsState {
     in-out property <string> lb-token;
     callback lb-connect(string);
     callback lb-disconnect();
+    in property <bool> fm-available;
+    in property <bool> fm-connected;
+    in property <string> fm-username;
+    in property <string> fm-status;
+    in property <bool> fm-failing;
+    in property <bool> fm-busy;
+    // Waiting for the user to allow HyperPlayer on last.fm (at `fm-url`).
+    in property <bool> fm-waiting;
+    in property <string> fm-url;
+    in property <string> fm-error;
+    callback fm-connect();
+    callback fm-open(string);
+    callback fm-cancel();
+    callback fm-disconnect();
 
     // Admin: library.
     in property <string> library-summary;
@@ -2031,6 +2045,57 @@ component SettingsPage inherits Rectangle {
                     if SettingsState.lb-connected: VerticalLayout {
                         alignment: center;
                         OutlineButton { text: "Disconnect"; clicked => { SettingsState.lb-disconnect(); } }
+                    }
+                }
+            }
+            if SettingsState.tab == "scrobbling": Card {
+                HorizontalLayout {
+                    spacing: 10px;
+                    Text { text: "Last.fm"; color: Theme.text; font-size: 15px; font-weight: 700; vertical-alignment: center; }
+                    if SettingsState.fm-connected: VerticalLayout {
+                        alignment: center;
+                        Chip { text: "Connected as " + SettingsState.fm-username; accent: Theme.accent; }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                Text {
+                    text: "Scrobbles what you listen to to your Last.fm profile. Connecting opens Last.fm in your browser, where you allow HyperPlayer; your password stays with Last.fm.";
+                    color: Theme.muted;
+                    font-size: 13px;
+                    wrap: word-wrap;
+                }
+                if !SettingsState.fm-available: Note {
+                    text: "This server isn't set up for Last.fm yet: its admin needs a Last.fm API account (last.fm/api/account/create) and to start the server with HP_LASTFM_API_KEY and HP_LASTFM_SECRET.";
+                }
+                if SettingsState.fm-connected: Note {
+                    text: SettingsState.fm-status;
+                    color: SettingsState.fm-failing ? #ff8a80 : Theme.muted;
+                }
+                if SettingsState.fm-waiting: Note {
+                    text: "Allow HyperPlayer on the Last.fm page that opened in your browser; this page updates by itself once you have.";
+                }
+                if SettingsState.fm-error != "": Note { text: SettingsState.fm-error; color: #ff8a80; }
+                if SettingsState.fm-available: HorizontalLayout {
+                    alignment: start;
+                    spacing: 12px;
+                    // Shown to connect, and to reconnect when Last.fm no longer accepts the session.
+                    if !SettingsState.fm-waiting && (!SettingsState.fm-connected || SettingsState.fm-failing): PrimaryButton {
+                        width: 160px;
+                        text: SettingsState.fm-connected ? "Reconnect" : "Connect";
+                        busy: SettingsState.fm-busy;
+                        clicked => { SettingsState.fm-connect(); }
+                    }
+                    if SettingsState.fm-waiting: VerticalLayout {
+                        alignment: center;
+                        OutlineButton { text: "Open Last.fm again"; clicked => { SettingsState.fm-open(SettingsState.fm-url); } }
+                    }
+                    if SettingsState.fm-waiting: VerticalLayout {
+                        alignment: center;
+                        OutlineButton { text: "Cancel"; clicked => { SettingsState.fm-cancel(); } }
+                    }
+                    if SettingsState.fm-connected && !SettingsState.fm-waiting: VerticalLayout {
+                        alignment: center;
+                        OutlineButton { text: "Disconnect"; clicked => { SettingsState.fm-disconnect(); } }
                     }
                 }
             }

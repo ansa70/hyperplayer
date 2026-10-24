@@ -30,7 +30,15 @@ import {
   UpdatePlaylist,
   UpdateQueue,
 } from "./library.ts";
-import { ConnectListenBrainz, HistoryStats, ListenPage, RecordListen, ScrobbleSettings } from "./history.ts";
+import {
+  ConnectLastfm,
+  ConnectListenBrainz,
+  HistoryStats,
+  LastfmAuthorization,
+  ListenPage,
+  RecordListen,
+  ScrobbleSettings,
+} from "./history.ts";
 import {
   AuthStatus,
   ChangePassword,
@@ -506,6 +514,33 @@ export const api = {
     method: "DELETE",
     path: "/api/me/scrobbling/listenbrainz",
     summary: "Stop sending listens to ListenBrainz and forget the token (unsent listens are dropped)",
+    params: NoParams,
+    query: NoQuery,
+    response: ScrobbleSettings,
+  }),
+  authorizeLastfm: json({
+    method: "POST",
+    path: "/api/me/scrobbling/lastfm/authorize",
+    summary:
+      "Start connecting Last.fm: returns a page where the user allows HyperPlayer, and the token to connect with afterwards",
+    params: NoParams,
+    query: NoQuery,
+    response: LastfmAuthorization,
+  }),
+  connectLastfm: json({
+    method: "PUT",
+    path: "/api/me/scrobbling/lastfm",
+    summary:
+      "Send the caller's future listens to Last.fm, once they've allowed the token (409 not_authorized until then)",
+    params: NoParams,
+    query: NoQuery,
+    body: ConnectLastfm,
+    response: ScrobbleSettings,
+  }),
+  disconnectLastfm: json({
+    method: "DELETE",
+    path: "/api/me/scrobbling/lastfm",
+    summary: "Stop sending listens to Last.fm and forget the session (unsent listens are dropped)",
     params: NoParams,
     query: NoQuery,
     response: ScrobbleSettings,

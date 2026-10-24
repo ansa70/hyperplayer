@@ -27,6 +27,9 @@ const Env = z.object({
     .regex(/^[a-z-]{2,12}$/)
     .default("en"),
   HP_FANART_KEY: z.string().optional(),
+  /** A Last.fm API account (last.fm/api/account/create), so users can scrobble to Last.fm. */
+  HP_LASTFM_API_KEY: z.string().trim().min(1).optional(),
+  HP_LASTFM_SECRET: z.string().trim().min(1).optional(),
   /** Development only: cap every audio stream at this many kbit/s. */
   HP_DEBUG_THROTTLE_KBPS: z.coerce.number().int().positive().optional(),
   /** Browser origins allowed to call the API cross-origin (comma-separated); none by default. */
@@ -38,6 +41,8 @@ const Env = z.object({
   /** Initial password of the built-in `admin` account; it must be changed at first sign-in. */
   HP_DEFAULT_ADMIN_PASSWORD: z.string().min(8).default("hyperplayer"),
 });
+
+export type LastfmConfig = { apiKey: string; secret: string };
 
 export type Config = {
   libraryPaths: string[];
@@ -53,6 +58,7 @@ export type Config = {
   ffmpeg: string;
   validateResponses: boolean;
   enrich: EnrichConfig;
+  lastfm: LastfmConfig | null;
   debugThrottleKbps: number | null;
   corsOrigins: string[];
   trustProxy: boolean;
@@ -62,6 +68,9 @@ export type Config = {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const e = Env.parse(env);
+  if (!e.HP_LASTFM_API_KEY !== !e.HP_LASTFM_SECRET) {
+    throw new Error("HP_LASTFM_API_KEY and HP_LASTFM_SECRET go together: set both or neither");
+  }
   return {
     libraryPaths: [
       ...new Set(
@@ -84,6 +93,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       wikiLang: e.HP_WIKI_LANG,
       fanartKey: e.HP_FANART_KEY ?? null,
     },
+    lastfm:
+      e.HP_LASTFM_API_KEY && e.HP_LASTFM_SECRET
+        ? { apiKey: e.HP_LASTFM_API_KEY, secret: e.HP_LASTFM_SECRET }
+        : null,
     debugThrottleKbps: e.HP_DEBUG_THROTTLE_KBPS ?? null,
     corsOrigins: e.HP_CORS_ORIGINS.split(",")
       .map((o) => o.trim())

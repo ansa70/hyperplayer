@@ -55,6 +55,8 @@ export const HistoryStats = named(
 export const ScrobbleAccount = named(
   "ScrobbleAccount",
   z.object({
+    /** Whether this server is set up for the service (Last.fm needs an API account). */
+    available: z.boolean(),
     connected: z.boolean(),
     /** The account's name on the service. */
     username: z.string().nullable(),
@@ -68,7 +70,7 @@ export const ScrobbleAccount = named(
 
 export const ScrobbleSettings = named(
   "ScrobbleSettings",
-  z.object({ listenbrainz: ScrobbleAccount }),
+  z.object({ listenbrainz: ScrobbleAccount, lastfm: ScrobbleAccount }),
   "Where the caller's listens are sent. Tokens are write-only: they're never returned.",
 );
 
@@ -80,10 +82,24 @@ export const ConnectListenBrainz = named(
   }),
 );
 
+export const LastfmAuthorization = named(
+  "LastfmAuthorization",
+  z.object({
+    /** Passed back to connect once the user has allowed it (valid for an hour). */
+    token: z.string(),
+    /** Where the user allows HyperPlayer to scrobble to their Last.fm account. */
+    url: z.url(),
+  }),
+);
+
+export const ConnectLastfm = named("ConnectLastfm", z.object({ token: z.string().trim().min(1).max(200) }));
+
 export type RecordListen = z.infer<typeof RecordListen>;
 export type ScrobbleAccount = z.infer<typeof ScrobbleAccount>;
 export type ScrobbleSettings = z.infer<typeof ScrobbleSettings>;
 export type ConnectListenBrainz = z.infer<typeof ConnectListenBrainz>;
+export type LastfmAuthorization = z.infer<typeof LastfmAuthorization>;
+export type ConnectLastfm = z.infer<typeof ConnectLastfm>;
 export type Listen = z.infer<typeof Listen>;
 export type ListenPage = z.infer<typeof ListenPage>;
 export type TopTrack = z.infer<typeof TopTrack>;

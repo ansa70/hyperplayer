@@ -171,10 +171,10 @@ CREATE TABLE IF NOT EXISTS listens (
 );
 CREATE INDEX IF NOT EXISTS listens_recent ON listens(user_id, started_at);
 
--- Services a user's listens are sent to. The token is needed to submit, so it's stored as is.
+-- Services a user's listens are sent to. The token (a Last.fm session key) is needed to submit, so it's stored as is.
 CREATE TABLE IF NOT EXISTS scrobble_accounts (
   user_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  service           TEXT NOT NULL,             -- 'listenbrainz'
+  service           TEXT NOT NULL,             -- 'listenbrainz' or 'lastfm'
   token             TEXT NOT NULL,
   username          TEXT NOT NULL,
   connected_at      TEXT NOT NULL,

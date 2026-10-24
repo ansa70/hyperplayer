@@ -44,6 +44,7 @@ export function testConfig(libraryPath: string, dataDir: string, overrides: Part
     ffmpeg: "ffmpeg",
     validateResponses: true,
     enrich: { enabled: false, contact: "test", wikiLang: "en", fanartKey: null },
+    lastfm: null,
     debugThrottleKbps: null,
     corsOrigins: [],
     trustProxy: false,

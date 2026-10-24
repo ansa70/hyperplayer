@@ -2255,6 +2255,9 @@
     "ScrobbleAccount": {
       "type": "object",
       "properties": {
+        "available": {
+          "type": "boolean"
+        },
         "connected": {
           "type": "boolean"
         },
@@ -2289,6 +2292,7 @@
         }
       },
       "required": [
+        "available",
         "connected",
         "username",
         "pending",
@@ -2302,14 +2306,49 @@
       "properties": {
         "listenbrainz": {
           "$ref": "#/definitions/ScrobbleAccount"
+        },
+        "lastfm": {
+          "$ref": "#/definitions/ScrobbleAccount"
         }
       },
       "required": [
-        "listenbrainz"
+        "listenbrainz",
+        "lastfm"
       ],
       "additionalProperties": false
     },
     "ConnectListenBrainz": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "LastfmAuthorization": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "token",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectLastfm": {
       "type": "object",
       "properties": {
         "token": {

@@ -2,10 +2,18 @@
 //! devices), scrobbling, and for admins the server's library and users.
 //! Its state lives in the `SettingsState` Slint global.
 
-use std::thread;
+use std::{
+    process::Command,
+    sync::atomic::{AtomicU64, Ordering},
+    thread,
+    time::{Duration, Instant},
+};
 
 use chrono::{DateTime, Local, Utc};
-use hyperplayer::{api::types, replaygain};
+use hyperplayer::{
+    api::{ServerError, types},
+    replaygain,
+};
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 use super::{
@@ -40,6 +48,13 @@ pub fn init(ui: &AppWindow) {
     s.on_revoke_device(revoke_device);
     s.on_lb_connect(connect_listenbrainz);
     s.on_lb_disconnect(disconnect_listenbrainz);
+    s.on_fm_connect(connect_lastfm);
+    s.on_fm_open(|url| open_in_browser(&url));
+    s.on_fm_cancel(|| {
+        LASTFM_ATTEMPT.fetch_add(1, Ordering::Relaxed);
+        state(|s| s.set_fm_waiting(false));
+    });
+    s.on_fm_disconnect(disconnect_lastfm);
     s.on_rescan(rescan);
     s.on_set_admin(|id, admin| update_user(id, serde_json::json!({ "admin": admin }), "Saved."));
     s.on_reset_password(|id, password| {
@@ -220,15 +235,22 @@ fn show_scrobbling(s: &SettingsState, settings: &types::ScrobbleSettings) {
     let lb = &settings.listenbrainz;
     s.set_lb_connected(lb.connected);
     s.set_lb_username(lb.username.clone().unwrap_or_default().into());
-    s.set_lb_status(
-        match (&lb.last_error, lb.pending) {
-            (Some(e), _) => e.clone(),
-            (None, 0) => "Your listens are sent as you play.".into(),
-            (None, n) => format!("{n} listens waiting to be sent."),
-        }
-        .into(),
-    );
+    s.set_lb_status(account_status(lb).into());
     s.set_lb_failing(lb.last_error.is_some());
+    let fm = &settings.lastfm;
+    s.set_fm_available(fm.available);
+    s.set_fm_connected(fm.connected);
+    s.set_fm_username(fm.username.clone().unwrap_or_default().into());
+    s.set_fm_status(account_status(fm).into());
+    s.set_fm_failing(fm.last_error.is_some());
+}
+
+fn account_status(account: &types::ScrobbleAccount) -> String {
+    match (&account.last_error, account.pending) {
+        (Some(e), _) => e.clone(),
+        (None, 0) => "Your listens are sent as you play.".into(),
+        (None, n) => format!("{n} listens waiting to be sent."),
+    }
 }
 
 /// Connects (or reconnects) ListenBrainz with the pasted token.
@@ -266,6 +288,101 @@ fn disconnect_listenbrainz() {
         move || api.disconnect_listenbrainz(),
         |settings| state(|s| show_scrobbling(&s, &settings)),
     );
+}
+
+/// Bumped to stop waiting for a Last.fm authorization (cancelled, or started again).
+static LASTFM_ATTEMPT: AtomicU64 = AtomicU64::new(0);
+/// How often to ask whether the user has allowed HyperPlayer, and for how long
+/// (Last.fm's tokens last an hour).
+const LASTFM_POLL: Duration = Duration::from_secs(3);
+const LASTFM_WAIT: Duration = Duration::from_secs(15 * 60);
+
+/// Opens Last.fm's authorization page in the browser, then waits for the user to allow it.
+fn connect_lastfm() {
+    let attempt = LASTFM_ATTEMPT.fetch_add(1, Ordering::Relaxed) + 1;
+    let current = move || LASTFM_ATTEMPT.load(Ordering::Relaxed) == attempt;
+    state(|s| {
+        s.set_fm_busy(true);
+        s.set_fm_error("".into());
+    });
+    let api = with_app(|app| app.api.clone());
+    let report = move |f: Box<dyn FnOnce(SettingsState) + Send>| {
+        let _ = slint::invoke_from_event_loop(move || state(f));
+    };
+    thread::spawn(move || {
+        let auth = match api.authorize_lastfm() {
+            Ok(auth) => auth,
+            Err(e) => {
+                return report(Box::new(move |s| {
+                    s.set_fm_busy(false);
+                    s.set_fm_error(format!("{e:#}").into());
+                }));
+            }
+        };
+        open_in_browser(&auth.url);
+        let url = SharedString::from(auth.url.as_str());
+        report(Box::new(move |s| {
+            s.set_fm_busy(false);
+            s.set_fm_url(url);
+            s.set_fm_waiting(true);
+        }));
+        let started = Instant::now();
+        while current() && started.elapsed() < LASTFM_WAIT {
+            thread::sleep(LASTFM_POLL);
+            if !current() {
+                return;
+            }
+            let result = api.connect_lastfm(&auth.token);
+            let waiting = matches!(&result, Err(e)
+                if e.downcast_ref::<ServerError>().is_some_and(|e| e.code == "not_authorized"));
+            // A network hiccup while waiting: just ask again.
+            if waiting
+                || result
+                    .as_ref()
+                    .is_err_and(|e| e.downcast_ref::<ServerError>().is_none())
+            {
+                continue;
+            }
+            return report(Box::new(move |s| {
+                s.set_fm_waiting(false);
+                match result {
+                    Ok(settings) => show_scrobbling(&s, &settings),
+                    Err(e) => s.set_fm_error(format!("{e:#}").into()),
+                }
+            }));
+        }
+        if current() {
+            report(Box::new(|s| {
+                s.set_fm_waiting(false);
+                s.set_fm_error(
+                    "Last.fm wasn't allowed in time; connect again when you're ready.".into(),
+                );
+            }));
+        }
+    });
+}
+
+fn disconnect_lastfm() {
+    let api = with_app(|app| app.api.clone());
+    background(
+        move || api.disconnect_lastfm(),
+        |settings| state(|s| show_scrobbling(&s, &settings)),
+    );
+}
+
+fn open_in_browser(url: &str) {
+    let mut command = if cfg!(target_os = "windows") {
+        let mut c = Command::new("cmd");
+        c.args(["/C", "start", ""]);
+        c
+    } else if cfg!(target_os = "macos") {
+        Command::new("open")
+    } else {
+        Command::new("xdg-open")
+    };
+    if let Err(e) = command.arg(url).spawn() {
+        eprintln!("opening {url}: {e}");
+    }
 }
 
 // ------------------------------------------------------------------- admin
