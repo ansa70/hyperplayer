@@ -105,6 +105,8 @@ pub fn toggle_page() {
 }
 
 fn load() {
+    // Outcomes of earlier user actions (perhaps by another account) are stale now.
+    users_message("", false);
     let api = with_app(|app| app.api.clone());
     background(
         move || {
@@ -121,16 +123,14 @@ fn load() {
                     .into(),
                 );
                 s.set_is_admin(me.user.admin);
-                if !me.user.admin && s.get_tab() == "admin" {
-                    s.set_tab("playback".into());
-                }
                 s.set_full_name(me.user.full_name.clone().unwrap_or_default().into());
                 s.set_name_message("".into());
                 show_devices(&s, &devices);
                 show_scrobbling(&s, &scrobbling);
             });
+            load_library();
             if me.user.admin {
-                load_admin(me.user.id.to_string());
+                load_users(me.user.id.to_string());
             }
         },
     );
@@ -396,18 +396,22 @@ fn open_in_browser(url: &str) {
     }
 }
 
-// ------------------------------------------------------------------- admin
+// ------------------------------------------------------------------ server
 
-fn load_admin(me: String) {
+/// For everyone: listeners get the counts, admins the folders too.
+fn load_library() {
     let api = with_app(|app| app.api.clone());
     background(
-        move || Ok((api.library_status()?, api.users()?)),
-        move |(library, users)| {
-            state(|s| {
-                show_library(&s, &library);
-                show_users(&s, &users, &me);
-            })
-        },
+        move || api.library_status(),
+        |library| state(|s| show_library(&s, &library)),
+    );
+}
+
+fn load_users(me: String) {
+    let api = with_app(|app| app.api.clone());
+    background(
+        move || api.users(),
+        move |users| state(|s| show_users(&s, &users, &me)),
     );
 }
 
@@ -499,12 +503,23 @@ fn admin_action(
 ) {
     let api = with_app(|app| app.api.clone());
     thread::spawn(move || {
-        let result = action(&api).and_then(|_| Ok((api.users()?, api.me()?)));
+        let result = action(&api).and_then(|_| {
+            let me = api.me()?;
+            // Took away our own admin role: the user list isn't ours to see any more.
+            let users = if me.user.admin {
+                Some(api.users()?)
+            } else {
+                None
+            };
+            Ok((users, me))
+        });
         let _ = slint::invoke_from_event_loop(move || match result {
-            Ok((users, me)) => {
+            Ok((Some(users), me)) => {
                 state(|s| show_users(&s, &users, me.user.id.as_str()));
                 users_message(done, false);
             }
+            // Back to the listener's view of the page.
+            Ok((None, _)) => load(),
             Err(e) => users_message(&format!("{e:#}"), true),
         });
     });

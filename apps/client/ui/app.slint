@@ -2094,9 +2094,8 @@ component SettingsPage inherits Rectangle {
                 }
                 Segmented {
                     selected: SettingsState.tab;
-                    options: SettingsState.is-admin
-                        ? [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }, { key: "admin", label: "Server" }]
-                        : [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }];
+                    // Listeners see the library's state too, read-only, as "Library".
+                    options: [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }, { key: "server", label: SettingsState.is-admin ? "Server" : "Library" }];
                     pick(key) => { SettingsState.tab = key; }
                 }
 
@@ -2349,21 +2348,27 @@ component SettingsPage inherits Rectangle {
                 }
 
                 // --------------------------------------------------------------- admin
-                if SettingsState.tab == "admin": Card {
+                if SettingsState.tab == "server": Card {
                     title: "Library";
-                    Note { text: SettingsState.library-summary; }
+                    // The figures are the card's point: larger than the notes around them.
+                    Text { text: SettingsState.library-summary; color: Theme.text; font-size: 14px; wrap: word-wrap; }
+                    // Folders are the server's paths: the server only lists them for admins.
                     for folder in SettingsState.folders: HorizontalLayout {
                         spacing: 10px;
                         Text { text: folder.path; color: Theme.text; font-size: 13px; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
                         Text { text: folder.detail; color: folder.available ? Theme.muted : #ff8a80; font-size: 12px; vertical-alignment: center; }
                     }
-                    HorizontalLayout {
+                    if SettingsState.is-admin: HorizontalLayout {
                         alignment: start;
                         OutlineButton { text: SettingsState.scanning ? "Scanning…" : "Rescan now"; clicked => { SettingsState.rescan(); } }
                     }
-                    Note { text: "The server also rescans every few minutes and watches folders where the filesystem allows. Folders are set with HP_LIBRARY on the server."; }
+                    Note {
+                        text: SettingsState.is-admin
+                            ? "The server also rescans every few minutes and watches folders where the filesystem allows. Folders are set with HP_LIBRARY on the server."
+                            : SettingsState.scanning ? "The server is scanning the library now." : "The server rescans the library every few minutes, so new music shows up on its own.";
+                    }
                 }
-                if SettingsState.tab == "admin": Card {
+                if SettingsState.tab == "server" && SettingsState.is-admin: Card {
                     title: "Users";
                     for user in SettingsState.users: VerticalLayout {
                         spacing: 8px;
@@ -2429,7 +2434,7 @@ component SettingsPage inherits Rectangle {
                         color: SettingsState.users-error ? #ff8a80 : Theme.muted;
                     }
                 }
-                if SettingsState.tab == "admin": Card {
+                if SettingsState.tab == "server" && SettingsState.is-admin: Card {
                     title: "Add a user";
                     HorizontalLayout {
                         spacing: 12px;
