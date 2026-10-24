@@ -3,6 +3,7 @@
 //! Its state lives in the `SettingsState` Slint global.
 
 use std::{
+    cell::Cell,
     process::Command,
     sync::atomic::{AtomicU64, Ordering},
     thread,
@@ -14,7 +15,7 @@ use hyperplayer::{
     api::{ServerError, types},
     replaygain,
 };
-use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, Timer, VecModel};
 
 use super::{
     App, AppWindow, DeviceItem, FolderItem, Page, SettingsState, UserItem, background,
@@ -56,6 +57,13 @@ pub fn init(ui: &AppWindow) {
     });
     s.on_fm_disconnect(disconnect_lastfm);
     s.on_rescan(rescan);
+    s.on_cancel_scan(|| {
+        let api = with_app(|app| app.api.clone());
+        background(
+            move || api.cancel_library_scan(),
+            |library| state(|s| show_library(&s, &library)),
+        );
+    });
     s.on_add_folder(add_folder);
     s.on_remove_folder(|path| {
         let paths = folder_paths()
@@ -466,6 +474,21 @@ fn show_library(s: &SettingsState, l: &types::LibraryStatus) {
         types::LibraryStatusPathStyle::Windows => r"D:\Music".into(),
         types::LibraryStatusPathStyle::Posix => "/mnt/music".into(),
     });
+    let (progress, detail) = match &l.scan_progress {
+        Some(p) if p.phase == types::LibraryStatusScanProgressPhase::Listing => {
+            (-1.0, format!("Looking for music files… {} found", p.total))
+        }
+        Some(p) if p.done < p.total => (
+            p.done as f32 / p.total as f32,
+            format!("Reading files: {} of {}", p.done, p.total),
+        ),
+        _ => (1.0, "Finishing up…".to_string()),
+    };
+    s.set_scan_progress(progress);
+    s.set_scan_detail(detail.into());
+    if l.scanning {
+        follow_scan();
+    }
 }
 
 fn show_users(s: &SettingsState, users: &[types::User], me: &str) {
@@ -585,6 +608,29 @@ fn create_user() {
         },
         "User added.",
     );
+}
+
+thread_local! {
+    /// A status refresh is already due.
+    static FOLLOWING_SCAN: Cell<bool> = const { Cell::new(false) };
+}
+
+/// While a scan runs, refreshes its progress every second as long as Settings is open.
+fn follow_scan() {
+    if FOLLOWING_SCAN.replace(true) {
+        return;
+    }
+    Timer::single_shot(Duration::from_secs(1), || {
+        FOLLOWING_SCAN.set(false);
+        let open = with_app(|app| {
+            app.ui
+                .upgrade()
+                .is_some_and(|ui| ui.get_page() == Page::Settings)
+        });
+        if open {
+            load_library();
+        }
+    });
 }
 
 /// The folders as last shown.

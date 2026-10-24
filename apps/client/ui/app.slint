@@ -2094,7 +2094,11 @@ export global SettingsState {
     in property <string> library-summary;
     in property <[FolderItem]> folders;
     in property <bool> scanning;
+    /// The running scan's share done, 0..1; negative while it's still finding the files.
+    in property <float> scan-progress;
+    in property <string> scan-detail;
     callback rescan();
+    callback cancel-scan();
     /// A path on the server to add to the library.
     in-out property <string> new-folder;
     /// An example path as the server writes them (Windows or not).
@@ -2494,9 +2498,43 @@ component SettingsPage inherits Rectangle {
                         text: SettingsState.folders-message;
                         color: SettingsState.folders-error ? #ff8a80 : Theme.muted;
                     }
+                    if SettingsState.scanning: VerticalLayout {
+                        spacing: 6px;
+                        Rectangle {
+                            height: 6px;
+                            border-radius: 3px;
+                            background: Theme.surface-hi;
+                            clip: true;
+                            if SettingsState.scan-progress >= 0: Rectangle {
+                                x: 0;
+                                width: parent.width * min(1, SettingsState.scan-progress);
+                                border-radius: 3px;
+                                background: Theme.accent;
+                                animate width { duration: 400ms; easing: ease-out; }
+                            }
+                            // No total yet: a segment sweeps across instead.
+                            if SettingsState.scan-progress < 0: Rectangle {
+                                width: parent.width / 4;
+                                x: -self.width + mod(animation-tick() / 1ms, 1600) / 1600 * (parent.width + self.width);
+                                border-radius: 3px;
+                                background: Theme.accent;
+                            }
+                        }
+                        Text { text: SettingsState.scan-detail; color: Theme.muted; font-size: 12px; }
+                    }
                     if SettingsState.is-admin: HorizontalLayout {
                         alignment: start;
-                        OutlineButton { text: SettingsState.scanning ? "Scanning…" : "Rescan now"; clicked => { SettingsState.rescan(); } }
+                        OutlineButton {
+                            danger: SettingsState.scanning;
+                            text: SettingsState.scanning ? "Stop scan" : "Rescan now";
+                            clicked => {
+                                if SettingsState.scanning {
+                                    SettingsState.cancel-scan();
+                                } else {
+                                    SettingsState.rescan();
+                                }
+                            }
+                        }
                     }
                     Note {
                         text: SettingsState.is-admin

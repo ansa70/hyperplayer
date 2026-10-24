@@ -292,6 +292,15 @@ export const api = {
     query: NoQuery,
     response: LibraryStatus,
   }),
+  cancelLibraryScan: json({
+    method: "POST",
+    path: "/api/library/scan/cancel",
+    summary: "Stop the running scan: tracks read so far stay, none are removed",
+    access: "admin",
+    params: NoParams,
+    query: NoQuery,
+    response: LibraryStatus,
+  }),
   setLibraryFolders: json({
     method: "PUT",
     path: "/api/library/folders",

@@ -284,6 +284,11 @@ impl Api {
         self.send::<_, ()>(Method::POST, "/api/library/scan", None)
     }
 
+    /// Stops the running scan (admins): what it read stays, nothing is removed.
+    pub fn cancel_library_scan(&self) -> Result<LibraryStatus> {
+        self.send::<_, ()>(Method::POST, "/api/library/scan/cancel", None)
+    }
+
     /// Replaces the music folders (admins); the server checks each exists, then rescans.
     pub fn set_library_folders(&self, paths: Vec<String>) -> Result<LibraryStatus> {
         let body = serde_json::json!({ "paths": paths });

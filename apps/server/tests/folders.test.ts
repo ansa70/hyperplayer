@@ -74,7 +74,7 @@ test("folders that don't exist, or aren't full paths, are refused and change not
   expect(await albumTitles()).toEqual(["First Album"]);
 });
 
-test("only admins change the folders", async () => {
+test("only admins change the folders or stop a scan", async () => {
   const created = await admin({
     method: "POST",
     url: "/api/users",
@@ -89,6 +89,11 @@ test("only admins change the folders", async () => {
   const listener = authed(ctx.app, (login.json() as { token: string }).token);
   const res = await listener({ method: "PUT", url: "/api/library/folders", payload: { paths: [second] } });
   expect(res.statusCode).toBe(403);
+  expect((await listener({ method: "POST", url: "/api/library/scan/cancel" })).statusCode).toBe(403);
+  // With nothing running, a cancel does nothing harmful.
+  const cancel = await admin({ method: "POST", url: "/api/library/scan/cancel" });
+  expect(cancel.statusCode).toBe(200);
+  expect(LibraryStatus.parse(cancel.json()).scanProgress).toBeNull();
 });
 
 test("a change survives restarts, until HP_LIBRARY itself changes", async () => {

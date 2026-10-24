@@ -47,6 +47,17 @@ export interface ScanStats {
   unsettled: number;
   /** Folders that were missing or read as empty, whose tracks were kept. */
   unavailable: string[];
+  /** Stopped before the end: what was read stays, nothing is removed. */
+  cancelled: boolean;
+}
+
+/** How far a running scan has got: listing the folders' files, then reading them. */
+export interface ScanProgress {
+  phase: "listing" | "reading";
+  /** Files read so far (0 while listing). */
+  done: number;
+  /** Files found so far while listing; all of them once reading. */
+  total: number;
 }
 
 /** A file modified more recently than this may still be being copied in. */
@@ -80,6 +91,8 @@ export class Scanner {
   #folderCovers = new Map<string, Promise<string | null>>();
 
   readonly #settleMs: number;
+  #progress: ScanProgress | null = null;
+  #cancelled = false;
 
   constructor(db: Db, artwork: ArtworkStore, opts: { settleMs?: number } = {}) {
     this.#db = db;
@@ -87,17 +100,46 @@ export class Scanner {
     this.#settleMs = opts.settleMs ?? SETTLE_MS;
   }
 
+  /** The running scan's progress; null between scans. */
+  get progress(): ScanProgress | null {
+    return this.#progress && { ...this.#progress };
+  }
+
   /**
    * Brings the catalog in line with the files under `roots`: adds and updates
    * changed files (by mtime) and removes tracks whose files are gone.
    */
   async scan(roots: string[]): Promise<ScanStats> {
+    this.#progress = { phase: "listing", done: 0, total: 0 };
+    this.#cancelled = false;
+    try {
+      return await this.#scan(roots);
+    } finally {
+      this.#progress = null;
+    }
+  }
+
+  /** Stops the running scan after the file it's on. */
+  cancel() {
+    if (this.#progress) this.#cancelled = true;
+  }
+
+  async #scan(roots: string[]): Promise<ScanStats> {
+    const progress = this.#progress!;
     const db = this.#db;
     const generation =
       Number(
         (db.prepare("SELECT value FROM meta WHERE key = 'scan_generation'").get()?.value as string) ?? 0,
       ) + 1;
-    const stats: ScanStats = { scanned: 0, updated: 0, removed: 0, errors: 0, unsettled: 0, unavailable: [] };
+    const stats: ScanStats = {
+      scanned: 0,
+      updated: 0,
+      removed: 0,
+      errors: 0,
+      unsettled: 0,
+      unavailable: [],
+      cancelled: false,
+    };
     const rescanAll =
       (db.prepare("SELECT value FROM meta WHERE key = 'scan_version'").get()?.value as string | undefined) !==
       SCAN_VERSION;
@@ -106,46 +148,66 @@ export class Scanner {
     const knownPaths = db.prepare("SELECT path FROM tracks");
     this.#folderCovers.clear();
 
+    // Every file first, so the reading can report how far it has got.
+    const files = new Map<string, string[]>();
     for (const root of roots) {
+      const paths: string[] = [];
+      if ((await stat(root).catch(() => null))?.isDirectory()) {
+        for await (const path of walk(root)) {
+          if (this.#cancelled) break;
+          paths.push(path);
+          progress.total++;
+        }
+      }
+      files.set(root, paths);
+    }
+    progress.phase = "reading";
+
+    for (const root of roots) {
+      const paths = files.get(root)!;
+      const found = paths.length;
+      for (const path of paths) {
+        if (this.#cancelled) break;
+        progress.done++;
+        stats.scanned++;
+        try {
+          const { mtimeMs, size } = await stat(path);
+          const row = existing.get(path) as { mtime_ms: number } | undefined;
+          if (!rescanAll && row && row.mtime_ms === Math.trunc(mtimeMs)) {
+            markSeen.run(generation, path);
+            continue;
+          }
+          // A time well in the future means the share's clock is ahead: waiting would only delay the file.
+          const age = Date.now() - mtimeMs;
+          if (this.#settleMs > 0 && age < this.#settleMs && age > -CLOCK_SKEW_MS) {
+            // Possibly still being written: keep any previous version and look again next time.
+            if (row) markSeen.run(generation, path);
+            stats.unsettled++;
+            continue;
+          }
+          const meta = await parseFile(path, { duration: true });
+          await this.#upsert(path, Math.trunc(mtimeMs), size, meta, generation);
+          stats.updated++;
+        } catch (err) {
+          stats.errors++;
+          console.warn(`scan: skipping ${path}: ${(err as Error).message}`);
+        }
+      }
       // A missing folder is far more likely an unmounted network share than a deleted
       // library: keep its tracks (and the queues and playlists using them) rather than
       // removing them all. Same for one that exists but reads as empty (a mount point
       // without its share), as long as tracks from it are known.
-      const rootStat = await stat(root).catch(() => null);
-      let found = 0;
-      if (rootStat?.isDirectory()) {
-        for await (const path of walk(root)) {
-          found++;
-          stats.scanned++;
-          try {
-            const { mtimeMs, size } = await stat(path);
-            const row = existing.get(path) as { mtime_ms: number } | undefined;
-            if (!rescanAll && row && row.mtime_ms === Math.trunc(mtimeMs)) {
-              markSeen.run(generation, path);
-              continue;
-            }
-            // A time well in the future means the share's clock is ahead: waiting would only delay the file.
-            const age = Date.now() - mtimeMs;
-            if (this.#settleMs > 0 && age < this.#settleMs && age > -CLOCK_SKEW_MS) {
-              // Possibly still being written: keep any previous version and look again next time.
-              if (row) markSeen.run(generation, path);
-              stats.unsettled++;
-              continue;
-            }
-            const meta = await parseFile(path, { duration: true });
-            await this.#upsert(path, Math.trunc(mtimeMs), size, meta, generation);
-            stats.updated++;
-          } catch (err) {
-            stats.errors++;
-            console.warn(`scan: skipping ${path}: ${(err as Error).message}`);
-          }
-        }
-      }
       const hadTracks = () => (knownPaths.all() as { path: string }[]).some((r) => inside(root, r.path));
       if (found === 0 && hadTracks()) {
         console.warn(`scan: ${root} is missing or empty but the library has tracks from it; keeping them`);
         stats.unavailable.push(root);
       }
+    }
+    if (this.#cancelled) {
+      // Unseen isn't gone when the scan stopped early: remove nothing, keep what was read.
+      stats.cancelled = true;
+      if (stats.updated) rebuildSearchIndex(db);
+      return stats;
     }
     if (stats.unavailable.length === roots.length && roots.length > 0) {
       throw new Error(`no library folder is available (${roots.join(", ")})`);

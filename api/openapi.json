@@ -712,6 +712,43 @@
         }
       }
     },
+    "/api/library/scan/cancel": {
+      "post": {
+        "operationId": "cancelLibraryScan",
+        "summary": "Stop the running scan: tracks read so far stay, none are removed",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stop the running scan: tracks read so far stay, none are removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/library/folders": {
       "put": {
         "operationId": "setLibraryFolders",
@@ -3772,6 +3809,35 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "scanProgress": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "listing",
+                  "reading"
+                ]
+              },
+              "done": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "phase",
+              "done",
+              "total"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -3782,7 +3848,8 @@
           "artists",
           "albums",
           "tracks",
-          "enrichmentQueue"
+          "enrichmentQueue",
+          "scanProgress"
         ],
         "additionalProperties": false
       },

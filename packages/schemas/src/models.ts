@@ -308,6 +308,14 @@ export const LibraryStatus = named(
     tracks: Count,
     /** Albums and artists still waiting for external metadata. */
     enrichmentQueue: Count,
+    /** While scanning: listing the folders' files (`total` found so far), then reading them. */
+    scanProgress: z
+      .object({
+        phase: z.enum(["listing", "reading"]),
+        done: Count,
+        total: Count,
+      })
+      .nullable(),
   }),
 );
 

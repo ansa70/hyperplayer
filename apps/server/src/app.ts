@@ -93,13 +93,16 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   const folders = new LibraryFolders(db, config.libraryPaths);
   let scanning: Promise<void> | null = null;
   let again: Promise<void> | null = null;
+  /** A cancel also drops the scan queued after the running one. */
+  let dropQueued = false;
   const scanOnce = () =>
     scanner
       .scan(folders.paths)
       .then((s) => {
         const changed = s.updated > 0 || s.removed > 0;
         // Periodic rescans that find nothing new stay quiet.
-        if (changed || s.errors || s.unavailable.length) app.log.info(s, "library scan finished");
+        if (s.cancelled) app.log.info(s, "library scan cancelled");
+        else if (changed || s.errors || s.unavailable.length) app.log.info(s, "library scan finished");
         if (s.unsettled) watcher.scheduleSoon();
         if (changed) {
           const relinked = playlists.relink();
@@ -121,6 +124,10 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     if (!scanning) return (scanning = scanOnce());
     again ??= scanning.then(() => {
       again = null;
+      if (dropQueued) {
+        dropQueued = false;
+        return;
+      }
       return startScan();
     });
     return again;
@@ -153,6 +160,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     pathStyle: process.platform === "win32" ? "windows" : "posix",
     ...catalog.counts(),
     enrichmentQueue: enricher.queueSize,
+    scanProgress: scanner.progress,
   });
 
   app.setErrorHandler((err, _req, reply) => {
@@ -216,6 +224,11 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   // --------------------------------------------------------------- library
   route.json(api.libraryStatus, ({ auth: a }) => status(a.user.admin));
   route.json(api.libraryScan, () => (void startScan(), status(true)));
+  route.json(api.cancelLibraryScan, () => {
+    if (again) dropQueued = true;
+    scanner.cancel();
+    return status(true);
+  });
   route.json(api.setLibraryFolders, async ({ body }) => {
     await folders.set(body.paths);
     watcher.setRoots(folders.paths);

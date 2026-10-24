@@ -99,6 +99,58 @@ test("a folder dropped from the configuration takes its tracks with it", async (
   expect(await second.titles()).toEqual(["From A"]);
 });
 
+test("a scan reports its progress: listing the files, then reading them", async () => {
+  const root = join(dir, "music");
+  for (const title of ["A", "B", "C", "D", "E"]) add(root, "Band", title);
+  const db = openDb(join(dir, "library.db"));
+  const scanner = new Scanner(db, new ArtworkStore(db, dir), { settleMs: 0 });
+  expect(scanner.progress).toBeNull();
+  const scan = scanner.scan([root]);
+  let finished = false;
+  void scan.then(() => (finished = true));
+  const seen = [scanner.progress!];
+  while (!finished) {
+    await new Promise((r) => setImmediate(r));
+    if (scanner.progress) seen.push(scanner.progress);
+  }
+  await scan;
+  expect(seen[0]).toEqual({ phase: "listing", done: 0, total: 0 });
+  const reading = seen.filter((p) => p.phase === "reading");
+  expect(reading.length).toBeGreaterThan(0);
+  expect(reading.every((p) => p.total === 5 && p.done <= 5)).toBe(true);
+  expect(reading.map((p) => p.done)).toEqual(reading.map((p) => p.done).sort((a, b) => a - b));
+  expect(scanner.progress).toBeNull();
+});
+
+test("a cancelled scan keeps what it read and removes nothing", async () => {
+  const root = join(dir, "music");
+  for (const title of ["A", "B", "C", "D", "E"]) add(root, "Band", title);
+  const db = openDb(join(dir, "library.db"));
+  const scanner = new Scanner(db, new ArtworkStore(db, dir), { settleMs: 0 });
+  const tracks = () => (db.prepare("SELECT COUNT(*) AS n FROM tracks").get() as { n: number }).n;
+
+  // Stopped partway through a first scan: the tracks read so far are in.
+  const scan = scanner.scan([root]);
+  while ((scanner.progress?.done ?? 5) < 2) await new Promise((r) => setImmediate(r));
+  scanner.cancel();
+  const stopped = await scan;
+  expect(stopped).toMatchObject({ cancelled: true, removed: 0 });
+  expect(stopped.updated).toBeLessThan(5);
+  expect(tracks()).toBe(stopped.updated);
+
+  // The next scan finishes the job.
+  expect(await scanner.scan([root])).toMatchObject({ cancelled: false });
+  expect(tracks()).toBe(5);
+
+  // Stopped before it saw anything: nothing goes, although nothing was seen.
+  const again = scanner.scan([root]);
+  scanner.cancel();
+  expect(await again).toMatchObject({ cancelled: true, removed: 0 });
+  expect(tracks()).toBe(5);
+  scanner.cancel(); // with no scan running: nothing to stop, and the next scan isn't affected
+  expect(await scanner.scan([root])).toMatchObject({ cancelled: false, removed: 0 });
+});
+
 test("files still being written are left for the next scan", async () => {
   const root = join(dir, "music");
   add(root, "Band", "Old");
