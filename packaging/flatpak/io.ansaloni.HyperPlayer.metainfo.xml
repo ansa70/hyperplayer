@@ -24,6 +24,6 @@
     <category>Player</category>
   </categories>
   <releases>
-    <release version="0.1.0" date="2026-10-24"/>
+    <release version="0.1.0-beta.1" date="2026-10-24" type="development"/>
   </releases>
 </component>

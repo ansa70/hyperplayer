@@ -32,6 +32,15 @@ fn main() {
     let out = Path::new(&env::var("OUT_DIR").unwrap()).join("api_types.rs");
     fs::write(out, code).unwrap();
 
+    // The executable's icon on Windows.
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        println!("cargo:rerun-if-changed=hyperplayer.rc");
+        println!("cargo:rerun-if-changed=icons/hyperplayer.ico");
+        embed_resource::compile("hyperplayer.rc", embed_resource::NONE)
+            .manifest_optional()
+            .expect("compiling Windows resources");
+    }
+
     let config = slint_build::CompilerConfiguration::new().with_style("fluent-dark".into());
     slint_build::compile_with_config("ui/app.slint", config).expect("compiling Slint UI");
 }

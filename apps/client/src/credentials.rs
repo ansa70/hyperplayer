@@ -12,9 +12,7 @@ fn account(server: &str, username: &str) -> String {
 }
 
 fn fallback_path(server: &str, username: &str) -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
+    let base = crate::dirs::config_dir()?;
     let safe: String = account(server, username)
         .chars()
         .map(|c| {
@@ -25,7 +23,7 @@ fn fallback_path(server: &str, username: &str) -> Option<PathBuf> {
             }
         })
         .collect();
-    Some(base.join("hyperplayer").join("tokens").join(safe))
+    Some(base.join("tokens").join(safe))
 }
 
 pub fn load(server: &str, username: &str) -> Option<String> {

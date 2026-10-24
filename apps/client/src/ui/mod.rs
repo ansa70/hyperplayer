@@ -411,8 +411,14 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_jump_in_queue(library::jump_in_queue);
     ui.on_clear_queue(library::clear_queue);
 
-    let media = desktop::start();
-    with_app(|app| app.desktop = media);
+    #[cfg(not(windows))]
+    {
+        let media = desktop::start(None);
+        with_app(|app| app.desktop = media);
+    }
+    // On Windows the controls belong to the window, which exists some time after the event loop starts.
+    #[cfg(windows)]
+    desktop::start_when_window_exists(0);
 
     let timer = Timer::default();
     timer.start(
@@ -447,6 +453,10 @@ pub fn run() -> anyhow::Result<()> {
     {
         eprintln!("saving position: {e:#}");
     }
+    // Release audio, decoding and the media controls now, while their threads still run:
+    // left to the thread-local's destructor, Windows has already ended those threads at
+    // exit and joining them panics.
+    drop(APP.with(|cell| cell.borrow_mut().take()));
     Ok(())
 }
 

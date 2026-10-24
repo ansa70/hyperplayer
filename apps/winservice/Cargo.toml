@@ -1,0 +1,14 @@
+[package]
+name = "hyperplayer-service"
+version = "0.1.0-beta.1"
+edition = "2024"
+description = "Runs the HyperPlayer server as a Windows service"
+publish = false
+
+[[bin]]
+name = "hyperplayer-service"
+path = "src/main.rs"
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.8"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_NetworkManagement_WNet"] }

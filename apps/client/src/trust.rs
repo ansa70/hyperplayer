@@ -65,10 +65,7 @@ fn origin(server: &str) -> String {
 }
 
 fn path() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
-    Some(base.join("hyperplayer").join("trusted-servers.json"))
+    Some(crate::dirs::config_dir()?.join("trusted-servers.json"))
 }
 
 fn load() -> BTreeMap<String, String> {

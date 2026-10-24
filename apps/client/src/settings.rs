@@ -51,10 +51,7 @@ fn new_device_id() -> String {
 }
 
 fn path() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
-    Some(base.join("hyperplayer").join("settings.json"))
+    Some(crate::dirs::config_dir()?.join("settings.json"))
 }
 
 impl Settings {

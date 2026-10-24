@@ -1726,6 +1726,8 @@ export struct FolderItem {
 /// State and actions of the Settings page, driven from Rust (`ui.global::<SettingsState>()`).
 export global SettingsState {
     in-out property <string> tab: "playback";
+    /// This player's version and the server's.
+    in property <string> versions;
     in property <bool> is-admin;
 
     // Appearance.
@@ -1877,7 +1879,11 @@ component SettingsPage inherits Rectangle {
             alignment: start;
             padding: 28px;
             spacing: 18px;
-            Text { text: "Settings"; color: Theme.text; font-size: 28px; font-weight: 800; }
+            HorizontalLayout {
+                spacing: 14px;
+                Text { text: "Settings"; color: Theme.text; font-size: 28px; font-weight: 800; }
+                Text { text: SettingsState.versions; color: Theme.faint; font-size: 12px; vertical-alignment: center; }
+            }
             Segmented {
                 selected: SettingsState.tab;
                 options: SettingsState.is-admin

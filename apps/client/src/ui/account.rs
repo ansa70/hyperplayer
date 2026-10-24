@@ -53,6 +53,7 @@ fn device_name() -> String {
     let host = std::fs::read_to_string("/etc/hostname")
         .ok()
         .or_else(|| std::env::var("HOSTNAME").ok())
+        .or_else(|| std::env::var("COMPUTERNAME").ok())
         .map(|h| h.trim().to_string())
         .filter(|h| !h.is_empty())
         .unwrap_or_else(|| "this computer".into());

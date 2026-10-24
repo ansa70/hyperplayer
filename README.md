@@ -57,6 +57,14 @@ newer. The player is also a Flatpak (`packaging/flatpak/build.sh`, included in t
 `org.flatpak.Builder` is installed), which runs on any distribution: the wizard offers it where there's no
 apt, or the `.deb` doesn't fit. On its own: `flatpak install --user hyperplayer-<version>-x86_64.flatpak`.
 
+The Windows player is cross-compiled from Linux: `packaging/windows/build.sh` (needs `clang lld llvm nsis`,
+the `x86_64-pc-windows-msvc` Rust target and `cargo install cargo-xwin`) builds
+`release/hyperplayer-<version>-windows-x64-setup.exe`. It installs for the current user without administrator
+rights, and needs nothing else on the PC (the C runtime is linked in).
+
+Versions: the player's `Cargo.toml` and the server's `SERVER_VERSION` must match (the release scripts check).
+Pre-releases are written `0.1.0-beta.1`; the `.deb` spells it `0.1.0~beta.1` so it sorts before `0.1.0`.
+
 ## HTTPS
 
 `HP_TLS` (`auto` by default) serves HTTPS whenever the server listens beyond this machine, and plain HTTP

@@ -13,8 +13,11 @@ use super::{AppWindow, with_app};
 
 /// The desktop's title-bar button layout, e.g. `close,minimize,maximize:` (buttons
 /// before the colon go on the left). GNOME-family desktops store it in gsettings;
-/// elsewhere the common right-hand layout applies.
+/// elsewhere (and on Windows) the common right-hand layout applies.
 fn button_layout() -> (Vec<String>, Vec<String>) {
+    if cfg!(windows) {
+        return parse_layout(":minimize,maximize,close");
+    }
     let layout = Command::new("gsettings")
         .args(["get", "org.gnome.desktop.wm.preferences", "button-layout"])
         .output()
@@ -91,6 +94,19 @@ pub fn sync(ui: &AppWindow) {
     if ui.get_window_maximized() != maximized {
         ui.set_window_maximized(maximized);
     }
+}
+
+/// The window's Win32 handle, once it's shown.
+#[cfg(windows)]
+pub fn native_handle() -> Option<*mut std::ffi::c_void> {
+    use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    let ui = with_app(|app| app.ui.upgrade())?;
+    ui.window()
+        .with_winit_window(|w| match w.window_handle().ok()?.as_raw() {
+            RawWindowHandle::Win32(h) => Some(h.hwnd.get() as *mut std::ffi::c_void),
+            _ => None,
+        })
+        .flatten()
 }
 
 fn with_window(f: impl FnOnce(&slint::winit_030::winit::window::Window)) {

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["apps/client"]
+members = ["apps/client", "apps/winservice"]
 
 [profile.release]
 lto = "thin"

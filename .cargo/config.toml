@@ -1,0 +1,4 @@
+# Windows: link the C runtime statically, so the player needs no Visual C++ redistributable.
+[target.x86_64-pc-windows-msvc]
+# /IGNORE:4099: the static runtime's libraries refer to debug files Microsoft doesn't ship.
+rustflags = ["-C", "target-feature=+crt-static", "-C", "link-arg=/IGNORE:4099"]

@@ -1,6 +1,6 @@
 [package]
 name = "hyperplayer"
-version = "0.1.0"
+version = "0.1.0-beta.1"
 edition = "2024"
 description = "Native HyperPlayer client"
 publish = false
@@ -30,7 +30,11 @@ regress = "0.10"
 souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] }
 slint = { version = "1.18", features = ["unstable-winit-030"] }
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }
+
 [build-dependencies]
+embed-resource = "3"
 prettyplease = "0.2"
 schemars = "0.8"
 serde_json = "1"

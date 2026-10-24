@@ -72,7 +72,7 @@ SHLIBS=$(
 }
 cat >"$DEB/DEBIAN/control" <<EOF
 Package: hyperplayer
-Version: $VERSION
+Version: ${VERSION/-/\~}
 Architecture: amd64
 Maintainer: Enrico Ansaloni <ansa@ansaloni.io>
 Depends: $SHLIBS, libxkbcommon0, libwayland-client0 | libx11-6, libegl1 | libgl1
@@ -83,7 +83,7 @@ Description: HyperPlayer music player
  best quality the connection sustains, lyrics, history and scrobbling.
 EOF
 mkdir -p "$STAGE/player"
-fakeroot dpkg-deb --build -Zxz "$DEB" "$STAGE/player/hyperplayer_${VERSION}_amd64.deb" >/dev/null
+fakeroot dpkg-deb --build -Zxz "$DEB" "$STAGE/player/hyperplayer_${VERSION/-/\~}_amd64.deb" >/dev/null
 rm -rf "$DEB"
 
 echo "==> Player (Flatpak)"

@@ -36,12 +36,32 @@ pub struct Desktop {
     published: (Duration, Instant),
 }
 
+/// Windows: registers once our window exists (asking again every 250 ms, for up to 10 s).
+#[cfg(windows)]
+pub fn start_when_window_exists(attempt: u32) {
+    match super::window::native_handle() {
+        Some(hwnd) => {
+            let media = start(Some(hwnd));
+            with_app(|app| app.desktop = media);
+        }
+        None if attempt < 40 => slint::Timer::single_shot(Duration::from_millis(250), move || {
+            start_when_window_exists(attempt + 1)
+        }),
+        None => eprintln!("media controls unavailable: the window has no handle"),
+    }
+}
+
 /// Registers with the desktop; returns None where no media service is available.
-pub fn start() -> Option<Desktop> {
+/// Windows ties the controls to our window (`hwnd`); elsewhere it's None.
+pub fn start(hwnd: Option<*mut std::ffi::c_void>) -> Option<Desktop> {
+    // Windows' controls can't exist without the window (souvlaki panics).
+    if cfg!(windows) && hwnd.is_none() {
+        return None;
+    }
     let config = PlatformConfig {
         display_name: "HyperPlayer",
         dbus_name: "hyperplayer",
-        hwnd: None,
+        hwnd,
     };
     let mut controls = match MediaControls::new(config) {
         Ok(c) => c,
@@ -177,10 +197,14 @@ pub fn sync(app: &mut App) {
     }
 }
 
+/// The volume, for desktops that show it (MPRIS; Windows' media controls have none).
 pub fn publish_volume(app: &mut App, volume: f32) {
+    #[cfg(target_os = "linux")]
     if let Some(d) = app.desktop.as_mut() {
         let _ = d.controls.set_volume(volume as f64);
     }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (app, volume);
 }
 
 fn publish_metadata(
@@ -199,10 +223,7 @@ fn publish_metadata(
 }
 
 fn cache_dir() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_CACHE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))?;
-    Some(base.join("hyperplayer").join("covers"))
+    Some(hyperplayer::dirs::cache_dir()?.join("covers"))
 }
 
 /// The cover as a JPEG in the cache (fetched and converted once): desktop shells

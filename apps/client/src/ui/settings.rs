@@ -107,9 +107,19 @@ pub fn toggle_page() {
 fn load() {
     let api = with_app(|app| app.api.clone());
     background(
-        move || Ok((api.me()?, api.devices()?, api.scrobbling()?)),
-        |(me, devices, scrobbling)| {
+        move || {
+            let server = api.auth_status()?.server_version;
+            Ok((api.me()?, api.devices()?, api.scrobbling()?, server))
+        },
+        |(me, devices, scrobbling, server)| {
             state(|s| {
+                s.set_versions(
+                    format!(
+                        "HyperPlayer {} · server {server}",
+                        env!("CARGO_PKG_VERSION")
+                    )
+                    .into(),
+                );
                 s.set_is_admin(me.user.admin);
                 if !me.user.admin && s.get_tab() == "admin" {
                     s.set_tab("playback".into());
@@ -372,8 +382,9 @@ fn disconnect_lastfm() {
 
 fn open_in_browser(url: &str) {
     let mut command = if cfg!(target_os = "windows") {
-        let mut c = Command::new("cmd");
-        c.args(["/C", "start", ""]);
+        // Not `cmd /C start`: cmd would cut the URL at its first `&`.
+        let mut c = Command::new("rundll32");
+        c.arg("url.dll,FileProtocolHandler");
         c
     } else if cfg!(target_os = "macos") {
         Command::new("open")
