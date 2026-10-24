@@ -231,6 +231,8 @@ pub fn run() -> anyhow::Result<()> {
         .then(|| hyperplayer::credentials::load(&server, &settings.username))
         .flatten();
     let api = Api::with_token(server.clone(), token.as_deref());
+    // The app id must be set before the first window, and needs the backend chosen first.
+    slint::BackendSelector::new().select()?;
     // Matches the desktop entry, so the desktop shows our icon and name for the window.
     slint::set_xdg_app_id(APP_ID)?;
     let ui = AppWindow::new()?;
