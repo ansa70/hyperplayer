@@ -14,7 +14,7 @@ use hyperplayer::{
 };
 
 use super::{
-    App, RepeatMode, background,
+    App, Page, RepeatMode, background,
     browse::fetch_now_playing,
     current_entry_id, current_track,
     library::sync_queue_ui,
@@ -180,7 +180,8 @@ pub fn cycle_repeat() {
 pub fn toggle_play() {
     enum Do {
         Toggled,
-        Resume(Duration),
+        /// From the saved position, and the album to show if nothing is shown yet.
+        Resume(Duration, Option<String>),
         PlayAlbum(String),
         Nothing,
     }
@@ -192,11 +193,23 @@ pub fn toggle_play() {
             }
             Do::Toggled
         }
-        _ if current_track(app).is_some() => Do::Resume(app.resume_at),
+        _ if let Some(t) = current_track(app) => {
+            // Resuming last session's track on a fresh start: show its album, as if picked.
+            let blank = app
+                .ui
+                .upgrade()
+                .is_some_and(|ui| ui.get_page() == Page::Welcome);
+            Do::Resume(app.resume_at, blank.then(|| t.album_id.to_string()))
+        }
         _ => app.album_id.clone().map_or(Do::Nothing, Do::PlayAlbum),
     });
     match what {
-        Do::Resume(at) => play_current(at),
+        Do::Resume(at, album) => {
+            play_current(at);
+            if let Some(id) = album {
+                super::browse::select_album(id.into());
+            }
+        }
         Do::PlayAlbum(id) => play_from(
             types::TrackSource::Album {
                 id: id.as_str().try_into().expect("album id"),
