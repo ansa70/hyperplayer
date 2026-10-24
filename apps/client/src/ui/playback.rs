@@ -359,7 +359,7 @@ fn maybe_preload(app: &mut App) {
         return; // done, in progress, or failed (then the track starts normally at the end)
     }
     let track = entry.track.clone();
-    super::visuals::prefetch(track.id.to_string());
+    super::visuals::prefetch(app, track.id.to_string());
     let quality = adaptive::choose(&track, app.mode, app.bandwidth.get());
     let (api, mode) = (app.api.clone(), app.mode);
     app.preload_tried = Some(key.clone());

@@ -104,10 +104,10 @@ pub fn follow(app: &mut App, position: Duration, playing: bool) {
     thread::spawn(move || {
         let result = api.record_listen(&id, started, played);
         let _ = slint::invoke_from_event_loop(move || {
-            with_app(|app| {
+            let history_open = with_app(|app| {
                 if let Err(e) = &result {
                     eprintln!("recording listen: {e:#}");
-                    return;
+                    return false;
                 }
                 if let Some(l) = app
                     .listening
@@ -116,15 +116,14 @@ pub fn follow(app: &mut App, position: Duration, playing: bool) {
                 {
                     l.reported = true;
                 }
-                // Keep an open History page current.
-                if app
-                    .ui
+                app.ui
                     .upgrade()
                     .is_some_and(|ui| ui.get_page() == Page::History)
-                {
-                    load();
-                }
-            })
+            });
+            // Keep an open History page current (`load` takes the app itself).
+            if history_open {
+                load();
+            }
         });
     });
 }

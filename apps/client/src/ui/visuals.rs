@@ -2,7 +2,10 @@
 
 use std::{collections::HashMap, rc::Rc, time::Duration};
 
-use hyperplayer::spectrum::{Analyzer, WINDOW};
+use hyperplayer::{
+    api::Api,
+    spectrum::{Analyzer, WINDOW},
+};
 use slint::{Model, ModelRc, Timer, TimerMode, VecModel};
 
 use super::{App, AppWindow, background, current_track, with_app};
@@ -104,19 +107,18 @@ pub fn show_waveform(track_id: String) {
         }
     });
     if cached == Some(false) {
-        fetch(track_id, true);
+        fetch(with_app(|app| app.api.clone()), track_id, true);
     }
 }
 
 /// Fetches a waveform ahead of time (the next track, while it preloads).
-pub fn prefetch(track_id: String) {
-    if !with_app(|app| app.visuals.waveforms.contains_key(&track_id)) {
-        fetch(track_id, false);
+pub fn prefetch(app: &App, track_id: String) {
+    if !app.visuals.waveforms.contains_key(&track_id) {
+        fetch(app.api.clone(), track_id, false);
     }
 }
 
-fn fetch(track_id: String, show: bool) {
-    let api = with_app(|app| app.api.clone());
+fn fetch(api: Api, track_id: String, show: bool) {
     let id = track_id.clone();
     background(
         move || api.waveform(&id),

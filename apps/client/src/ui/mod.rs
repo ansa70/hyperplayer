@@ -16,7 +16,8 @@ mod visuals;
 mod window;
 
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
+    panic::Location,
     sync::mpsc,
     thread,
     time::{Duration, Instant},
@@ -103,10 +104,27 @@ pub struct App {
 
 thread_local! {
     static APP: RefCell<Option<App>> = const { RefCell::new(None) };
+    /// Where the app is borrowed from, while it is.
+    static APP_HELD_AT: Cell<Option<&'static Location<'static>>> = const { Cell::new(None) };
 }
 
+/// Runs `f` with the app. Must not be called again from inside `f` (directly, or
+/// via a Slint callback `f` sets off): that panics, naming both call sites.
+#[track_caller]
 fn with_app<R>(f: impl FnOnce(&mut App) -> R) -> R {
-    APP.with(|a| f(a.borrow_mut().as_mut().expect("app initialised")))
+    let caller = Location::caller();
+    APP.with(|a| {
+        let Ok(mut app) = a.try_borrow_mut() else {
+            let held = APP_HELD_AT
+                .get()
+                .map_or("unknown".into(), |l| l.to_string());
+            panic!("app borrowed again at {caller} while still in use from {held}");
+        };
+        let outer = APP_HELD_AT.replace(Some(caller));
+        let result = f(app.as_mut().expect("app initialised"));
+        APP_HELD_AT.set(outer);
+        result
+    })
 }
 
 /// Runs `work` on a background thread and `done` with its result on the UI thread.

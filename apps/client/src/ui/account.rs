@@ -203,27 +203,28 @@ pub fn check_server() {
     let Some(server) = server else { return };
     std::thread::spawn(move || {
         let status = Api::new(server.clone()).auth_status();
-        let _ = slint::invoke_from_event_loop(move || {
-            with_app(|app| match status {
-                Ok(s) => {
-                    set_login(app, |l| {
-                        l.default_admin = s.default_admin;
-                        if l.error.starts_with("Cannot reach") {
-                            l.error = "".into();
-                        }
-                    });
-                    if let Some(ui) = app.ui.upgrade()
-                        && s.default_admin
-                        && ui.get_login_username().is_empty()
-                    {
-                        ui.set_login_username("admin".into());
+        let _ = slint::invoke_from_event_loop(move || match status {
+            Ok(s) => with_app(|app| {
+                set_login(app, |l| {
+                    l.default_admin = s.default_admin;
+                    if l.error.starts_with("Cannot reach") {
+                        l.error = "".into();
                     }
+                });
+                if let Some(ui) = app.ui.upgrade()
+                    && s.default_admin
+                    && ui.get_login_username().is_empty()
+                {
+                    ui.set_login_username("admin".into());
                 }
-                Err(e) if e.is::<UntrustedCertificate>() => ask_trust(&e),
-                Err(e) => set_login(app, |l| {
+            }),
+            // Takes the app itself.
+            Err(e) if e.is::<UntrustedCertificate>() => ask_trust(&e),
+            Err(e) => with_app(|app| {
+                set_login(app, |l| {
                     l.error = format!("Cannot reach {server}: {e:#}").into()
-                }),
-            })
+                })
+            }),
         });
     });
 }
