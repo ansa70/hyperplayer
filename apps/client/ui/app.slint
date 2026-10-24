@@ -200,6 +200,15 @@ component ToggleIcon inherits Rectangle {
     in property <color> accent: Theme.accent;
     in property <string> tooltip;
     callback clicked;
+    /// A right-click, for toggles with options.
+    callback context-menu;
+    /// A caption to the left of the icon, drawn outside it so the layout isn't disturbed;
+    /// shown only where `caption-width` leaves it room.
+    in property <string> caption;
+    in property <color> caption-color: Theme.muted;
+    in property <length> caption-width: 170px;
+    callback caption-clicked;
+    out property <bool> hovered: ta.has-hover;
     width: 36px;
     height: 36px;
     border-radius: 18px;
@@ -228,6 +237,22 @@ component ToggleIcon inherits Rectangle {
     ta := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right { root.context-menu(); }
+        }
+    }
+    if root.caption != "" && root.caption-width >= 48px: Text {
+        width: min(self.preferred-width, root.caption-width);
+        x: -self.width - 6px;
+        height: parent.height;
+        text: root.caption;
+        color: root.caption-color;
+        font-size: 11px;
+        font-weight: 600;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+        overflow: elide;
+        TouchArea { mouse-cursor: pointer; clicked => { root.caption-clicked(); } }
     }
 }
 
@@ -297,20 +322,70 @@ component CreditList inherits VerticalLayout {
 
 component MenuItem inherits Rectangle {
     in property <string> text;
+    /// The option in effect, for menus that pick one.
+    in property <bool> checked;
     callback clicked;
     height: 30px;
     border-radius: 4px;
     background: ta.has-hover ? Theme.surface.brighter(0.6) : transparent;
     Text {
         x: 10px;
-        width: parent.width - 20px;
+        width: parent.width - 36px;
         text: root.text;
-        color: Theme.text;
+        color: root.checked ? Theme.accent : Theme.text;
         font-size: 12px;
+        font-weight: root.checked ? 600 : 400;
         vertical-alignment: center;
         overflow: elide;
     }
+    if root.checked: Text {
+        x: parent.width - 24px;
+        text: "✓";
+        color: Theme.accent;
+        font-size: 12px;
+        vertical-alignment: center;
+    }
     ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+/// What the shuffle button draws from, opened by right-clicking it.
+component ShuffleMenu inherits PopupWindow {
+    in property <string> scope;
+    callback pick(string);
+    width: 190px;
+    height: 6px + 24px + 4 * 31px + 6px;
+    Rectangle {
+        background: Theme.surface-hi;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: Theme.surface.brighter(0.8);
+        drop-shadow-blur: 18px;
+        drop-shadow-color: #000000b0;
+        VerticalLayout {
+            padding: 6px;
+            spacing: 1px;
+            Text {
+                height: 24px;
+                x: 10px;
+                text: "SHUFFLE FROM";
+                color: Theme.faint;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 1.2px;
+                vertical-alignment: center;
+            }
+            for option in [
+                { key: "library", label: "Whole library" },
+                { key: "album", label: "This album" },
+                { key: "artist", label: "This artist" },
+                { key: "genre", label: "This genre" },
+            ]: MenuItem {
+                text: option.label;
+                checked: option.key == root.scope;
+                clicked => { root.pick(option.key); }
+            }
+        }
+    }
 }
 
 /// Actions on a track (or a whole album): queue it, add it to a playlist, and,
@@ -1501,6 +1576,11 @@ component TransportBar inherits Rectangle {
     callback show-lyrics();
     callback toggle();
     callback toggle-shuffle();
+    /// What the shuffle button draws from: library, album, artist or genre.
+    in property <string> shuffle-scope;
+    /// While shuffling, what from ("Album: Kind of Blue").
+    in property <string> shuffle-label;
+    callback set-shuffle-scope(string);
     callback cycle-repeat();
     callback show-queue();
     callback next();
@@ -1542,11 +1622,21 @@ component TransportBar inherits Rectangle {
             HorizontalLayout {
                 alignment: center;
                 spacing: 12px;
-                ToggleIcon {
+                shuffle-button := ToggleIcon {
                     commands: Icons.shuffle;
                     active: root.shuffle;
                     accent: root.accent;
                     clicked => { root.toggle-shuffle(); }
+                    context-menu => { shuffle-menu.show(); }
+                    // While shuffling, what from; otherwise, on hover, what it would draw from.
+                    caption: root.shuffle ? root.shuffle-label
+                        : !self.hovered ? ""
+                        : "Shuffle from: " + (root.shuffle-scope == "album" ? "This album"
+                            : root.shuffle-scope == "artist" ? "This artist"
+                            : root.shuffle-scope == "genre" ? "This genre" : "Whole library");
+                    caption-color: root.shuffle ? root.accent : Theme.muted;
+                    caption-width: self.x - 10px;
+                    caption-clicked => { shuffle-menu.show(); }
                 }
                 IconButton { glyph: "⏮"; clicked => { root.prev(); } }
                 IconButton { glyph: root.playing ? "⏸" : "▶"; primary: true; size: 40px; clicked => { root.toggle(); } }
@@ -1556,6 +1646,13 @@ component TransportBar inherits Rectangle {
                     active: root.repeat != RepeatMode.off;
                     accent: root.accent;
                     clicked => { root.cycle-repeat(); }
+                }
+                // Opens above the button: the bar is at the bottom of the window.
+                shuffle-menu := ShuffleMenu {
+                    x: shuffle-button.x + (shuffle-button.width - self.width) / 2;
+                    y: shuffle-button.y - self.height - 8px;
+                    scope: root.shuffle-scope;
+                    pick(scope) => { root.set-shuffle-scope(scope); }
                 }
             }
             HorizontalLayout {
@@ -2683,6 +2780,9 @@ export component AppWindow inherits Window {
     callback volume-changed(float);
     callback cycle-quality-mode();
     callback toggle-shuffle();
+    in property <string> shuffle-scope: "library";
+    in property <string> shuffle-label;
+    callback set-shuffle-scope(string);
     callback cycle-repeat();
 
     keys := FocusScope {
@@ -2884,6 +2984,9 @@ export component AppWindow inherits Window {
             shuffle: root.shuffle;
             repeat: root.repeat;
             toggle-shuffle => { root.toggle-shuffle(); }
+            shuffle-scope: root.shuffle-scope;
+            shuffle-label: root.shuffle-label;
+            set-shuffle-scope(scope) => { root.set-shuffle-scope(scope); }
             cycle-repeat => { root.cycle-repeat(); }
             queue-open: root.page == Page.queue;
             show-queue => { root.show-queue(); }

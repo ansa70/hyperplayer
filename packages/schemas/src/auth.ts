@@ -135,6 +135,12 @@ export const Onboard = named(
 
 const Accent = z.string().regex(/^(cover|#[0-9a-f]{6})$/);
 
+export const ShuffleScope = named(
+  "ShuffleScope",
+  z.enum(["library", "album", "artist", "genre"]),
+  "Where shuffle picks tracks from: everything, or the playing track's album, artist or genre.",
+);
+
 export const Preferences = named(
   "Preferences",
   z.object({
@@ -153,6 +159,8 @@ export const Preferences = named(
     coverBackground: z.boolean().default(true),
     /** Show the live spectrum in the now-playing panel. */
     visualizer: z.boolean().default(true),
+    /** What the shuffle button draws from: the whole library, or the playing track's album, artist or genre. */
+    shuffleScope: ShuffleScope.default("library"),
   }),
   "Per-user settings that follow the account to every device.",
 );
@@ -166,6 +174,7 @@ export const UpdatePreferences = named(
     accent: Accent.optional(),
     coverBackground: z.boolean().optional(),
     visualizer: z.boolean().optional(),
+    shuffleScope: ShuffleScope.optional(),
   }),
 );
 
@@ -174,5 +183,6 @@ export type Device = z.infer<typeof Device>;
 export type Session = z.infer<typeof Session>;
 export type AuthStatus = z.infer<typeof AuthStatus>;
 export type Preferences = z.infer<typeof Preferences>;
+export type ShuffleScope = z.infer<typeof ShuffleScope>;
 export type UpdateMe = z.infer<typeof UpdateMe>;
 export type UpdateUser = z.infer<typeof UpdateUser>;

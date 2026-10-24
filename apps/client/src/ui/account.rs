@@ -594,6 +594,9 @@ fn load_preferences() {
                 app.rg_preamp = prefs.replay_gain_preamp as f32;
                 playback::apply_replaygain(app);
                 super::appearance::set_preferences(app, &prefs);
+                if let Some(ui) = app.ui.upgrade() {
+                    ui.set_shuffle_scope(prefs.shuffle_scope.to_string().into());
+                }
             })
         },
     );

@@ -67,7 +67,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   const enricher = new Enricher(db, artwork, app.log, config.enrich);
   const catalog = new Catalog(db, enricher);
   const playlists = new Playlists(db, catalog);
-  const queues = new Queues(db, catalog);
+  const queues = new Queues(db, catalog, (userId) => auth.preferences(userId).shuffleScope);
   const scrobbler = new Scrobbler(db, app.log, {
     version: SERVER_VERSION,
     fetch: opts.fetch,

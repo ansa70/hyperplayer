@@ -390,6 +390,21 @@ pub fn sync_queue_ui(app: &mut App) {
     let Some(ui) = app.ui.upgrade() else { return };
     let Some(q) = &app.queue else { return };
     ui.set_shuffle(q.shuffle);
+    let name = q
+        .origin
+        .as_ref()
+        .and_then(|o| o.name.as_deref())
+        .unwrap_or_default();
+    ui.set_shuffle_label(
+        match q.shuffle_scope {
+            None => String::new(),
+            Some(types::ShuffleScope::Library) => "Whole library".into(),
+            Some(types::ShuffleScope::Album) => format!("Album: {name}"),
+            Some(types::ShuffleScope::Artist) => format!("Artist: {name}"),
+            Some(types::ShuffleScope::Genre) => format!("Genre: {name}"),
+        }
+        .into(),
+    );
     ui.set_repeat(repeat_mode(q.repeat));
     ui.set_queue_origin(
         q.origin

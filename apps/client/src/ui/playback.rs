@@ -12,6 +12,7 @@ use hyperplayer::{
     playback, replaygain,
     stream::StreamHandle,
 };
+use slint::SharedString;
 
 use super::{
     App, Page, RepeatMode, background,
@@ -162,9 +163,24 @@ pub fn previous() {
     }
 }
 
+/// The shuffle button. On draws from the user's scope around the playing track; with
+/// nothing playing, the server picks one to start, so play it if the current entry changed.
 pub fn toggle_shuffle() {
     let on = with_app(|app| !app.queue.as_ref().is_some_and(|q| q.shuffle));
-    queue_op(Then::Show, move |api| api.set_shuffle(on));
+    queue_op(Then::PlayIfChanged, move |api| api.set_shuffle(on));
+}
+
+/// A choice in the shuffle button's menu: saved to the account, then shuffle (re)draws from it.
+pub fn set_shuffle_scope(scope: SharedString) {
+    with_app(|app| {
+        if let Some(ui) = app.ui.upgrade() {
+            ui.set_shuffle_scope(scope.clone());
+        }
+    });
+    queue_op(Then::PlayIfChanged, move |api| {
+        api.update_preferences(serde_json::json!({ "shuffleScope": scope.as_str() }))?;
+        api.set_shuffle(true)
+    });
 }
 
 pub fn cycle_repeat() {

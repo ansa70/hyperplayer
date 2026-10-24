@@ -74,6 +74,7 @@ test("ReplayGain preferences have defaults and are validated", async () => {
     accent: "cover",
     coverBackground: true,
     visualizer: true,
+    shuffleScope: "library",
   });
   // Appearance preferences validate too: an accent is "cover" or a #rrggbb colour.
   const accent = await inject({

@@ -220,3 +220,158 @@ test("unknown queue entries are rejected", async () => {
   const res = await inject({ method: "POST", url: `${DEVICE}/jump`, payload: { entryId: "nope" } });
   expect(res.statusCode).toBe(404);
 });
+
+// ------------------------------------------------------------- shuffle button
+
+/** Adds an album to the library and rescans. */
+async function addAlbum(artist: string, album: string, titles: string[], genre?: string) {
+  mkdirSync(join(lib, artist, album), { recursive: true });
+  titles.forEach((title, i) =>
+    writeFileSync(
+      join(lib, artist, album, `${i + 1}.wav`),
+      wav({ INAM: title, IART: artist, IPRD: album, ITRK: String(i + 1), ...(genre ? { IGNR: genre } : {}) }),
+    ),
+  );
+  await ctx.startScan();
+}
+
+const JAZZ = ["Blue", "Green", "Red"];
+const SOLO = ["Alone", "Again"];
+const setScope = (shuffleScope: string) =>
+  inject({ method: "PATCH", url: "/api/me/preferences", payload: { shuffleScope } });
+const jumpTo = async (title: string) => {
+  const q = await call("GET", DEVICE, QueueState);
+  const entry = q.entries.find((e) => e.track.title === title)!;
+  return call("POST", `${DEVICE}/jump`, QueueState, { entryId: entry.entryId });
+};
+
+test("shuffle button: draws from the whole library; off returns to the album", async () => {
+  await addAlbum("Quartet", "Jazz Album", JAZZ, "Jazz");
+  await playAlbum(2);
+  let q = await update({ shuffle: true });
+  expect(q.origin).toMatchObject({ kind: "shuffle", name: "Library" });
+  expect(q.shuffleScope).toBe("library");
+  expect(current(q)).toBe("Three");
+  expect(q.index).toBe(0);
+  expect([...order(q)].sort()).toEqual([...ALBUM, ...JAZZ].sort()); // each track once
+
+  // Off on one of the album's tracks: the album, in order, from there.
+  await jumpTo("Five");
+  q = await update({ shuffle: false });
+  expect(order(q)).toEqual(ALBUM);
+  expect(current(q)).toBe("Five");
+  expect(q.shuffleScope).toBeNull();
+  expect(q.origin).toMatchObject({ kind: "album", name: "Album" });
+
+  // Off on a track from elsewhere: it plays last, after the album.
+  await update({ shuffle: true });
+  await jumpTo("Green");
+  q = await update({ shuffle: false });
+  expect(order(q)).toEqual([...ALBUM, "Green"]);
+  expect(current(q)).toBe("Green");
+  expect(q.upNext).toBeNull();
+});
+
+test("shuffle button: album, artist and genre scopes follow the playing track", async () => {
+  await addAlbum("Quartet", "Jazz Album", JAZZ, "Jazz");
+  await addAlbum("Quartet", "Live", SOLO, "Swing");
+  await addAlbum("Band", "Second", ["Loud"], "jazz"); // genres match regardless of case
+  const jazzAlbum = (
+    (await inject("/api/albums")).json() as { items: { id: string; title: string }[] }
+  ).items.find((a) => a.title === "Jazz Album")!.id;
+  await call("PUT", DEVICE, QueueState, { source: { kind: "album", id: jazzAlbum }, start: 0 });
+
+  await setScope("genre");
+  let q = await update({ shuffle: true });
+  expect(q.origin).toMatchObject({ kind: "shuffle", name: "Jazz" });
+  expect(q.shuffleScope).toBe("genre");
+  expect([...order(q)].sort()).toEqual([...JAZZ, "Loud"].sort());
+
+  // A new scope redraws, still around the playing track.
+  await setScope("artist");
+  q = await update({ shuffle: true });
+  expect(q.origin).toMatchObject({ kind: "shuffle", name: "Quartet" });
+  expect(current(q)).toBe("Blue");
+  expect([...order(q)].sort()).toEqual([...JAZZ, ...SOLO].sort());
+
+  await setScope("album");
+  q = await update({ shuffle: true });
+  expect(q.origin).toMatchObject({ kind: "shuffle", name: "Jazz Album" });
+  expect([...order(q)].sort()).toEqual([...JAZZ].sort());
+
+  expect((await setScope("decade")).statusCode).toBe(400);
+});
+
+test("shuffle button: a large library is drawn a window at a time, without repeats", async () => {
+  const many = Array.from({ length: 40 }, (_, i) => `Song ${i}`);
+  await addAlbum("Crowd", "Many", many);
+  await playAlbum(0);
+  let q = await update({ shuffle: true });
+  expect(q.entries).toHaveLength(26); // the current track and 25 ahead
+  const played = [current(q)];
+  for (let i = 1; i < ALBUM.length + many.length; i++) {
+    q = await next(true);
+    played.push(current(q));
+    expect(q.entries.length).toBeLessThanOrEqual(51 + 25);
+  }
+  // One whole lap: every track once.
+  expect(new Set(played).size).toBe(ALBUM.length + many.length);
+  expect(q.upNext).toBeNull();
+  expect((await next(true)).index).toBeNull(); // no repeat: the lap ends it
+
+  // With repeat all, the next lap starts when reached, not with the track just played.
+  await jumpTo(played.at(-1)!);
+  await update({ repeat: "all" });
+  const last = current(await call("GET", DEVICE, QueueState));
+  q = await next(true);
+  expect(current(q)).not.toBe(last);
+  expect(current(q)).not.toBeNull();
+});
+
+test("shuffle button: starts something when nothing plays; a chosen album shuffles around its track", async () => {
+  let q = await update({ shuffle: true });
+  expect(current(q)).not.toBeNull();
+  expect(q.origin).toMatchObject({ kind: "shuffle", name: "Library" });
+
+  q = await playAlbum(3);
+  expect(q).toMatchObject({ shuffle: true, index: 0, origin: { kind: "shuffle" } });
+  expect(current(q)).toBe("Four");
+  q = await update({ shuffle: false });
+  expect(order(q)).toEqual(ALBUM);
+  expect(current(q)).toBe("Four");
+});
+
+test("shuffle button: a track without a genre shuffles the whole library", async () => {
+  await addAlbum("Quartet", "Jazz Album", JAZZ, "Jazz");
+  await playAlbum(0); // untagged
+  await setScope("genre");
+  const q = await update({ shuffle: true });
+  expect(q).toMatchObject({ shuffleScope: "library", origin: { kind: "shuffle", name: "Library" } });
+  expect([...order(q)].sort()).toEqual([...ALBUM, ...JAZZ].sort());
+});
+
+test("a source's own Shuffle keeps to that source", async () => {
+  await addAlbum("Quartet", "Jazz Album", JAZZ, "Jazz");
+  await update({ shuffle: true });
+  const q = await playAlbum(0, true);
+  expect(q).toMatchObject({ origin: { kind: "album" }, shuffle: true, shuffleScope: null });
+  expect([...order(q)].sort()).toEqual([...ALBUM].sort());
+});
+
+test("the shuffle button's draw survives a server restart", async () => {
+  const many = Array.from({ length: 30 }, (_, i) => `Song ${i}`);
+  await addAlbum("Crowd", "Many", many);
+  await playAlbum(0);
+  const before = await update({ shuffle: true });
+  await ctx.app.close();
+  await start(token);
+  let q = await call("GET", DEVICE, QueueState);
+  expect(order(q)).toEqual(order(before));
+  expect(q.origin).toMatchObject({ kind: "shuffle" });
+  // Drawing carries on where it was: still no repeats.
+  const played = new Set([current(q)]);
+  for (let i = 1; i < ALBUM.length + many.length; i++) played.add(current((q = await next(true))));
+  expect(played.size).toBe(ALBUM.length + many.length);
+  q = await update({ shuffle: false });
+  expect(order(q)).toEqual(ALBUM.includes(current(q)!) ? ALBUM : [...ALBUM, current(q)]);
+});

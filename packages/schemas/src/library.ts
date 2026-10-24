@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Artwork, Id, named, Track } from "./models.ts";
+import { ShuffleScope } from "./auth.ts";
 
 /*
  * User collections: playlists and per-device play queues. Both live on the
@@ -122,7 +123,8 @@ export const QueueEntry = named(
 export const QueueOrigin = named(
   "QueueOrigin",
   z.object({
-    kind: z.enum(["tracks", "album", "playlist", "artist"]),
+    /** `shuffle`: tracks drawn at random from the library, or an album, artist or genre (`id`, `name`). */
+    kind: z.enum(["tracks", "album", "playlist", "artist", "shuffle"]),
     id: Id.nullable(),
     /** Display name, e.g. the album or playlist title. */
     name: z.string().nullable(),
@@ -133,7 +135,11 @@ export const QueueOrigin = named(
 export const QueueState = named(
   "QueueState",
   z.object({
-    /** Entries in play order (shuffled order while shuffle is on). */
+    /**
+     * Entries in play order (shuffled order while shuffle is on). Shuffle from the shuffle
+     * button is a rolling window: the tracks played lately, the current one and the next
+     * few drawn from its scope, topped up as it advances.
+     */
     entries: z.array(QueueEntry),
     /** Index of the current entry in `entries`; null when the queue is empty or finished. */
     index: z.int().nonnegative().nullable(),
@@ -144,6 +150,11 @@ export const QueueState = named(
      */
     upNext: z.int().nonnegative().nullable(),
     shuffle: z.boolean(),
+    /**
+     * What the shuffle button is drawing from (`origin` names the album, artist or genre);
+     * null when it's off or a source shuffles itself. `library` also when the track had no genre.
+     */
+    shuffleScope: ShuffleScope.nullable(),
     repeat: RepeatMode,
     /** Playback position in the current track, saved by the client for resuming. */
     positionMs: z.int().nonnegative(),
@@ -159,7 +170,11 @@ export const SetQueue = named(
     source: TrackSource,
     /** Index in the source's order to start from. */
     start: z.int().nonnegative().default(0),
-    /** Turn shuffle on or off as part of starting; keeps the current setting when omitted. */
+    /**
+     * True shuffles just this source (e.g. a playlist's Shuffle button); false plays it in
+     * order. Omitted keeps the current setting: while the shuffle button is on, tracks are
+     * drawn from its scope around the chosen one.
+     */
     shuffle: z.boolean().optional(),
   }),
 );
@@ -186,6 +201,11 @@ export const Jump = named("Jump", z.object({ entryId: Id }));
 export const UpdateQueue = named(
   "UpdateQueue",
   z.object({
+    /**
+     * The shuffle button: on draws tracks from the user's shuffle scope around the current
+     * one (starting one when nothing plays; sent again after the scope changes, it redraws);
+     * off returns to the queue as it was before.
+     */
     shuffle: z.boolean().optional(),
     repeat: RepeatMode.optional(),
     positionMs: z.int().nonnegative().optional(),

@@ -215,6 +215,9 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ["tracks", "artist_credit", "TEXT"],
   ["playlists", "owner_id", "TEXT REFERENCES users(id) ON DELETE CASCADE"],
   ["queues", "user_id", "TEXT REFERENCES users(id) ON DELETE CASCADE"],
+  // The shuffle button's draw (JSON) and the queue it returns to.
+  ["queues", "shuffle_context", "TEXT"],
+  ["queues", "shuffle_base", "TEXT"],
   ["users", "must_change_password", "INTEGER NOT NULL DEFAULT 0"],
   ["users", "full_name", "TEXT"],
   ["tracks", "rg_track_gain", "REAL"],

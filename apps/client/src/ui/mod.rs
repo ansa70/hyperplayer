@@ -392,6 +392,7 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_next(|| playback::next(false));
     ui.on_prev(playback::previous);
     ui.on_toggle_shuffle(playback::toggle_shuffle);
+    ui.on_set_shuffle_scope(playback::set_shuffle_scope);
     ui.on_cycle_repeat(playback::cycle_repeat);
     ui.on_seek(|secs| playback::seek_to(Duration::from_secs_f32(secs.max(0.0))));
     ui.on_cycle_quality_mode(|| set_quality_mode(with_app(|app| app.mode.next())));
