@@ -1,0 +1,26 @@
+// The version resource of HyperPlayer's Windows programs (file properties in Explorer;
+// code signing checks its product name and version). Filled in by the crates' build.rs.
+1 VERSIONINFO
+FILEVERSION @MAJOR@,@MINOR@,@PATCH@,0
+PRODUCTVERSION @MAJOR@,@MINOR@,@PATCH@,0
+FILEOS 0x40004
+FILETYPE 0x1
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "FileDescription", "@DESCRIPTION@"
+      VALUE "FileVersion", "@VERSION@"
+      VALUE "InternalName", "@NAME@"
+      VALUE "OriginalFilename", "@NAME@.exe"
+      VALUE "ProductName", "HyperPlayer"
+      VALUE "ProductVersion", "@VERSION@"
+      VALUE "LegalCopyright", "Enrico Ansaloni"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

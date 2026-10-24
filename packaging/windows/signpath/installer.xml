@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath artifact configuration "installer": the release workflow's second signing
+     request, the installer built from the signed programs. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <pe-file path="hyperplayer-${version}-windows-x64-setup.exe" product-name="HyperPlayer" product-version="${version}">
+    <authenticode-sign />
+  </pe-file>
+</artifact-configuration>

@@ -91,6 +91,27 @@ Choose HTTPS **off** in the installer, and point the proxy's rule for your domai
 `Range` requests: don't set short timeouts or response buffering on the rule. Players then connect to
 `https://<your domain>`.
 
+## Privacy
+
+HyperPlayer sends nothing about you or what you listen to anywhere you haven't chosen: the player only
+talks to your server. The server looks up the artists, albums and tracks in your library at MusicBrainz,
+Wikipedia and a few similar services, for credits, biographies, artwork and lyrics (it can be turned
+off), and each user can turn on scrobbling. The details are in the [privacy policy](PRIVACY.md).
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+[SignPath Foundation](https://signpath.org).
+
+The Windows releases are built from this repository by
+[GitHub Actions](.github/workflows/release.yml), and signed only after a manual approval of each release.
+
+- Committers and reviewers: [ansa70](https://github.com/ansa70)
+- Approvers: [ansa70](https://github.com/ansa70)
+
+This program will not transfer any information to other networked systems unless specifically requested by
+the user or the person installing or operating it, except as described in the [privacy policy](PRIVACY.md).
+
 ## License
 
 HyperPlayer is free software: you can redistribute it and/or modify it under the terms of the
@@ -155,10 +176,15 @@ and `install.sh`.
 `packaging/windows/build.sh` cross-compiles the Windows release from Linux (needs `clang lld llvm nsis`,
 the `x86_64-pc-windows-msvc` Rust target and `cargo install cargo-xwin`; the C runtime is linked in, so
 nothing else is needed on the PC) and builds `release/hyperplayer-<version>-windows-x64-setup.exe` with
-NSIS. The server is bundled with Windows builds of Node.js, sharp and ffmpeg, and run as a service by
+NSIS (`build.sh stage` builds the programs and the uninstaller, `build.sh installer` packs them; releases
+sign in between). The server is bundled with Windows builds of Node.js, sharp and ffmpeg, and run as a service by
 `apps/winservice` (`hyperplayer-service.exe`), which also connects the network shares with the saved
 credentials; settings and data are in `%ProgramData%\HyperPlayer`, readable only by administrators and the
 service.
+
+GitHub Actions checks every push (`.github/workflows/ci.yml`) and builds the releases
+(`.github/workflows/release.yml`): pushing a tag `v<version>` builds both bundles, signs the Windows files
+through SignPath (see `packaging/windows/signpath`) and creates a draft release.
 
 Versions: the player's `Cargo.toml` and the server's `SERVER_VERSION` must match (the release scripts check).
 Pre-releases are written `0.1.0-beta.1`; the `.deb` spells it `0.1.0~beta.1` so it sorts before `0.1.0`.

@@ -3,6 +3,9 @@
 ; settings in %ProgramData%\HyperPlayer\server.env and its data next to them.
 ;
 ; makensis -DVERSION=x.y.z[-beta.n] -DFILEVERSION=x.y.z.0 -DSTAGE=dir -DOUTFILE=setup.exe
+;
+; The uninstaller is built first, on its own (-DUNINSTALLER=path: only writes it there),
+; so it can be signed before the installer takes it in as a file.
 Unicode true
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
@@ -16,6 +19,13 @@ Unicode true
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}"
 !define FIREWALL_RULE "HyperPlayer server"
 !define SERVICE_EXE "$INSTDIR\server\hyperplayer-service.exe"
+!define PRIVACY_URL "https://github.com/ansa70/hyperplayer/blob/main/PRIVACY.md"
+!ifdef UNINSTALLER
+  !uninstfinalize 'cp "%1" "${UNINSTALLER}"'
+!else
+  ; The installer has the uninstaller's code but takes it in built: no WriteUninstaller.
+  !pragma warning disable 6020
+!endif
 
 Name "${APP} ${VERSION}"
 OutFile "${OUTFILE}"
@@ -44,6 +54,7 @@ Var TlsCert
 Var TlsKey
 Var LastfmKey
 Var LastfmSecret
+Var Enrich
 Var FinishText
 ; Controls of the page being shown.
 Var hLibrary
@@ -58,6 +69,7 @@ Var hCert
 Var hKey
 Var hLastfmKey
 Var hLastfmSecret
+Var hEnrich
 
 !define MUI_ICON "../../apps/client/icons/hyperplayer.ico"
 !define MUI_UNICON "../../apps/client/icons/hyperplayer.ico"
@@ -68,6 +80,7 @@ Var hLastfmSecret
 !insertmacro MUI_PAGE_COMPONENTS
 Page custom MusicPage MusicPageLeave
 Page custom ServerPage ServerPageLeave
+Page custom PrivacyPage PrivacyPageLeave
 Page custom LastfmPage LastfmPageLeave
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -89,7 +102,9 @@ Section "Player" SecPlayer
   ; A running player keeps its executable locked.
   nsExec::Exec 'taskkill /IM hyperplayer.exe /F'
   SetOutPath "$INSTDIR"
-  File "${STAGE}/hyperplayer.exe"
+  !ifndef UNINSTALLER
+    File "${STAGE}/hyperplayer.exe"
+  !endif
   CreateShortcut "$SMPROGRAMS\${APP}.lnk" "$INSTDIR\hyperplayer.exe"
 SectionEnd
 
@@ -110,7 +125,9 @@ Section /o "Server" SecServer
   SetOutPath "$INSTDIR\server"
   ; The bundle's chunk names change between versions: start from a clean folder.
   RMDir /r "$INSTDIR\server\dist"
-  File /r "${STAGE}/server/*"
+  !ifndef UNINSTALLER
+    File /r "${STAGE}/server/*"
+  !endif
 
   CreateDirectory "$ServerHome\data"
   CreateDirectory "$ServerHome\logs"
@@ -143,7 +160,11 @@ SectionEnd
 Section "-Uninstaller"
   SetShellVarContext all
   SetOutPath "$INSTDIR"
-  WriteUninstaller "$INSTDIR\uninstall.exe"
+  !ifdef UNINSTALLER
+    WriteUninstaller "$INSTDIR\uninstall.exe"
+  !else
+    File "${STAGE}/uninstall.exe"
+  !endif
   WriteRegStr HKLM "Software\${APP}" "InstallDir" "$INSTDIR"
   WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayName" "${APP}"
   WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayVersion" "${VERSION}"
@@ -171,6 +192,7 @@ Function .onInit
   StrCpy $ServerHome "$APPDATA\${APP}"
   StrCpy $Port "4533"
   StrCpy $Tls "self"
+  StrCpy $Enrich 1
   ReadEnvStr $TlsNames COMPUTERNAME
   ; The first Windows beta installed the player for one user: replace it.
   ReadRegStr $0 HKCU "${UNINSTALL_KEY}" "UninstallString"
@@ -318,6 +340,42 @@ Function ServerPageLeave
   ${EndIf}
 FunctionEnd
 
+; Shown whenever the server is installed, also when it keeps its settings.
+Function PrivacyPage
+  ${IfNot} ${SectionIsSelected} ${SecServer}
+    Abort
+  ${EndIf}
+  Call AskKeepSettings
+  !insertmacro MUI_HEADER_TEXT "Privacy" "What the server looks up online."
+  nsDialogs::Create 1018
+  Pop $0
+  nsDialogs::CreateControl EDIT ${DEFAULT_STYLES}|${WS_VSCROLL}|${ES_MULTILINE}|${ES_AUTOVSCROLL}|${ES_READONLY} ${WS_EX_CLIENTEDGE} 0 0 100% 96u "HyperPlayer sends nothing about you or what you listen to anywhere you haven't chosen. The player only talks to your server.$\r$\n$\r$\nTo show credits, artist biographies and photos, cover art and lyrics, the server looks up the artists, albums and tracks in your library at MusicBrainz, the Cover Art Archive, Wikidata, Wikipedia, Wikimedia Commons and LRCLIB (and fanart.tv, if you give it a key). These lookups send artist names, album and track titles, track lengths and MusicBrainz ids, and the server's internet address, as any web request does. They never include accounts or listening history.$\r$\n$\r$\nScrobbling sends a user's listens to ListenBrainz or Last.fm only after that user turns it on in Settings.$\r$\n$\r$\nThe full privacy policy: ${PRIVACY_URL}"
+  Pop $0
+  ${If} $KeepSettings == 1
+    ${NSD_CreateLabel} 0 102u 100% 20u "This server keeps its settings: to turn the lookups off or on, set HP_ENRICH to false or true in $ServerHome\server.env."
+    Pop $0
+    StrCpy $hEnrich ""
+  ${Else}
+    ${NSD_CreateCheckbox} 0 104u 100% 12u "Look up artist info, artwork and lyrics online"
+    Pop $hEnrich
+    ${If} $Enrich == 1
+      ${NSD_Check} $hEnrich
+    ${EndIf}
+  ${EndIf}
+  nsDialogs::Show
+FunctionEnd
+
+Function PrivacyPageLeave
+  ${If} $hEnrich != ""
+    ${NSD_GetState} $hEnrich $0
+    ${If} $0 == ${BST_CHECKED}
+      StrCpy $Enrich 1
+    ${Else}
+      StrCpy $Enrich 0
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
+
 Function LastfmPage
   !insertmacro ServerPageOnly
   !insertmacro MUI_HEADER_TEXT "Last.fm" "Optional: lets users scrobble to Last.fm."
@@ -375,6 +433,11 @@ Function WriteSettings
   ${If} $SmbUser != ""
     !insertmacro Setting HP_SMB_USER $SmbUser
     !insertmacro Setting HP_SMB_PASSWORD $SmbPassword
+  ${EndIf}
+  ${If} $Enrich == 1
+    !insertmacro Setting HP_ENRICH "true"
+  ${Else}
+    !insertmacro Setting HP_ENRICH "false"
   ${EndIf}
   ${If} $LastfmKey != ""
     !insertmacro Setting HP_LASTFM_API_KEY $LastfmKey

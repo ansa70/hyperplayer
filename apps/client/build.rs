@@ -40,13 +40,8 @@ fn main() {
     let out = Path::new(&env::var("OUT_DIR").unwrap()).join("api_types.rs");
     fs::write(out, code).unwrap();
 
-    // The executable's icon on Windows.
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
-        println!("cargo:rerun-if-changed=hyperplayer.rc");
-        println!("cargo:rerun-if-changed=icons/hyperplayer.ico");
-        embed_resource::compile("hyperplayer.rc", embed_resource::NONE)
-            .manifest_optional()
-            .expect("compiling Windows resources");
+        windows_resources();
     }
 
     let config = slint_build::CompilerConfiguration::new().with_style("fluent-dark".into());
@@ -79,4 +74,28 @@ fn optional_defaults(schema: &mut serde_json::Value) {
         serde_json::Value::Array(items) => items.iter_mut().for_each(optional_defaults),
         _ => {}
     }
+}
+
+/// The executable's icon (Explorer, taskbar, installer shortcuts) and version resource,
+/// from packaging/windows/version.rc.
+fn windows_resources() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let icon = dir.join("icons/hyperplayer.ico");
+    let template = dir.join("../../packaging/windows/version.rc");
+    println!("cargo:rerun-if-changed={}", icon.display());
+    println!("cargo:rerun-if-changed={}", template.display());
+    let version = fs::read_to_string(&template)
+        .expect("reading version.rc")
+        .replace("@VERSION@", env!("CARGO_PKG_VERSION"))
+        .replace("@MAJOR@", env!("CARGO_PKG_VERSION_MAJOR"))
+        .replace("@MINOR@", env!("CARGO_PKG_VERSION_MINOR"))
+        .replace("@PATCH@", env!("CARGO_PKG_VERSION_PATCH"))
+        .replace("@DESCRIPTION@", "HyperPlayer")
+        .replace("@NAME@", "hyperplayer");
+    let rc = Path::new(&env::var("OUT_DIR").unwrap()).join("hyperplayer.rc");
+    let icon = icon.display().to_string().replace('\\', "/");
+    fs::write(&rc, format!("1 ICON \"{icon}\"\n{version}")).unwrap();
+    embed_resource::compile(&rc, embed_resource::NONE)
+        .manifest_optional()
+        .expect("compiling Windows resources");
 }

@@ -2407,6 +2407,7 @@ dependencies = [
 name = "hyperplayer-service"
 version = "0.1.0-beta.3"
 dependencies = [
+ "embed-resource",
  "windows-service",
  "windows-sys 0.61.2",
 ]
