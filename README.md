@@ -3,6 +3,8 @@
 A self-hosted music player: a server that keeps your music library and streams it, and native players
 for Linux and Windows that play it, at home or anywhere.
 
+![The player switching to John Coltrane's Impressions: its colours follow the new cover](docs/demo.gif)
+
 - **Your library, kept current:** music folders on the server's disks or on network shares (SMB), rescanned
   as files change. Tags, artwork and MusicBrainz ids are read from the files; credits and artist profiles
   come from MusicBrainz and Wikipedia.
