@@ -98,20 +98,6 @@ talks to your server. The server looks up the artists, albums and tracks in your
 Wikipedia and a few similar services, for credits, biographies, artwork and lyrics (it can be turned
 off), and each user can turn on scrobbling. The details are in the [privacy policy](PRIVACY.md).
 
-## Code signing policy
-
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
-[SignPath Foundation](https://signpath.org).
-
-The Windows releases are built from this repository by
-[GitHub Actions](.github/workflows/release.yml), and signed only after a manual approval of each release.
-
-- Committers and reviewers: [ansa70](https://github.com/ansa70)
-- Approvers: [ansa70](https://github.com/ansa70)
-
-This program will not transfer any information to other networked systems unless specifically requested by
-the user or the person installing or operating it, except as described in the [privacy policy](PRIVACY.md).
-
 ## License
 
 HyperPlayer is free software: you can redistribute it and/or modify it under the terms of the
@@ -183,8 +169,9 @@ credentials; settings and data are in `%ProgramData%\HyperPlayer`, readable only
 service.
 
 GitHub Actions checks every push (`.github/workflows/ci.yml`) and builds the releases
-(`.github/workflows/release.yml`): pushing a tag `v<version>` builds both bundles, signs the Windows files
-through SignPath (see `packaging/windows/signpath`) and creates a draft release.
+(`.github/workflows/release.yml`): pushing a tag `v<version>` builds both bundles and creates a draft release.
+It can sign the Windows files through SignPath (see `packaging/windows/signpath`) once the repository
+variable `SIGNPATH_ORGANIZATION_ID` and secret `SIGNPATH_API_TOKEN` are set; the releases aren't signed yet.
 
 Versions: the player's `Cargo.toml` and the server's `SERVER_VERSION` must match (the release scripts check).
 Pre-releases are written `0.1.0-beta.1`; the `.deb` spells it `0.1.0~beta.1` so it sorts before `0.1.0`.
