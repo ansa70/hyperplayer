@@ -27,16 +27,19 @@ HyperPlayer is in beta (0.1.1).
 | --- | --- |
 | Linux (x86-64) | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-x86_64.flatpak) |
 | Windows 10 and 11 (x64) | [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-windows-x64-setup.exe) |
-| macOS | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-x64.dmg) |
+| macOS 11 or newer (player only, not tested yet) | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-x64.dmg) |
 
 Checksums and earlier versions are on the [releases page](https://github.com/ansa70/hyperplayer/releases).
 
 ## Installing
 
-Each release has two downloads:
+Each release has these downloads:
 
 - `hyperplayer-<version>-linux-x64.tar.gz`: the server and the player for Linux (x86-64).
+- `hyperplayer-<version>-x86_64.flatpak`: the player alone, as a Flatpak for any Linux distribution.
 - `hyperplayer-<version>-windows-x64-setup.exe`: the player and the server for Windows 10 and 11 (x64).
+- `hyperplayer-<version>-macos-arm64.dmg` and `-macos-x64.dmg`: the player for macOS 11 or newer, on Apple
+  silicon and Intel Macs.
 
 Install the server once, on the machine that has (or reaches) the music, and the player on every computer
 you listen on. Server and player can be on the same machine.
@@ -84,6 +87,17 @@ To upgrade, run the new installer: it offers to keep the server's settings. To r
 
 The server's settings are in `C:\ProgramData\HyperPlayer\server.env` (edit, then restart the HyperPlayer
 service), its data and logs next to them.
+
+### macOS
+
+> [!WARNING]
+> The macOS player hasn't been tested yet. Reports of what works and what doesn't are welcome.
+
+Only the player runs on macOS so far: connect it to a server on Linux or Windows. Open the `.dmg` for your
+Mac (`arm64` for Apple silicon, `x64` for Intel) and drag **HyperPlayer** to **Applications**.
+
+The app isn't notarized by Apple, so the first time macOS refuses to open it. Open **System Settings →
+Privacy & Security**, scroll down to the message about HyperPlayer and click **Open Anyway**.
 
 ### First sign-in
 
