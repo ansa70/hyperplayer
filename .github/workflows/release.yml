@@ -2,7 +2,7 @@
 # player's .deb and Flatpak), the Windows installer and the macOS disk images (Apple
 # Silicon and Intel, each built on its own kind of Mac).
 #
-# Pushing a tag v<version> (the version in apps/client/Cargo.toml, e.g. v0.1.0-beta.3)
+# Pushing a tag v<version> (the version in apps/client/Cargo.toml, e.g. v0.1.1)
 # creates a draft GitHub release with them, to review and publish by hand. Run by hand
 # (Actions → Release → Run workflow), it only builds them, as the run's artifacts.
 #
@@ -240,9 +240,9 @@ jobs:
         run: |
           cd dist
           sha256sum -- * >SHA256SUMS
-          # A version with a suffix (-beta.2, -rc.1) is a pre-release.
+          # 0.x (still in beta) or a version with a suffix (-rc.1) is a pre-release.
           FLAGS=()
-          [[ "$VERSION" == *-* ]] && FLAGS+=(--prerelease)
+          [[ "$VERSION" == 0.* || "$VERSION" == *-* ]] && FLAGS+=(--prerelease)
           # SignPath Foundation asks for its code signing policy on the download page.
           NOTES=
           [[ "$SIGNED" == true ]] &&
