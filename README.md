@@ -19,7 +19,7 @@ for Linux and Windows that play it, at home or anywhere.
 - **For the household:** an account for everyone, with their own playlists, history and preferences. HTTPS
   built in, or behind your reverse proxy.
 
-HyperPlayer is in beta (0.1.1-beta.3).
+HyperPlayer is in beta (0.1.1).
 
 ## Installing
 
@@ -175,8 +175,10 @@ GitHub Actions checks every push (`.github/workflows/ci.yml`) and builds the rel
 It can sign the Windows files through SignPath (see `packaging/windows/signpath`) once the repository
 variable `SIGNPATH_ORGANIZATION_ID` and secret `SIGNPATH_API_TOKEN` are set; the releases aren't signed yet.
 
-Versions: the player's `Cargo.toml` and the server's `SERVER_VERSION` must match (the release scripts check).
-Pre-releases are written `0.1.0-beta.1`; the `.deb` spells it `0.1.0~beta.1` so it sorts before `0.1.0`.
+Versions follow [Semantic Versioning](https://semver.org): bug fixes raise the third number (0.1.1), new
+features the second (0.2.0), and 0.x means the project is still in beta. The player's `Cargo.toml` and the
+server's `SERVER_VERSION` must match (the release scripts check). Versions up to 0.1.0-beta.3 had a suffix;
+the `.deb` spells one with `~` (`0.1.0~beta.1`) so it sorts before `0.1.0`.
 
 ## HTTPS
 

@@ -1,6 +1,6 @@
 [package]
 name = "hyperplayer-service"
-version = "0.1.1-beta.3"
+version = "0.1.1"
 edition = "2024"
 description = "Runs the HyperPlayer server as a Windows service"
 license = "GPL-3.0-or-later"

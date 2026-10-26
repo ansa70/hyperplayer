@@ -34,7 +34,7 @@ import {
   TranscodeError,
 } from "./stream/stream.ts";
 
-export const SERVER_VERSION = "0.1.1-beta.3";
+export const SERVER_VERSION = "0.1.1";
 
 export async function buildApp(config: Config, opts: { logger?: boolean; fetch?: Fetch } = {}) {
   mkdirSync(config.dataDir, { recursive: true });
