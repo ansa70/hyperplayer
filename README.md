@@ -21,6 +21,16 @@ for Linux and Windows that play it, at home or anywhere.
 
 HyperPlayer is in beta (0.1.1).
 
+## Download
+
+| Platform | Download |
+| --- | --- |
+| Linux (x86-64) | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-x86_64.flatpak) |
+| Windows 10 and 11 (x64) | [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-windows-x64-setup.exe) |
+| macOS | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-x64.dmg) |
+
+Checksums and earlier versions are on the [releases page](https://github.com/ansa70/hyperplayer/releases).
+
 ## Installing
 
 Each release has two downloads:
