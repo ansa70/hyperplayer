@@ -5,7 +5,8 @@
 //! ahead of the reader, and data more than `KEEP_BEHIND` behind it is freed.
 //! For seekable resources (originals served with `Accept-Ranges`), reading a
 //! region that isn't held, such as after a seek or into freed data, restarts
-//! the download there with a Range request.
+//! the download there with a Range request, as does a connection that breaks
+//! (a proxy may close one left idle while the download is paused).
 
 use std::{
     collections::BTreeMap,
@@ -26,6 +27,10 @@ const KEEP_BEHIND: u64 = 4 << 20;
 /// Storage granularity: memory is allocated and freed in blocks of this size.
 const BLOCK: u64 = 256 << 10;
 const READ_SIZE: usize = 64 * 1024;
+/// Times in a row a broken request of a seekable resource is resumed before giving up.
+const RETRIES: u32 = 3;
+/// Wait before resuming, multiplied by the number of tries so far.
+const RETRY_DELAY: Duration = Duration::from_millis(500);
 
 /// Sorted, non-overlapping half-open byte ranges that are held in memory.
 #[derive(Default, Debug)]
@@ -340,81 +345,136 @@ impl Seek for RemoteStream {
     }
 }
 
+/// How a request stopped short of the end of the resource.
+enum Stopped {
+    /// A reader needs bytes elsewhere.
+    Wanted,
+    Cancelled,
+    /// The request failed or the connection broke (e.g. a proxy closing it while paused).
+    Broken(String),
+    /// Retrying wouldn't help.
+    Failed(String),
+}
+
 fn download(shared: &Shared, http: &reqwest::blocking::Client, url: &str, seekable: bool) {
     let mut offset = 0u64;
+    // Consecutive broken requests; a seekable resource resumes where the last one stopped.
+    let mut failures = 0;
     loop {
+        let from = offset;
+        match request(shared, http, url, seekable, &mut offset) {
+            Ok(()) => {
+                failures = 0;
+                shared.lock().complete = true;
+                shared.cond.notify_all();
+            }
+            Err(Stopped::Wanted) => failures = 0,
+            Err(Stopped::Cancelled) => return,
+            Err(Stopped::Broken(why)) if seekable => {
+                failures = if offset > from { 1 } else { failures + 1 };
+                if failures > RETRIES {
+                    return fail(shared, why);
+                }
+                eprintln!("stream: {why}; resuming at byte {offset}");
+                let mut s = shared.lock();
+                let until = Instant::now() + RETRY_DELAY * failures;
+                while Instant::now() < until && s.wanted.is_none() && !s.cancelled {
+                    s = shared.wait(s, Duration::from_millis(50));
+                }
+            }
+            Err(Stopped::Broken(why) | Stopped::Failed(why)) => return fail(shared, why),
+        }
+    }
+}
+
+/// One request from `offset`, which moves along as bytes arrive. After the end has been
+/// reached, it first waits for a reader to need a region no longer held.
+fn request(
+    shared: &Shared,
+    http: &reqwest::blocking::Client,
+    url: &str,
+    seekable: bool,
+    offset: &mut u64,
+) -> Result<(), Stopped> {
+    {
+        let mut s = shared.lock();
+        // After reaching the end, idle until a reader needs a region we no longer hold.
+        while s.complete && s.wanted.is_none() && !s.cancelled {
+            s = shared.wait(s, Duration::from_millis(200));
+        }
+        if s.cancelled {
+            return Err(Stopped::Cancelled);
+        }
+        if let Some(w) = s.wanted.take() {
+            *offset = w;
+        }
+        s.head = *offset;
+    }
+    let mut req = http.get(url);
+    let ranged = seekable && *offset > 0;
+    if ranged {
+        req = req.header(reqwest::header::RANGE, format!("bytes={offset}-"));
+    }
+    let mut res = req
+        .send()
+        .and_then(|r| r.error_for_status())
+        .map_err(|e| Stopped::Broken(format!("GET {url}: {e}")))?;
+    if ranged && res.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+        // The body starts at byte 0, not where we asked (a proxy dropping the Range header?).
+        return Err(Stopped::Failed(format!(
+            "GET {url}: the server ignored a Range request"
+        )));
+    }
+    if seekable {
+        let total = total_length(&res, *offset);
+        let mut s = shared.lock();
+        s.len = s.len.or(total);
+    }
+
+    let mut buf = vec![0u8; READ_SIZE];
+    loop {
+        // Pace the download: pause while far enough ahead of the reader.
         {
             let mut s = shared.lock();
-            // After reaching the end, idle until a reader needs a region we no longer hold.
-            while s.complete && s.wanted.is_none() && !s.cancelled {
+            while *offset > s.reader_pos + READ_AHEAD && s.wanted.is_none() && !s.cancelled {
                 s = shared.wait(s, Duration::from_millis(200));
             }
             if s.cancelled {
-                return;
+                return Err(Stopped::Cancelled);
             }
-            if let Some(w) = s.wanted.take() {
-                offset = w;
-            }
-            s.head = offset;
         }
-        let mut req = http.get(url);
-        if seekable && offset > 0 {
-            req = req.header(reqwest::header::RANGE, format!("bytes={offset}-"));
+        let started = Instant::now();
+        let n = res
+            .read(&mut buf)
+            .map_err(|e| Stopped::Broken(format!("reading {url}: {e}")))?;
+        let mut s = shared.lock();
+        if s.cancelled {
+            return Err(Stopped::Cancelled);
         }
-        let mut res = match req.send().and_then(|r| r.error_for_status()) {
-            Ok(r) => r,
-            Err(e) => return fail(shared, format!("GET {url}: {e}")),
-        };
-        if seekable {
-            let total = total_length(&res, offset);
-            let mut s = shared.lock();
-            s.len = s.len.or(total);
-        }
-
-        let mut buf = vec![0u8; READ_SIZE];
-        let restart = loop {
-            // Pace the download: pause while far enough ahead of the reader.
-            {
-                let mut s = shared.lock();
-                while offset > s.reader_pos + READ_AHEAD && s.wanted.is_none() && !s.cancelled {
-                    s = shared.wait(s, Duration::from_millis(200));
-                }
-                if s.cancelled {
-                    return;
-                }
-            }
-            let started = Instant::now();
-            let n = match res.read(&mut buf) {
-                Ok(n) => n,
-                Err(e) => return fail(shared, format!("reading {url}: {e}")),
+        if n == 0 {
+            // Short of a known length, the connection broke; a live transcode ends here.
+            return match s.len {
+                Some(len) if *offset < len => Err(Stopped::Broken(format!(
+                    "reading {url}: connection closed at byte {offset} of {len}"
+                ))),
+                _ => Ok(()),
             };
-            let mut s = shared.lock();
-            if s.cancelled {
-                return;
+        }
+        let end = *offset + n as u64;
+        s.blocks.write(*offset, &buf[..n]);
+        s.ranges.add(*offset, end);
+        s.received += n as u64;
+        s.receiving_time += started.elapsed();
+        *offset = end;
+        s.head = end;
+        shared.cond.notify_all();
+        // A reader needs bytes elsewhere: abandon this request unless we'll get there shortly.
+        if let Some(w) = s.wanted {
+            if w >= end && w <= end + NEAR_HEAD {
+                s.wanted = None;
+            } else {
+                return Err(Stopped::Wanted);
             }
-            if n == 0 {
-                break false;
-            }
-            let end = offset + n as u64;
-            s.blocks.write(offset, &buf[..n]);
-            s.ranges.add(offset, end);
-            s.received += n as u64;
-            s.receiving_time += started.elapsed();
-            offset = end;
-            s.head = offset;
-            shared.cond.notify_all();
-            // A reader needs bytes elsewhere: abandon this request unless we'll get there shortly.
-            if let Some(w) = s.wanted {
-                if w >= offset && w <= offset + NEAR_HEAD {
-                    s.wanted = None;
-                } else {
-                    break true;
-                }
-            }
-        };
-        if !restart {
-            shared.lock().complete = true;
-            shared.cond.notify_all();
         }
     }
 }
@@ -583,6 +643,49 @@ mod tests {
         stream.read_exact(&mut chunk).unwrap();
         assert_eq!(&chunk[..], &data[..1 << 20]);
         assert!(requests.load(Ordering::SeqCst) > before);
+    }
+
+    #[test]
+    fn a_broken_connection_resumes_where_it_stopped() {
+        let data = body(1 << 20);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/file", listener.local_addr().unwrap());
+        let served = data.clone();
+        thread::spawn(move || {
+            for (i, conn) in listener.incoming().flatten().enumerate() {
+                let mut reader = BufReader::new(conn.try_clone().unwrap());
+                let mut start = 0usize;
+                loop {
+                    let mut line = String::new();
+                    if reader.read_line(&mut line).unwrap_or(0) == 0 || line == "\r\n" {
+                        break;
+                    }
+                    if let Some(v) = line.to_ascii_lowercase().strip_prefix("range: bytes=") {
+                        start = v.trim().trim_end_matches('-').parse().unwrap();
+                    }
+                }
+                let mut conn = conn;
+                let len = served.len();
+                let _ = match (i, start) {
+                    // The first response promises the whole file but stops a third of the way.
+                    (0, _) => write!(conn, "HTTP/1.1 200 OK\r\nContent-Length: {len}\r\n\r\n")
+                        .and_then(|_| conn.write_all(&served[..len / 3])),
+                    // The next one fails outright.
+                    (1, _) => conn.write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n"),
+                    (_, s) => write!(
+                        conn,
+                        "HTTP/1.1 206 Partial Content\r\nContent-Length: {}\r\nContent-Range: bytes {s}-{}/{len}\r\n\r\n",
+                        len - s,
+                        len - 1
+                    )
+                    .and_then(|_| conn.write_all(&served[s..])),
+                };
+            }
+        });
+        let (mut stream, _) = RemoteStream::open(reqwest::blocking::Client::new(), url, true);
+        let mut out = Vec::new();
+        stream.read_to_end(&mut out).unwrap();
+        assert_eq!(out, data);
     }
 
     #[test]

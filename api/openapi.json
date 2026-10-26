@@ -4741,6 +4741,13 @@
               },
               "id": {
                 "$ref": "#/components/schemas/Id"
+              },
+              "trackIds": {
+                "maxItems": 10000,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Id"
+                }
               }
             },
             "required": [

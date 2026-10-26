@@ -22,19 +22,20 @@ export function resolveSource(
     return String(row.name);
   };
 
+  /** `trackIds` in their order, without any the library doesn't have. */
+  const known = (trackIds: string[]) => {
+    const found = new Set(
+      ids(`SELECT id FROM tracks WHERE id IN (${trackIds.map(() => "?").join(",")})`, ...trackIds),
+    );
+    return trackIds.filter((id) => found.has(id));
+  };
+
   switch (source.kind) {
-    case "tracks": {
-      const known = new Set(
-        ids(
-          `SELECT id FROM tracks WHERE id IN (${source.trackIds.map(() => "?").join(",")})`,
-          ...source.trackIds,
-        ),
-      );
+    case "tracks":
       return {
-        trackIds: source.trackIds.filter((id) => known.has(id)),
+        trackIds: known(source.trackIds),
         origin: { kind: "tracks", id: null, name: null },
       };
-    }
     case "album":
       return {
         trackIds: ids(
@@ -73,8 +74,11 @@ export function resolveSource(
         id: source.id,
         name: name("SELECT name FROM playlists WHERE id = ?", source.id, "Playlist"),
       };
-      // A smart playlist plays what matches its rules now.
+      // A smart playlist plays what matches its rules now, or the tracks the client showed.
       if (playlist.rules) {
+        if (source.trackIds?.length) {
+          return { trackIds: known(source.trackIds), origin };
+        }
         return {
           trackIds: smartTracks(db, userId, JSON.parse(playlist.rules as string) as SmartRules).trackIds,
           origin,

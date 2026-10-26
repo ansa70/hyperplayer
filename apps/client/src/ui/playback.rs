@@ -488,15 +488,33 @@ pub fn seek_to(target: Duration) {
     let action = with_app(|app| {
         let s = app.session.as_ref()?;
         Some(if s.quality.seekable() {
-            Err(s.pipeline.clone())
+            Err((s.pipeline.clone(), app.generation))
         } else {
             Ok((s.track.clone(), s.quality))
         })
     });
     match action {
-        Some(Err(pipeline)) => {
+        Some(Err((pipeline, generation))) => {
             // May wait for the network: never on the UI thread.
-            thread::spawn(move || pipeline.seek(target, Duration::from_secs(15)));
+            thread::spawn(move || {
+                if pipeline.seek(target, Duration::from_secs(15)) {
+                    return;
+                }
+                // The stream can't get there (its download failed): open a fresh one there.
+                let _ = slint::invoke_from_event_loop(move || {
+                    let reopen = with_app(|app| {
+                        let s = app
+                            .session
+                            .as_ref()
+                            .filter(|_| app.generation == generation)?;
+                        eprintln!("seek: failed in the stream; reopening {}", s.track.title);
+                        Some((s.track.clone(), s.quality))
+                    });
+                    if let Some((track, quality)) = reopen {
+                        start_stream(track, quality, target, false);
+                    }
+                });
+            });
         }
         Some(Ok((track, quality))) => start_stream(track, quality, target, false),
         None => {}

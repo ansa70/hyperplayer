@@ -160,7 +160,15 @@ export const TrackSource = named(
   z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("tracks"), trackIds: z.array(Id).min(1).max(10_000) }),
     z.object({ kind: z.literal("album"), id: Id }),
-    z.object({ kind: z.literal("playlist"), id: Id }),
+    z.object({
+      kind: z.literal("playlist"),
+      id: Id,
+      /**
+       * A smart playlist's tracks as the client shows them: its rules may pick differently
+       * each time (random order), so this plays what was on screen. Ignored for other playlists.
+       */
+      trackIds: z.array(Id).max(10_000).optional(),
+    }),
     z.object({ kind: z.literal("artist"), id: Id }),
     /** Every track in the genre (matched regardless of case). */
     z.object({ kind: z.literal("genre"), name: z.string().trim().min(1) }),

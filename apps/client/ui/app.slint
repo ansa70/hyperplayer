@@ -143,6 +143,8 @@ global Icons {
     out property <string> albums: "M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0 M6 12c0-1.7.7-3.2 1.8-4.2 M10 12a2 2 0 1 0 4 0a2 2 0 1 0-4 0 M18 12c0 1.7-.7 3.2-1.8 4.2";
     // Lucide "history".
     out property <string> history: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5 M12 7v5l4 2";
+    // Lucide "rotate-ccw".
+    out property <string> replay: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5";
     // Lucide "mic-vocal".
     out property <string> lyrics: "M11 7.601l-5.994 8.19a1 1 0 0 0 .1 1.298l.817.818a1 1 0 0 0 1.314.087L15.09 12 M16.5 21.174C15.5 20.5 14.372 20 13 20c-2.058 0-3.928 2.356-6 2-2.072-.356-2.775-3.369-1.5-4.5 M11 7a5 5 0 1 0 10 0a5 5 0 1 0-10 0";
     // Lucide "user".
@@ -2024,6 +2026,7 @@ component TransportBar inherits Rectangle {
                     caption-width: self.x - 10px;
                     caption-clicked => { shuffle-menu.show(); }
                 }
+                IconButton { commands: Icons.replay; clicked => { root.seek(0); } }
                 IconButton { commands: Icons.previous; filled: true; clicked => { root.prev(); } }
                 IconButton { commands: root.playing ? Icons.pause : Icons.play; filled: true; primary: true; size: 40px; clicked => { root.toggle(); } }
                 IconButton { commands: Icons.next; filled: true; clicked => { root.next(); } }
@@ -2383,6 +2386,7 @@ component ShortcutHelp inherits Rectangle {
                 { key: "Space", what: "Play / pause" },
                 { key: "← / →", what: "Seek back / forward 10 s" },
                 { key: "Ctrl+← / Ctrl+→", what: "Previous / next track" },
+                { key: "Home", what: "Replay the track from the start" },
                 { key: "↑ / ↓", what: "Volume up / down" },
                 { key: "M", what: "Mute" },
                 { key: "S / R", what: "Shuffle / repeat" },
@@ -3280,6 +3284,7 @@ export component AppWindow inherits Window {
             if event.text == " " { root.toggle(); return accept; }
             if event.text == Key.LeftArrow { root.shortcut("seek-back"); return accept; }
             if event.text == Key.RightArrow { root.shortcut("seek-forward"); return accept; }
+            if event.text == Key.Home { root.seek(0); return accept; }
             if event.text == Key.UpArrow {
                 root.volume = min(1.0, root.volume + 0.05);
                 root.volume-changed(root.volume);

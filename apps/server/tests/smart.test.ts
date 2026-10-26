@@ -200,4 +200,17 @@ test("a smart playlist follows the library, and plays or shuffles what matches",
   q = QueueState.parse(res.json());
   expect(q).toMatchObject({ shuffleScope: "playlist", origin: { name: "Random four" } });
   expect(new Set(q.entries.map((e) => e.track.id)).size).toBe(4);
+
+  // Played as shown: asked again, random order would pick another order (or other tracks).
+  const shown = Playlist.parse((await inject(`/api/playlists/${random.id}`)).json());
+  const ids = shown.entries.map((e) => e.track!.id).reverse();
+  const played = await inject({
+    method: "PUT",
+    url: "/api/queue",
+    payload: { source: { kind: "playlist", id: random.id, trackIds: ids }, start: 1, shuffle: false },
+  });
+  q = QueueState.parse(played.json());
+  expect(q.entries.map((e) => e.track.id)).toEqual(ids);
+  expect(q.entries[q.index!]!.track.id).toBe(ids[1]);
+  expect(q.origin).toMatchObject({ kind: "playlist", name: "Random four" });
 });

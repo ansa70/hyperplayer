@@ -324,7 +324,7 @@ pub fn new_playlist(kind: SharedString) {
 }
 
 pub fn play_playlist(index: i32) {
-    let Some((id, start)) = with_app(|app| {
+    let Some((source, start)) = with_app(|app| {
         let p = app.playlist.as_ref()?;
         // The server skips missing entries, so count only playable ones before the clicked row.
         let start = p
@@ -333,18 +333,35 @@ pub fn play_playlist(index: i32) {
             .take(index.max(0) as usize)
             .filter(|e| e.track.is_some())
             .count();
-        Some((p.id.clone(), start))
+        Some((shown_playlist(p), start))
     }) else {
         return;
     };
-    play_from(TrackSource::Playlist { id }, start, Some(false));
+    play_from(source, start, Some(false));
+}
+
+/// The playlist as shown: a smart one's rules may pick differently on the server (random
+/// order), so it gets the tracks on screen.
+fn shown_playlist(p: &types::Playlist) -> TrackSource {
+    let track_ids = match p.rules {
+        Some(_) => p
+            .entries
+            .iter()
+            .filter_map(|e| e.track.as_ref().map(|t| t.id.clone()))
+            .collect(),
+        None => vec![],
+    };
+    TrackSource::Playlist {
+        id: p.id.clone(),
+        track_ids,
+    }
 }
 
 /// The playlist's own Shuffle: the shuffle button's playlist scope, for this playlist.
 pub fn shuffle_playlist() {
-    if let Some(id) = with_app(|app| app.playlist.as_ref().map(|p| p.id.clone())) {
+    if let Some(source) = with_app(|app| app.playlist.as_ref().map(shown_playlist)) {
         queue_op(Then::Play, move |api| {
-            api.shuffle_queue(TrackSource::Playlist { id }, types::ShuffleScope::Playlist)
+            api.shuffle_queue(source, types::ShuffleScope::Playlist)
         });
     }
 }

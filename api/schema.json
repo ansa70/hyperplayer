@@ -2083,6 +2083,13 @@
             },
             "id": {
               "$ref": "#/definitions/Id"
+            },
+            "trackIds": {
+              "maxItems": 10000,
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Id"
+              }
             }
           },
           "required": [
