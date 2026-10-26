@@ -19,7 +19,7 @@ for Linux and Windows that play it, at home or anywhere.
 - **For the household:** an account for everyone, with their own playlists, history and preferences. HTTPS
   built in, or behind your reverse proxy.
 
-HyperPlayer is in beta (0.1.0-beta.3).
+HyperPlayer is in beta (0.1.1-beta.3).
 
 ## Installing
 
