@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The player's package for the Microsoft Store (packaging/windows/build-msix.ps1 fills in
+  @VERSION@). The identity is the one Partner Center gives the app (Product identity):
+  the Store refuses a package with any other (Store ID 9MZB5KGB92RD). Assets: the app
+  icon, apps/client/icons.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+  <Identity
+    Name="EnricoAnsaloni.HyperPlayer"
+    Publisher="CN=2D1D7334-B495-47D6-BF94-FF825A297061"
+    Version="@VERSION@"
+    ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>HyperPlayer</DisplayName>
+    <PublisherDisplayName>Enrico Ansaloni</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+  <Applications>
+    <Application Id="HyperPlayer" Executable="hyperplayer.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="HyperPlayer"
+        Description="Player for your music on a HyperPlayer server"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <!-- A desktop program, as the installer's: the Store allows it for desktop apps. -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
