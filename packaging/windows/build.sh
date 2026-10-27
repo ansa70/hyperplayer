@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Builds the Windows installer from Linux: release/hyperplayer-<version>-windows-x64-setup.exe,
 # with the player and the server (bundled with its own Node.js, sharp and ffmpeg, run by
-# hyperplayer-service.exe as a Windows service).
+# hyperplayer-service.exe as a Windows service). Also the server alone, for its install
+# script: release/hyperplayer-<version>-windows-x64-server.zip and release/install-server.ps1.
 #
 #   packaging/windows/build.sh [stage|installer]
 #
@@ -9,7 +10,7 @@
 # builds the programs and the uninstaller into release/windows, `installer` packs them.
 #
 # Needs: clang, lld and llvm (cross-compiling; cargo-xwin fetches Microsoft's headers and
-# libraries), nsis, unzip, and once per user:
+# libraries), nsis, zip, unzip, and once per user:
 #   rustup target add x86_64-pc-windows-msvc && cargo install --locked cargo-xwin
 set -euo pipefail
 
@@ -74,6 +75,14 @@ installer() {
   OUT=$ROOT/release/hyperplayer-$VERSION-windows-x64-setup.exe
   (cd packaging/windows && "${NSIS[@]}" -DOUTFILE="$OUT" hyperplayer.nsi)
   echo "==> $OUT ($(stat -c %s "$OUT" | numfmt --to=iec))"
+
+  echo "==> Server for install-server.ps1"
+  ZIP=$ROOT/release/hyperplayer-$VERSION-windows-x64-server.zip
+  rm -f "$ZIP"
+  (cd "$STAGE/server" && zip -qr "$ZIP" .)
+  zip -qj "$ZIP" packaging/windows/uninstall-server.ps1
+  sed "s/@VERSION@/$VERSION/" packaging/windows/install-server.ps1 >"$ROOT/release/install-server.ps1"
+  echo "==> $ZIP ($(stat -c %s "$ZIP" | numfmt --to=iec))"
 }
 
 [[ "$STEP" == installer ]] || stage

@@ -23,11 +23,11 @@ HyperPlayer is in beta (0.1.1).
 
 ## Download
 
-| Platform | Download |
-| --- | --- |
-| Linux (x86-64) | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-x86_64.flatpak) |
-| Windows 10 and 11 (x64) | [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-windows-x64-setup.exe) |
-| macOS 11 or newer (player only, not tested yet) | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-x64.dmg) |
+| Platform                                        | Download                                                                                                                                                                                                                                          |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Linux (x86-64)                                  | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-x86_64.flatpak) |
+| Windows 10 and 11 (x64)                         | [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-windows-x64-setup.exe)                                                                                                                               |
+| macOS 11 or newer (player only, not tested yet) | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-x64.dmg)                       |
 
 Checksums and earlier versions are on the [releases page](https://github.com/ansa70/hyperplayer/releases).
 
@@ -38,6 +38,8 @@ Each release has these downloads:
 - `hyperplayer-<version>-linux-x64.tar.gz`: the server and the player for Linux (x86-64).
 - `hyperplayer-<version>-x86_64.flatpak`: the player alone, as a Flatpak for any Linux distribution.
 - `hyperplayer-<version>-windows-x64-setup.exe`: the player and the server for Windows 10 and 11 (x64).
+- `install-server.ps1` and `hyperplayer-<version>-windows-x64-server.zip`: the server alone for Windows,
+  installed by the script (see below).
 - `hyperplayer-<version>-macos-arm64.dmg` and `-macos-x64.dmg`: the player for macOS 11 or newer, on Apple
   silicon and Intel Macs.
 
@@ -87,6 +89,31 @@ To upgrade, run the new installer: it offers to keep the server's settings. To r
 
 The server's settings are in `C:\ProgramData\HyperPlayer\server.env` (edit, then restart the HyperPlayer
 service), its data and logs next to them.
+
+#### The server with a PowerShell script
+
+> [!WARNING]
+> The script is new and hasn't been tested yet. Until it has, the installer above is the way to go.
+
+The server can also be installed without the installer, so without the SmartScreen warning. Open an
+administrator PowerShell (right-click **Start**, **Terminal (Admin)**) and run:
+
+```powershell
+irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/install-server.ps1 | iex
+```
+
+It downloads the server, checks it against the release's checksums and asks what the installer asks.
+Running it again updates the server and offers to keep its settings. To read the script before running
+it, download `install-server.ps1` and run `powershell -ExecutionPolicy Bypass -File install-server.ps1`.
+Without questions, pass the settings (`-Library 'D:\Music;\\nas\Music'`, `-Port`, `-Tls self|files|off`,
+`-KeepSettings` for an update; the list is at the top of the script):
+
+```powershell
+& ([scriptblock]::Create((irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/install-server.ps1))) -KeepSettings
+```
+
+To remove it, use **Settings → Apps → Installed apps** (_HyperPlayer server_), or run the script with
+`-Uninstall`.
 
 ### macOS
 
@@ -189,7 +216,9 @@ and `install.sh`.
 the `x86_64-pc-windows-msvc` Rust target and `cargo install cargo-xwin`; the C runtime is linked in, so
 nothing else is needed on the PC) and builds `release/hyperplayer-<version>-windows-x64-setup.exe` with
 NSIS (`build.sh stage` builds the programs and the uninstaller, `build.sh installer` packs them; releases
-sign in between). The server is bundled with Windows builds of Node.js, sharp and ffmpeg, and run as a service by
+sign in between), and the server alone for `packaging/windows/install-server.ps1`. The player's Microsoft
+Store package is made from the same `hyperplayer.exe` by `packaging/windows/build-msix.ps1`, on Windows.
+The server is bundled with Windows builds of Node.js, sharp and ffmpeg, and run as a service by
 `apps/winservice` (`hyperplayer-service.exe`), which also connects the network shares with the saved
 credentials; settings and data are in `%ProgramData%\HyperPlayer`, readable only by administrators and the
 service.
