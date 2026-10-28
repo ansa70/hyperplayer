@@ -19,15 +19,15 @@ for Linux and Windows that play it, at home or anywhere.
 - **For the household:** an account for everyone, with their own playlists, history and preferences. HTTPS
   built in, or behind your reverse proxy.
 
-HyperPlayer is in beta (0.1.1).
+HyperPlayer is in beta (0.1.2).
 
 ## Download
 
 | Platform                                        | Download                                                                                                                                                                                                                                          |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Linux (x86-64)                                  | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-x86_64.flatpak) |
-| Windows 10 and 11 (x64)                         | [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-windows-x64-setup.exe)                                                                                                                               |
-| macOS 11 or newer (player only, not tested yet) | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/hyperplayer-0.1.1-macos-x64.dmg)                       |
+| Linux (x86-64)                                  | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/hyperplayer-0.1.2-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/hyperplayer-0.1.2-x86_64.flatpak) |
+| Windows 10 and 11 (x64)                         | [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/hyperplayer-0.1.2-windows-x64-setup.exe)                                                                                                                               |
+| macOS 11 or newer (player only, not tested yet) | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/hyperplayer-0.1.2-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/hyperplayer-0.1.2-macos-x64.dmg)                       |
 
 Checksums and earlier versions are on the [releases page](https://github.com/ansa70/hyperplayer/releases).
 
@@ -99,7 +99,7 @@ The server can also be installed without the installer, so without the SmartScre
 administrator PowerShell (right-click **Start**, **Terminal (Admin)**) and run:
 
 ```powershell
-irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/install-server.ps1 | iex
+irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/install-server.ps1 | iex
 ```
 
 It downloads the server, checks it against the release's checksums and asks what the installer asks.
@@ -109,7 +109,7 @@ Without questions, pass the settings (`-Library 'D:\Music;\\nas\Music'`, `-Port`
 `-KeepSettings` for an update; the list is at the top of the script):
 
 ```powershell
-& ([scriptblock]::Create((irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.1/install-server.ps1))) -KeepSettings
+& ([scriptblock]::Create((irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/install-server.ps1))) -KeepSettings
 ```
 
 To remove it, use **Settings → Apps → Installed apps** (_HyperPlayer server_), or run the script with
