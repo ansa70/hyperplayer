@@ -11,7 +11,9 @@ finish-args:
   - --share=network
   - --share=ipc
   - --socket=wayland
-  - --socket=fallback-x11
+  # X11 too, not just as a fallback: Slint's clipboard (arboard) needs a Wayland
+  # data-control protocol that GNOME lacks, and otherwise uses X11 through XWayland.
+  - --socket=x11
   - --device=dri
   # Audio (ALSA in the sandbox goes through PulseAudio/PipeWire).
   - --socket=pulseaudio
