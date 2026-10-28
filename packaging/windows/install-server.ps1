@@ -279,6 +279,7 @@ param(
         Write-Host 'First sign-in: username admin, password hyperplayer; you choose your own right away.'
         Write-Host 'Other computers reach it when this PC''s network is set to Private in Windows.'
     } else {
-        Write-Host "The server was installed but didn't answer yet. Its log is in $ServerHome\logs." -ForegroundColor Yellow
+        Write-Host "The server was installed but didn't answer yet. Its log is in $ServerHome\logs (service.log, server.log)." -ForegroundColor Yellow
+        Write-Host "If service.log says it couldn't start, an antivirus may be blocking it: allow $ServerDir in it." -ForegroundColor Yellow
     }
 }

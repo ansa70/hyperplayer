@@ -12,7 +12,11 @@ path = "src/main.rs"
 
 [target.'cfg(windows)'.dependencies]
 windows-service = "0.8"
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_NetworkManagement_WNet"] }
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_NetworkManagement_WNet",
+  "Win32_System_SystemInformation",
+] }
 
 [build-dependencies]
 embed-resource = "3"

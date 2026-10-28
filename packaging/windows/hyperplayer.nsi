@@ -152,7 +152,7 @@ Section /o "Server" SecServer
   ${If} $0 == 0
     StrCpy $FinishText "The server is running. Connect players to:$\r$\n$\r$\n$1$\r$\n(With a self-signed certificate, players show the second line, its fingerprint, and ask to trust it once.)$\r$\n$\r$\nFirst sign-in: username admin, password hyperplayer; you choose your own right away.$\r$\n$\r$\nOther computers reach it when this PC's network is set to Private in Windows."
   ${Else}
-    StrCpy $FinishText "The server was installed but didn't answer yet. Its log is in $ServerHome\logs."
+    StrCpy $FinishText "The server was installed but didn't answer yet. Its log is in $ServerHome\logs (service.log, server.log). If service.log says it couldn't start, an antivirus may be blocking it: allow $INSTDIR\server in it."
   ${EndIf}
 SectionEnd
 

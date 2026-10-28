@@ -6,7 +6,7 @@ use std::{
     io::Write,
     os::windows::{ffi::OsStrExt, process::CommandExt},
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::{Child, Command, ExitStatus, Stdio},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -93,7 +93,21 @@ fn run_service() -> Result<()> {
         ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN,
     )?;
     let result = supervise(&stop, false);
-    report(ServiceState::Stopped, ServiceControlAccept::empty())?;
+    // A failure shows in Services and the System event log, not only in service.log.
+    let exit_code = if result.is_ok() {
+        ServiceExitCode::Win32(0)
+    } else {
+        ServiceExitCode::ServiceSpecific(1)
+    };
+    status.set_service_status(ServiceStatus {
+        service_type: ServiceType::OWN_PROCESS,
+        current_state: ServiceState::Stopped,
+        controls_accepted: ServiceControlAccept::empty(),
+        exit_code,
+        checkpoint: 0,
+        wait_hint: Duration::default(),
+        process_id: None,
+    })?;
     result
 }
 
@@ -190,7 +204,15 @@ fn read_settings(path: &Path) -> Result<BTreeMap<String, String>> {
     Ok(parse_settings(&decode(&bytes)))
 }
 
+/// A line in service.log, with the local time (and on the console, for `run`).
 fn log(line: &str) {
+    let mut now = unsafe { std::mem::zeroed() };
+    unsafe { windows_sys::Win32::System::SystemInformation::GetLocalTime(&mut now) };
+    let line = format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02} {line}",
+        now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond
+    );
+    eprintln!("{line}");
     let dir = program_data().join("logs");
     let _ = fs::create_dir_all(&dir);
     if let Ok(mut f) = OpenOptions::new()
@@ -202,30 +224,22 @@ fn log(line: &str) {
     }
 }
 
-/// Runs the server until `stop`, starting it again (after a pause) whenever it exits.
+/// Runs the server until `stop`, starting it again (after a pause) whenever it exits or
+/// can't start: an antivirus blocking node.exe, or settings being fixed, shouldn't need
+/// the service to be started again by hand.
 fn supervise(stop: &AtomicBool, console: bool) -> Result<()> {
     let dir = install_dir()?;
     let data = program_data();
-    let settings = read_settings(&data.join("server.env"))?;
     let mut failures = 0u32;
     while !stop.load(Ordering::SeqCst) {
-        connect_shares(&settings);
         let started = Instant::now();
-        let mut child = start_server(&dir, &data, &settings, console)?;
-        let code = loop {
-            if let Some(status) = child.try_wait()? {
-                break Some(status);
-            }
-            if stop.load(Ordering::SeqCst) {
-                // Node can't be asked to stop on Windows; its database is safe to cut off.
-                let _ = child.kill();
-                let _ = child.wait();
-                break None;
-            }
-            thread::sleep(Duration::from_millis(300));
-        };
-        let Some(status) = code else { break };
-        log(&format!("the server exited ({status}); starting it again"));
+        match run_server(&dir, &data, stop, console) {
+            Ok(None) => break,
+            Ok(Some(status)) => log(&format!("the server exited ({status}); starting it again")),
+            Err(e) => log(&format!(
+                "the server couldn't start: {e} (an antivirus may be blocking it); trying again"
+            )),
+        }
         failures = if started.elapsed() > STARTED {
             0
         } else {
@@ -239,6 +253,31 @@ fn supervise(stop: &AtomicBool, console: bool) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Starts the server and waits until it exits (its status) or `stop` (None).
+fn run_server(
+    dir: &Path,
+    data: &Path,
+    stop: &AtomicBool,
+    console: bool,
+) -> Result<Option<ExitStatus>> {
+    // Read each time: edited settings apply when the server starts again.
+    let settings = read_settings(&data.join("server.env"))?;
+    connect_shares(&settings);
+    let mut child = start_server(dir, data, &settings, console)?;
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return Ok(Some(status));
+        }
+        if stop.load(Ordering::SeqCst) {
+            // Node can't be asked to stop on Windows; its database is safe to cut off.
+            let _ = child.kill();
+            let _ = child.wait();
+            return Ok(None);
+        }
+        thread::sleep(Duration::from_millis(300));
+    }
 }
 
 fn start_server(
