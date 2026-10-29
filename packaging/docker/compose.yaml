@@ -1,0 +1,38 @@
+# The HyperPlayer server in Docker, from the image each release publishes. Made for Docker
+# Desktop on Windows (on Linux, install.sh sets up Docker for you). Change the music folder
+# below, then, in this file's folder: docker compose up -d
+# Update to a new release: docker compose pull, then docker compose up -d
+name: hyperplayer
+services:
+  hyperplayer:
+    image: ghcr.io/ansa70/hyperplayer:latest
+    container_name: hyperplayer
+    restart: unless-stopped
+    ports: ["4533:4533"]
+    environment:
+      # The music folders inside the container (the volumes below), separated by ':'.
+      HP_LIBRARY: /music
+      # HTTPS with a self-signed certificate. Optionally, the names and addresses players use
+      # for this PC, so the certificate names them: HP_TLS_NAMES: "mypc,192.168.1.10".
+      # Behind a reverse proxy that does HTTPS, use HP_TLS: "off" and HP_TRUST_PROXY: "true".
+      HP_TLS: "on"
+      # Last.fm scrobbling (https://www.last.fm/api/account/create):
+      # HP_LASTFM_API_KEY: "..."
+      # HP_LASTFM_SECRET: "..."
+    volumes:
+      # The server's database and caches, in a Docker volume.
+      - data:/data
+      # Your music, read-only. Change the folder on the left; add one line per folder
+      # (/music2, /music3, ...) and list them all in HP_LIBRARY (/music:/music2).
+      - { type: bind, source: 'C:\Users\Me\Music', target: /music, read_only: true }
+      # A share on a NAS, mounted by Docker itself (also uncomment nas under volumes below):
+      # - { type: volume, source: nas, target: /music2, read_only: true }
+volumes:
+  data:
+  # nas:
+  #   driver: local
+  #   driver_opts:
+  #     type: cifs
+  #     # The NAS's IP address (not its name), the share, and its account.
+  #     device: "//192.168.1.5/Music"
+  #     o: "addr=192.168.1.5,username=me,password=secret,vers=3.1.1,ro"

@@ -19,15 +19,15 @@ for Linux and Windows that play it, at home or anywhere.
 - **For the household:** an account for everyone, with their own playlists, history and preferences. HTTPS
   built in, or behind your reverse proxy.
 
-HyperPlayer is in beta (0.1.2).
+HyperPlayer is in beta (0.1.3).
 
 ## Download
 
 | Platform                                        | Download                                                                                                                                                                                                                                          |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Linux (x86-64)                                  | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/hyperplayer-0.1.2-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/hyperplayer-0.1.2-x86_64.flatpak) |
-| Windows 10 and 11 (x64)                         | [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/hyperplayer-0.1.2-windows-x64-setup.exe)                                                                                                                               |
-| macOS 11 or newer (player only, not tested yet) | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/hyperplayer-0.1.2-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/hyperplayer-0.1.2-macos-x64.dmg)                       |
+| Linux (x86-64)                                  | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/hyperplayer-0.1.3-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/hyperplayer-0.1.3-x86_64.flatpak) |
+| Windows 10 and 11 (x64)                         | [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/hyperplayer-0.1.3-windows-x64-setup.exe)                                                                                                                               |
+| macOS 11 or newer (player only, not tested yet) | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/hyperplayer-0.1.3-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/hyperplayer-0.1.3-macos-x64.dmg)                       |
 
 Checksums and earlier versions are on the [releases page](https://github.com/ansa70/hyperplayer/releases).
 
@@ -40,6 +40,8 @@ Each release has these downloads:
 - `hyperplayer-<version>-windows-x64-setup.exe`: the player and the server for Windows 10 and 11 (x64).
 - `install-server.ps1` and `hyperplayer-<version>-windows-x64-server.zip`: the server alone for Windows,
   installed by the script (see below).
+- `compose.yaml`: the server in Docker, from the image `ghcr.io/ansa70/hyperplayer` (see below, for
+  Windows; on Linux the installer sets up Docker for you).
 - `hyperplayer-<version>-macos-arm64.dmg` and `-macos-x64.dmg`: the player for macOS 11 or newer, on Apple
   silicon and Intel Macs.
 
@@ -99,7 +101,7 @@ The server can also be installed without the installer, so without the SmartScre
 administrator PowerShell (right-click **Start**, **Terminal (Admin)**) and run:
 
 ```powershell
-irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/install-server.ps1 | iex
+irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/install-server.ps1 | iex
 ```
 
 It downloads the server, checks it against the release's checksums and asks what the installer asks.
@@ -109,11 +111,36 @@ Without questions, pass the settings (`-Library 'D:\Music;\\nas\Music'`, `-Port`
 `-KeepSettings` for an update; the list is at the top of the script):
 
 ```powershell
-& ([scriptblock]::Create((irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.2/install-server.ps1))) -KeepSettings
+& ([scriptblock]::Create((irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/install-server.ps1))) -KeepSettings
 ```
 
 To remove it, use **Settings → Apps → Installed apps** (_HyperPlayer server_), or run the script with
 `-Uninstall`.
+
+#### The server in Docker
+
+The server can also run in a Docker container: nothing is installed in Windows itself (no service, nothing
+for an antivirus to stop), and updating is one command.
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/). In its settings, turn on
+   **Start Docker Desktop when you sign in to your computer**: the server runs while Docker Desktop does,
+   so after a restart it starts once you sign in.
+2. Make a folder for it, e.g. `C:\HyperPlayer`, and save
+   [compose.yaml](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/compose.yaml) in it.
+3. Open `compose.yaml` in Notepad and change `C:\Users\Me\Music` to your music folder. The comments in it
+   show how to add more folders, a share on a NAS, Last.fm and a reverse proxy.
+4. Open a terminal in that folder (right-click it, **Open in Terminal**) and run:
+
+   ```powershell
+   docker compose up -d
+   ```
+
+The server listens on port 4533 with a self-signed certificate. Its log, with the certificate's
+fingerprint for the first sign-in: `docker logs hyperplayer`. Other computers reach it when the PC's
+network is set to **Private** in Windows. After changing `compose.yaml`, run `docker compose up -d` again.
+
+To update, in the same folder: `docker compose pull`, then `docker compose up -d`. To remove it:
+`docker compose down` (add `--volumes` to delete the server's data too).
 
 ### macOS
 
@@ -208,6 +235,9 @@ and `install.sh`.
 - The server runs either in Docker (the image is built on the host from the bundle) or as a systemd
   service. Either way it runs as the `hyperplayer` user, reads its settings from `/etc/hyperplayer/server.env`
   and keeps its data in `/var/lib/hyperplayer`, so switching between the two keeps the library and accounts.
+- The release workflow also builds the image from the bundle and pushes it to
+  `ghcr.io/ansa70/hyperplayer` (the version and `latest`); `packaging/docker/compose.yaml`, which uses it,
+  goes in the release for Docker Desktop on Windows.
 - In Docker, the container can mount SMB shares itself (read-only); their credentials stay in
   `/etc/hyperplayer` and `/opt/hyperplayer/compose.yaml`, readable by root only. Docker in an unprivileged
   Proxmox LXC can't mount SMB: mount the share on the Proxmox host and pass the folder in instead.

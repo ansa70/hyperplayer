@@ -2,7 +2,10 @@
 # player's .deb and Flatpak), the Windows installer and the macOS disk images (Apple
 # Silicon and Intel, each built on its own kind of Mac), and for Windows also the server
 # alone with its install script (install-server.ps1). The player's Microsoft Store
-# package (store-msix) is a run artifact only, to upload to Partner Center by hand.
+# package (store-msix) is a run artifact only, to upload to Partner Center by hand. The
+# server's Docker image is built from the Linux bundle and, for a tag, pushed to
+# ghcr.io/<owner>/hyperplayer (the version and latest); compose.yaml, which uses it, goes
+# in the release.
 #
 # Pushing a tag v<version> (the version in apps/client/Cargo.toml, e.g. v0.1.1)
 # creates a draft GitHub release with them, to review and publish by hand. Run by hand
@@ -200,6 +203,49 @@ jobs:
             release/install-server.ps1
           if-no-files-found: error
 
+  # The server's Docker image, from the Linux bundle as install.sh builds it.
+  docker:
+    needs: [version, linux]
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: release-linux
+          path: release
+
+      - name: Build the image
+        run: |
+          tar -C release -xzf release/hyperplayer-"$VERSION"-linux-x64.tar.gz
+          IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/hyperplayer
+          echo "IMAGE=$IMAGE" >>"$GITHUB_ENV"
+          BUNDLE=release/hyperplayer-$VERSION-linux-x64
+          docker build -f "$BUNDLE/docker/Dockerfile" -t "$IMAGE:$VERSION" -t "$IMAGE:latest" \
+            --label org.opencontainers.image.source="https://github.com/$GITHUB_REPOSITORY" \
+            --label org.opencontainers.image.version="$VERSION" \
+            --label org.opencontainers.image.licenses=GPL-3.0-or-later "$BUNDLE"
+
+      - name: Push the image
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE:$VERSION"
+          docker push "$IMAGE:latest"
+
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release-docker
+          path: packaging/docker/compose.yaml
+          if-no-files-found: error
+
   # The player for the Microsoft Store, packed on Windows (makeappx comes with its SDK).
   # Not in the GitHub release: unsigned, it doesn't install, and the Store signs it. Its
   # artifact, store-msix, is uploaded to Partner Center by hand.
@@ -255,7 +301,7 @@ jobs:
 
   release:
     if: github.ref_type == 'tag'
-    needs: [version, linux, windows, macos]
+    needs: [version, linux, windows, macos, docker]
     runs-on: ubuntu-26.04
     permissions:
       contents: write
