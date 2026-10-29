@@ -83,5 +83,12 @@ mkdir -p "$DMG"
 mv "$APP" "$DMG/"
 ln -s /Applications "$DMG/Applications"
 rm -f "$OUT/$NAME.dmg"
-hdiutil create -quiet -volname "HyperPlayer $VERSION" -srcfolder "$DMG" -format UDZO "$OUT/$NAME.dmg"
+# hdiutil sometimes fails on GitHub's runners ("Resource busy"): try again.
+for attempt in 1 2 3 4 5; do
+  hdiutil create -volname "HyperPlayer $VERSION" -srcfolder "$DMG" -format UDZO "$OUT/$NAME.dmg" && break
+  ((attempt < 5)) || exit 1
+  echo "hdiutil failed, trying again in 10 seconds" >&2
+  rm -f "$OUT/$NAME.dmg"
+  sleep 10
+done
 echo "==> $OUT/$NAME.dmg ($(du -h "$OUT/$NAME.dmg" | cut -f1))"
