@@ -26,7 +26,7 @@ HyperPlayer is in beta (0.1.3).
 | Platform                                        | Download                                                                                                                                                                                                                                          |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Linux (x86-64)                                  | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/hyperplayer-0.1.3-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/hyperplayer-0.1.3-x86_64.flatpak) |
-| Windows 10 and 11 (x64)                         | [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/hyperplayer-0.1.3-windows-x64-setup.exe)                                                                                                                               |
+| Windows 10 and 11 (x64)                         | [Player (Microsoft Store)](https://apps.microsoft.com/detail/9MZB5KGB92RD) · [Server](#windows) · [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/hyperplayer-0.1.3-windows-x64-setup.exe)                             |
 | macOS 11 or newer (player only, not tested yet) | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/hyperplayer-0.1.3-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/hyperplayer-0.1.3-macos-x64.dmg)                       |
 
 Checksums and earlier versions are on the [releases page](https://github.com/ansa70/hyperplayer/releases).
@@ -44,6 +44,9 @@ Each release has these downloads:
   Windows; on Linux the installer sets up Docker for you).
 - `hyperplayer-<version>-macos-arm64.dmg` and `-macos-x64.dmg`: the player for macOS 11 or newer, on Apple
   silicon and Intel Macs.
+
+On Windows the player comes from the [Microsoft Store](https://apps.microsoft.com/detail/9MZB5KGB92RD)
+instead.
 
 Install the server once, on the machine that has (or reaches) the music, and the player on every computer
 you listen on. Server and player can be on the same machine.
@@ -75,52 +78,15 @@ The server's settings are in `/etc/hyperplayer/server.env` (edit, then restart t
 
 ### Windows
 
-Run `hyperplayer-<version>-windows-x64-setup.exe`. The installer isn't signed yet, so Windows SmartScreen
-warns about it: click **More info**, then **Run anyway**. It needs administrator rights.
+#### The player
 
-- Choose the components: the **Player**, a desktop shortcut, and the **Server**.
-- With the server, the installer asks for the music folders (network shares like `\\nas\Music` work, with
-  the account to connect to them), the port, HTTPS and, optionally, a Last.fm API account. The server runs
-  as the "HyperPlayer server" service and starts with Windows; the finish page shows its address and
-  certificate fingerprint.
-- Other computers reach the server when the PC's network is set to **Private** in Windows (the installer
-  opens the firewall for private and domain networks).
-
-To upgrade, run the new installer: it offers to keep the server's settings. To remove HyperPlayer, use
-**Settings → Apps → Installed apps**; it asks before deleting the server's data.
-
-The server's settings are in `C:\ProgramData\HyperPlayer\server.env` (edit, then restart the HyperPlayer
-service), its data and logs next to them.
-
-#### The server with a PowerShell script
-
-> [!WARNING]
-> The script is new and hasn't been tested yet. Until it has, the installer above is the way to go.
-
-The server can also be installed without the installer, so without the SmartScreen warning. Open an
-administrator PowerShell (right-click **Start**, **Terminal (Admin)**) and run:
-
-```powershell
-irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/install-server.ps1 | iex
-```
-
-It downloads the server, checks it against the release's checksums and asks what the installer asks.
-Running it again updates the server and offers to keep its settings. To read the script before running
-it, download `install-server.ps1` and run `powershell -ExecutionPolicy Bypass -File install-server.ps1`.
-Without questions, pass the settings (`-Library 'D:\Music;\\nas\Music'`, `-Port`, `-Tls self|files|off`,
-`-KeepSettings` for an update; the list is at the top of the script):
-
-```powershell
-& ([scriptblock]::Create((irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/install-server.ps1))) -KeepSettings
-```
-
-To remove it, use **Settings → Apps → Installed apps** (_HyperPlayer server_), or run the script with
-`-Uninstall`.
+Get the player from the [Microsoft Store](https://apps.microsoft.com/detail/9MZB5KGB92RD) (Windows 10 and
+11). It installs without administrator rights or SmartScreen warnings, and the Store keeps it up to date.
 
 #### The server in Docker
 
-The server can also run in a Docker container: nothing is installed in Windows itself (no service, nothing
-for an antivirus to stop), and updating is one command.
+The easiest way to run the server on Windows is in a Docker container: nothing is installed in Windows
+itself (no service, nothing for an antivirus to stop), and updating is one command.
 
 1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/). In its settings, turn on
    **Start Docker Desktop when you sign in to your computer**: the server runs while Docker Desktop does,
@@ -141,6 +107,45 @@ network is set to **Private** in Windows. After changing `compose.yaml`, run `do
 
 To update, in the same folder: `docker compose pull`, then `docker compose up -d`. To remove it:
 `docker compose down` (add `--volumes` to delete the server's data too).
+
+#### The server as a Windows service
+
+> [!WARNING]
+> The script is new and hasn't been tested yet. Until it has, use Docker or the installer below.
+
+Without Docker, the server runs as the "HyperPlayer server" service, which starts with Windows. A
+PowerShell script installs it; open an administrator PowerShell (right-click **Start**, **Terminal
+(Admin)**) and run:
+
+```powershell
+irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/install-server.ps1 | iex
+```
+
+It downloads the server, checks it against the release's checksums and asks for the music folders
+(network shares like `\\nas\Music` work, with the account to connect to them), the port, HTTPS and,
+optionally, a Last.fm API account. At the end it shows the server's address and certificate fingerprint.
+Running it again updates the server and offers to keep its settings. To read the script before running
+it, download `install-server.ps1` and run `powershell -ExecutionPolicy Bypass -File install-server.ps1`.
+Without questions, pass the settings (`-Library 'D:\Music;\\nas\Music'`, `-Port`, `-Tls self|files|off`,
+`-KeepSettings` for an update; the list is at the top of the script):
+
+```powershell
+& ([scriptblock]::Create((irm https://github.com/ansa70/hyperplayer/releases/download/v0.1.3/install-server.ps1))) -KeepSettings
+```
+
+Other computers reach the server when the PC's network is set to **Private** in Windows (the firewall is
+opened for private and domain networks). The server's settings are in
+`C:\ProgramData\HyperPlayer\server.env` (edit, then restart the HyperPlayer service), its data and logs
+next to them. To remove it, use **Settings → Apps → Installed apps** (_HyperPlayer server_), or run the
+script with `-Uninstall`.
+
+#### The installer
+
+`hyperplayer-<version>-windows-x64-setup.exe` installs the player and the server together, asking the same
+questions as the script. It isn't signed, so Windows SmartScreen warns about it: click **More info**, then
+**Run anyway**. It needs administrator rights. To upgrade, run the new installer: it offers to keep the
+server's settings. To remove HyperPlayer, use **Settings → Apps → Installed apps**; it asks before deleting
+the server's data.
 
 ### macOS
 
