@@ -1,0 +1,14 @@
+[Unit]
+Description=HyperPlayer server in Docker: retries a start that failed at boot (e.g. an SMB share not ready yet)
+Documentation=https://github.com/ansa70/hyperplayer
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+# simple, not oneshot: waiting for a share mustn't hold up the boot.
+Type=simple
+ExecStart=/opt/hyperplayer/docker-start.sh
+
+[Install]
+WantedBy=multi-user.target

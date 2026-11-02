@@ -5,7 +5,7 @@
 #   sudo ./install.sh --uninstall  removes the server and/or player (keeps the music and, if asked, the data)
 #
 # Runs from the unpacked release bundle: server/ (bundled, with its own Node.js),
-# docker/Dockerfile, systemd/, player/*.deb.
+# docker/Dockerfile and docker-start.sh, systemd/, player/*.deb.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,6 +20,8 @@ MODE_FILE=$CONFIG_DIR/install-mode
 SMB_FILE=$CONFIG_DIR/smb-shares
 DATA_DIR=/var/lib/hyperplayer
 SERVICE=hyperplayer-server
+# In Docker mode: retries the container's start when it failed at boot (a share not ready yet).
+DOCKER_SERVICE=hyperplayer-docker
 USER_NAME=hyperplayer
 
 # ------------------------------------------------------------------ prompts
@@ -293,7 +295,10 @@ install_files() {
 stop_server() {
   case "$(installed_mode)" in
   # --volumes: only the SMB mounts are volumes (dropped so changed share settings apply); data is a bind mount.
-  docker) [[ -f "$PREFIX/compose.yaml" ]] && docker compose -f "$PREFIX/compose.yaml" down --volumes 2>/dev/null || true ;;
+  docker)
+    systemctl disable --now "$DOCKER_SERVICE" 2>/dev/null || true
+    [[ -f "$PREFIX/compose.yaml" ]] && docker compose -f "$PREFIX/compose.yaml" down --volumes 2>/dev/null || true
+    ;;
   native) systemctl disable --now "$SERVICE" 2>/dev/null || true ;;
   esac
 }
@@ -375,6 +380,11 @@ start_docker() {
   write_compose
   say "Building the image and starting the container (the first build downloads Debian and ffmpeg)..."
   docker compose -f "$PREFIX/compose.yaml" up -d --build
+  install -m 755 "$HERE/docker/docker-start.sh" "$PREFIX/docker-start.sh"
+  install -m 644 "$HERE/systemd/$DOCKER_SERVICE.service" "/etc/systemd/system/$DOCKER_SERVICE.service"
+  systemctl daemon-reload
+  # Enabled for the next boot only: the container is already up.
+  systemctl enable "$DOCKER_SERVICE" >/dev/null 2>&1
   echo docker >"$MODE_FILE"
 }
 
@@ -508,7 +518,7 @@ uninstall() {
   if [[ -n "$(installed_mode)" ]] && confirm "Remove the server?" y; then
     stop_server
     [[ -f "$PREFIX/compose.yaml" ]] && docker image rm "hyperplayer-server:$(cat "$PREFIX/VERSION")" 2>/dev/null || true
-    rm -f "/etc/systemd/system/$SERVICE.service"
+    rm -f "/etc/systemd/system/$SERVICE.service" "/etc/systemd/system/$DOCKER_SERVICE.service"
     systemctl daemon-reload 2>/dev/null || true
     rm -rf "$PREFIX" "$MODE_FILE"
     ok "Server removed"

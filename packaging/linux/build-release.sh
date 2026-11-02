@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the Linux release bundle: release/hyperplayer-<version>-linux-x64.tar.gz, with
 # the installer, the bundled server (with its Node.js and sharp), the Docker build
-# files, the systemd unit and the player's .deb.
+# files, the systemd units and the player's .deb.
 #
 #   packaging/linux/build-release.sh
 set -euo pipefail
@@ -99,7 +99,8 @@ echo "==> Installer"
 install -m 755 packaging/linux/install.sh "$STAGE/install.sh"
 mkdir -p "$STAGE/docker" "$STAGE/systemd"
 cp packaging/docker/Dockerfile "$STAGE/docker/"
-cp packaging/linux/hyperplayer-server.service "$STAGE/systemd/"
+install -m 755 packaging/linux/docker-start.sh "$STAGE/docker/"
+cp packaging/linux/hyperplayer-server.service packaging/linux/hyperplayer-docker.service "$STAGE/systemd/"
 echo "$VERSION" >"$STAGE/VERSION"
 cat >"$STAGE/README.txt" <<EOF
 HyperPlayer $VERSION for Linux (x64)

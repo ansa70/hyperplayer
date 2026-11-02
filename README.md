@@ -65,7 +65,10 @@ The wizard asks what to install on this machine: the server, the player, or both
   **systemd service** (it installs ffmpeg with apt if needed). Then it asks for the music folders (in
   Docker also SMB shares, which the container mounts itself), the port, HTTPS (a self-signed certificate,
   your own certificate files, or off behind a reverse proxy) and, optionally, a Last.fm API account. At
-  the end it shows the address to connect players to and the certificate's fingerprint.
+  the end it shows the address to connect players to and the certificate's fingerprint. In Docker it also
+  enables `hyperplayer-docker.service`: if the container can't start at boot because a share isn't
+  answering yet (e.g. the NAS is still booting), it retries for up to an hour (`journalctl -u
+  hyperplayer-docker`).
 - **Player:** a `.deb` package (Ubuntu 26.04 or newer) or a Flatpak (any distribution; Flatpak needs to be
   installed). It appears in the applications menu. The Flatpak also installs on its own:
   `flatpak install --user hyperplayer-<version>-x86_64.flatpak`.
