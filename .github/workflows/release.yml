@@ -116,7 +116,7 @@ jobs:
         with:
           key: windows
 
-      - uses: taiki-e/install-action@v2.87.31
+      - uses: taiki-e/install-action@v2.90.1
         with:
           tool: cargo-xwin
 
