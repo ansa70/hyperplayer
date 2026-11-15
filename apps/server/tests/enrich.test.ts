@@ -108,7 +108,7 @@ test("falls back to a credited edition when the library's release has no credits
   titles.forEach((title, i) =>
     db
       .prepare(
-        `INSERT INTO tracks (id, path, mtime_ms, title, artist_id, album_id, track_number, disc_number,
+        `INSERT INTO all_tracks (id, path, mtime_ms, title, artist_id, album_id, track_number, disc_number,
            duration_ms, codec, container, lossless, file_size)
          VALUES (?, ?, 0, ?, 'miles', 'kob', ?, 1, 1000, 'FLAC', 'flac', 1, 1)`,
       )

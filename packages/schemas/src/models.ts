@@ -314,6 +314,8 @@ export const Source = named(
     /** The account the library signed in with. */
     username: z.string(),
     tracks: Count,
+    /** Of those, the ones also in the library otherwise (on this computer, say): shown once. */
+    duplicates: Count.default(0),
     syncing: z.boolean(),
     lastSyncAt: z.iso.datetime().nullable(),
     /** Why the last sync failed, in words for the user; null when it worked. */

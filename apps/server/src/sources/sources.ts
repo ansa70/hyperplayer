@@ -5,7 +5,7 @@ import type { Db } from "../db.ts";
 import { HttpError } from "../http/contract.ts";
 import type { ArtworkStore } from "../library/artwork.ts";
 import { deleteOrphans, remotePath, writeTrack } from "../library/tracks.ts";
-import { rebuildSearchIndex } from "../catalog/searchIndex.ts";
+import { tracksChanged } from "../library/dedupe.ts";
 import { offeredCertificate, SourceClient, SourceError, type Pin } from "./client.ts";
 
 type Row = Record<string, unknown>;
@@ -77,7 +77,8 @@ export class Sources {
   list(): Source[] {
     const rows = this.#db
       .prepare(
-        `SELECT s.*, (SELECT COUNT(*) FROM tracks WHERE source_id = s.id) AS track_count
+        `SELECT s.*, (SELECT COUNT(*) FROM all_tracks WHERE source_id = s.id) AS track_count,
+                (SELECT COUNT(*) FROM all_tracks WHERE source_id = s.id AND duplicate_of IS NOT NULL) AS duplicates
          FROM sources s ORDER BY s.added_at`,
       )
       .all() as Row[];
@@ -86,6 +87,7 @@ export class Sources {
       url: String(r.url),
       username: String(r.username),
       tracks: Number(r.track_count),
+      duplicates: Number(r.duplicates),
       syncing: this.#syncing.has(String(r.id)),
       lastSyncAt: (r.last_sync_at as string | null) ?? null,
       error: (r.last_error as string | null) ?? null,
@@ -164,7 +166,7 @@ export class Sources {
       db.exec("ROLLBACK");
       throw err;
     }
-    rebuildSearchIndex(db);
+    tracksChanged(db);
   }
 
   /** Syncs every server; true when the catalog changed. A failing one doesn't stop the others. */
@@ -205,12 +207,12 @@ export class Sources {
       // A full listing: whatever this library has from the server and isn't listed is gone.
       const unlisted = full
         ? new Set(
-            (db.prepare("SELECT remote_id FROM tracks WHERE source_id = ?").all(id) as Row[]).map((r) =>
+            (db.prepare("SELECT remote_id FROM all_tracks WHERE source_id = ?").all(id) as Row[]).map((r) =>
               String(r.remote_id),
             ),
           )
         : null;
-      const removeTrack = db.prepare("DELETE FROM tracks WHERE source_id = ? AND remote_id = ?");
+      const removeTrack = db.prepare("DELETE FROM all_tracks WHERE source_id = ? AND remote_id = ?");
       const putCover = db.prepare(
         `INSERT INTO artwork (id, path, mime, width, height, dominant_color, source_id) VALUES (?, '', ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET source_id = excluded.source_id WHERE artwork.path = ''`,
@@ -287,14 +289,30 @@ export class Sources {
       this.#log.warn({ server: host, err: message }, "syncing a server failed");
       db.prepare("UPDATE sources SET last_error = ? WHERE id = ?").run(message, id);
     }
-    if (written || removed) rebuildSearchIndex(db);
+    if (written || removed) tracksChanged(db);
     return written > 0 || removed > 0;
   }
 
   /** Where a server's track is played from; null for this computer's tracks. */
   remote(trackId: string): RemoteTrack | null {
     const r = this.#db
-      .prepare(`SELECT s.*, t.remote_id FROM tracks t JOIN sources s ON s.id = t.source_id WHERE t.id = ?`)
+      .prepare(
+        `SELECT s.*, t.remote_id FROM all_tracks t JOIN sources s ON s.id = t.source_id WHERE t.id = ?`,
+      )
+      .get(trackId) as Row | undefined;
+    return r ? { client: this.#client(r), sourceId: String(r.id), remoteId: String(r.remote_id) } : null;
+  }
+
+  /**
+   * A server's copy of a track on this computer (hidden by `dedupe`): played instead when
+   * the file can't be read, e.g. a network share that isn't mounted.
+   */
+  copyOf(trackId: string): RemoteTrack | null {
+    const r = this.#db
+      .prepare(
+        `SELECT s.*, t.remote_id FROM all_tracks t JOIN sources s ON s.id = t.source_id
+         WHERE t.duplicate_of = ? ORDER BY s.added_at LIMIT 1`,
+      )
       .get(trackId) as Row | undefined;
     return r ? { client: this.#client(r), sourceId: String(r.id), remoteId: String(r.remote_id) } : null;
   }

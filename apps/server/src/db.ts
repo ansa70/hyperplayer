@@ -74,8 +74,6 @@ CREATE TABLE IF NOT EXISTS tracks (
   seen_scan    INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS tracks_album  ON tracks(album_id, disc_number, track_number);
-CREATE INDEX IF NOT EXISTS tracks_artist ON tracks(artist_id);
 CREATE INDEX IF NOT EXISTS albums_artist ON albums(artist_id);
 
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -256,16 +254,73 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ["tracks", "remote_id", "TEXT"],
   // A server's cover not fetched yet has an empty path.
   ["artwork", "source_id", "TEXT"],
+  // Another copy of the track is the one shown (see `separateCopies`).
+  ["tracks", "duplicate_of", "TEXT"],
 ];
 
+/** The table tracks are stored in: `all_tracks` once `separateCopies` has run. */
+function tracksTable(db: DatabaseSync): string {
+  const r = db.prepare("SELECT type FROM sqlite_master WHERE name = 'tracks'").get() as
+    | { type: string }
+    | undefined;
+  return r?.type === "view" ? "all_tracks" : "tracks";
+}
+
 function migrate(db: DatabaseSync) {
-  for (const [table, column, definition] of ADDED_COLUMNS) {
+  const tracks = tracksTable(db);
+  for (const [name, column, definition] of ADDED_COLUMNS) {
+    const table = name === "tracks" ? tracks : name;
     const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
     if (!columns.some((c) => c.name === column))
       db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
-  db.exec("CREATE INDEX IF NOT EXISTS tracks_rev ON tracks(rev, id)");
-  db.exec("CREATE INDEX IF NOT EXISTS tracks_source ON tracks(source_id, remote_id)");
+  // Here rather than in SCHEMA: `tracks` becomes a view, which can't be indexed.
+  db.exec(`CREATE INDEX IF NOT EXISTS tracks_album ON ${tracks}(album_id, disc_number, track_number)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS tracks_artist ON ${tracks}(artist_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS tracks_rev ON ${tracks}(rev, id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS tracks_source ON ${tracks}(source_id, remote_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS tracks_duplicate ON ${tracks}(duplicate_of)`);
+}
+
+/** References to a track that follow it to the copy shown instead (`$from` → `$to`). */
+const MOVE_REFERENCES = `
+    UPDATE queue_entries SET track_id = $to WHERE track_id = $from;
+    UPDATE playlist_entries SET track_id = $to WHERE track_id = $from;
+    UPDATE OR IGNORE listens SET track_id = $to WHERE track_id = $from;
+    UPDATE OR IGNORE scrobbles SET track_id = $to WHERE track_id = $from;`;
+
+/** Which of a deleted track's hidden copies is shown in its place: as in `dedupe`, local first. */
+const SUCCESSOR = `(SELECT c.id FROM all_tracks c WHERE c.duplicate_of = OLD.id
+                    ORDER BY c.source_id IS NOT NULL, c.lossless DESC, c.bitrate DESC, c.id LIMIT 1)`;
+
+/**
+ * The same track can be in the library more than once: on this computer and on a server
+ * (a standalone player's source), or in two folders. Every copy is kept in `all_tracks`,
+ * but only one is shown: the others have `duplicate_of` set, and `tracks`, which every
+ * query reads, leaves them out. Writes go to `all_tracks`.
+ *
+ * Triggers keep queues, playlists and history on the copy shown: when a copy is hidden
+ * they move to the one shown instead, and when the one shown is deleted (its file gone)
+ * another copy takes its place, with them.
+ */
+function separateCopies(db: DatabaseSync) {
+  if (tracksTable(db) === "tracks") {
+    // Other tables' foreign keys follow the rename.
+    db.exec("ALTER TABLE tracks RENAME TO all_tracks");
+    db.exec("CREATE VIEW tracks AS SELECT * FROM all_tracks WHERE duplicate_of IS NULL");
+  }
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS all_tracks_hidden AFTER UPDATE OF duplicate_of ON all_tracks
+    WHEN NEW.duplicate_of IS NOT NULL BEGIN
+      ${MOVE_REFERENCES.replaceAll("$to", "NEW.duplicate_of").replaceAll("$from", "NEW.id")}
+      UPDATE all_tracks SET duplicate_of = NEW.duplicate_of WHERE duplicate_of = NEW.id;
+    END;
+    CREATE TRIGGER IF NOT EXISTS all_tracks_succeeded BEFORE DELETE ON all_tracks
+    WHEN EXISTS (SELECT 1 FROM all_tracks WHERE duplicate_of = OLD.id) BEGIN
+      ${MOVE_REFERENCES.replaceAll("$to", SUCCESSOR).replaceAll("$from", "OLD.id")}
+      UPDATE all_tracks SET duplicate_of = ${SUCCESSOR} WHERE duplicate_of = OLD.id AND id <> ${SUCCESSOR};
+      UPDATE all_tracks SET duplicate_of = NULL WHERE duplicate_of = OLD.id;
+    END;`);
 }
 
 export type Db = DatabaseSync;
@@ -290,6 +345,7 @@ export function openDb(path: string): Db {
   db.function("sort_key", { deterministic: true }, (name) => sortKey(String(name ?? "")));
   db.exec(SCHEMA);
   migrate(db);
+  separateCopies(db);
   ensureSearchIndex(db);
   return db;
 }

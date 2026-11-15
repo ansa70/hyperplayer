@@ -3,7 +3,7 @@ import { basename, dirname, extname, join, sep } from "node:path";
 import { parseFile, type IAudioMetadata } from "music-metadata";
 import type { Db } from "../db.ts";
 import type { ArtworkStore } from "./artwork.ts";
-import { rebuildSearchIndex } from "../catalog/searchIndex.ts";
+import { tracksChanged } from "./dedupe.ts";
 import { creditsFromTags } from "./tagCredits.ts";
 import { deleteOrphans, writeTrack } from "./tracks.ts";
 
@@ -142,10 +142,11 @@ export class Scanner {
     const rescanAll =
       (db.prepare("SELECT value FROM meta WHERE key = 'scan_version'").get()?.value as string | undefined) !==
       SCAN_VERSION;
-    const existing = db.prepare("SELECT mtime_ms FROM tracks WHERE path = ?");
-    const markSeen = db.prepare("UPDATE tracks SET seen_scan = ? WHERE path = ?");
+    // Every copy of a track, shown or not (see `dedupe`).
+    const existing = db.prepare("SELECT mtime_ms FROM all_tracks WHERE path = ?");
+    const markSeen = db.prepare("UPDATE all_tracks SET seen_scan = ? WHERE path = ?");
     // A server's tracks (a standalone player's sources) are synced, not scanned.
-    const knownPaths = db.prepare("SELECT path FROM tracks WHERE source_id IS NULL");
+    const knownPaths = db.prepare("SELECT path FROM all_tracks WHERE source_id IS NULL");
     this.#folderCovers.clear();
 
     // Every file first, so the reading can report how far it has got.
@@ -206,7 +207,7 @@ export class Scanner {
     if (this.#cancelled) {
       // Unseen isn't gone when the scan stopped early: remove nothing, keep what was read.
       stats.cancelled = true;
-      if (stats.updated) rebuildSearchIndex(db);
+      if (stats.updated) tracksChanged(db);
       return stats;
     }
     if (stats.unavailable.length === roots.length && roots.length > 0) {
@@ -217,10 +218,10 @@ export class Scanner {
     try {
       const stale = (
         db
-          .prepare("SELECT id, path FROM tracks WHERE seen_scan <> ? AND source_id IS NULL")
+          .prepare("SELECT id, path FROM all_tracks WHERE seen_scan <> ? AND source_id IS NULL")
           .all(generation) as { id: string; path: string }[]
       ).filter((r) => !stats.unavailable.some((root) => inside(root, r.path)));
-      const remove = db.prepare("DELETE FROM tracks WHERE id = ?");
+      const remove = db.prepare("DELETE FROM all_tracks WHERE id = ?");
       // Remembered for /api/sync, so other libraries copying this one drop them too.
       const tombstone = db.prepare("INSERT OR REPLACE INTO removed_tracks (id, rev) VALUES (?, ?)");
       for (const { id } of stale) {
@@ -229,7 +230,7 @@ export class Scanner {
       }
       stats.removed = stale.length;
       // Tracks kept from unavailable folders count as seen, so the next scan starts clean.
-      db.prepare("UPDATE tracks SET seen_scan = ? WHERE seen_scan <> ?").run(generation, generation);
+      db.prepare("UPDATE all_tracks SET seen_scan = ? WHERE seen_scan <> ?").run(generation, generation);
       deleteOrphans(db);
       db.prepare(
         "INSERT OR REPLACE INTO meta (key, value) VALUES ('scan_generation', ?), ('last_scan_at', ?), ('scan_version', ?)",
@@ -240,7 +241,7 @@ export class Scanner {
       throw err;
     }
     // The index covers the whole catalog: rebuild it only when the catalog changed.
-    if (stats.updated || stats.removed || rescanAll) rebuildSearchIndex(db);
+    if (stats.updated || stats.removed || rescanAll) tracksChanged(db);
     return stats;
   }
 

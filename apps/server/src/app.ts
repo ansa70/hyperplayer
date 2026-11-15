@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import { mkdirSync } from "node:fs";
 import type { Server as TlsServer } from "node:tls";
 import type { Readable } from "node:stream";
@@ -373,7 +373,15 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     const track = catalog.trackPath(params.id);
     if (!track) throw notFound("Track");
     const limit = (s: Readable) => (config.debugThrottleKbps ? throttle(s, config.debugThrottleKbps) : s);
-    const remote = sources.remote(params.id);
+    const remote =
+      sources.remote(params.id) ??
+      // This computer's file, unreadable now (an unmounted share): a server's copy, if there is one.
+      ((await access(track.path).then(
+        () => true,
+        () => false,
+      ))
+        ? null
+        : sources.copyOf(params.id));
     if (remote) {
       // A server's track: its stream, passed through as it comes (range requests included).
       const stop = new AbortController();

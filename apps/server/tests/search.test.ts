@@ -19,7 +19,7 @@ beforeAll(() => {
       ('kob', 'Kind of Blue', 'miles', '2026'), ('lem', 'Lemonade', 'bey', '2026'), ('sw', 'Someday My Prince Will Come', 'miles', '2026');
   `);
   const track = db.prepare(
-    `INSERT INTO tracks (id, path, mtime_ms, title, artist_id, album_id, duration_ms, codec, container, lossless, file_size)
+    `INSERT INTO all_tracks (id, path, mtime_ms, title, artist_id, album_id, duration_ms, codec, container, lossless, file_size)
      VALUES (?, ?, 0, ?, ?, ?, 1000, 'FLAC', 'flac', 1, 1)`,
   );
   track.run("so-what", "/1", "So What", "miles", "kob");
@@ -27,8 +27,8 @@ beforeAll(() => {
   track.run("hold-up", "/3", "Hold Up", "bey", "lem");
   track.run("someday", "/4", "Someday My Prince Will Come", "miles", "sw");
   // Tagged genres; Beyoncé's track is untagged, so her MusicBrainz genres stand in.
-  db.exec(`UPDATE tracks SET genres = '["Jazz"]' WHERE artist_id = 'miles';
-           UPDATE tracks SET genres = '["Jazz", "Cool Jazz"]' WHERE id = 'blue-green';
+  db.exec(`UPDATE all_tracks SET genres = '["Jazz"]' WHERE artist_id = 'miles';
+           UPDATE all_tracks SET genres = '["Jazz", "Cool Jazz"]' WHERE id = 'blue-green';
            UPDATE artists SET mb_genres = '["pop", "R&B", "100%_fun"]' WHERE id = 'bey';`);
   db.exec(`INSERT INTO credits (track_id, source, scope, category, name, role, position)
            VALUES ('so-what', 'musicbrainz', 'track', 'performance', 'John Coltrane', 'tenor saxophone', 0)`);

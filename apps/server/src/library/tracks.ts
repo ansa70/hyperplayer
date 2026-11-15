@@ -93,7 +93,7 @@ export function writeTrack(db: Db, t: TrackRecord): string {
 
   // Upsert rather than REPLACE: a REPLACE would cascade-delete the track's MusicBrainz credits.
   db.prepare(`
-    INSERT INTO tracks (
+    INSERT INTO all_tracks (
       id, path, mtime_ms, title, artist_id, album_id, track_number, disc_number, year, duration_ms, genres,
       codec, container, lossless, bitrate, sample_rate, bit_depth, channels, file_size, cover_id, seen_scan,
       musicbrainz_recording_id, artist_credit, rg_track_gain, rg_track_peak, rg_album_gain, rg_album_peak,
@@ -152,7 +152,7 @@ export function writeTrack(db: Db, t: TrackRecord): string {
 
 /** Removes albums and artists no track (or album) refers to anymore. */
 export function deleteOrphans(db: Db) {
-  db.exec("DELETE FROM albums WHERE id NOT IN (SELECT album_id FROM tracks)");
-  db.exec(`DELETE FROM artists WHERE id NOT IN (SELECT artist_id FROM tracks)
+  db.exec("DELETE FROM albums WHERE id NOT IN (SELECT album_id FROM all_tracks)");
+  db.exec(`DELETE FROM artists WHERE id NOT IN (SELECT artist_id FROM all_tracks)
                                  AND id NOT IN (SELECT artist_id FROM albums)`);
 }

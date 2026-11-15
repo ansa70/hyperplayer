@@ -27,7 +27,7 @@ const SELECT = `
          aa.name AS aa_name, aa.sort_name AS aa_sort, aa.musicbrainz_id AS aa_mbid,
          al.title AS al_title, al.year AS al_year, al.musicbrainz_id AS al_mbid, al.added_at AS al_added,
          c.id AS c_id, c.mime AS c_mime, c.width AS c_width, c.height AS c_height, c.dominant_color AS c_color
-  FROM tracks t
+  FROM all_tracks t
   JOIN artists ta ON ta.id = t.artist_id
   JOIN albums al ON al.id = t.album_id
   JOIN artists aa ON aa.id = al.artist_id

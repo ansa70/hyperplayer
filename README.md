@@ -346,6 +346,12 @@ big the server's library is. The tracks play from the server, which also provide
 waveforms (fetched once, then kept) and lyrics. A server that can't be reached keeps
 its tracks in the library; they just don't play until it's back.
 
+A track that is both on the computer and on a server (the server reads the same share, say), or on two
+servers, or in two folders, is shown once: same album, disc and track number, same title (or MusicBrainz
+recording) and nearly the same length. The computer's own copy is preferred, then the better file; if
+its file can't be read (a share that isn't mounted), the server's copy plays instead, and if it's deleted,
+the server's copy takes its place in queues, playlists and history.
+
 Playlists, the play queue and listening history (and scrobbling) stay in the player's own library. A
 self-signed certificate is trusted the same way as when connecting to a server, and from then on only
 that certificate is accepted. Removing a server takes its music out of the library and signs the

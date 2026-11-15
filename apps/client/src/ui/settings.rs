@@ -530,15 +530,23 @@ fn show_library(s: &SettingsState, l: &types::LibraryStatus) {
                 source.username
             )
             .into(),
-            detail: match (&source.error, source.syncing, source.last_sync_at) {
-                (_, true, _) => {
-                    format!("Copying its catalog… · {}", plural(source.tracks, "track"))
+            detail: {
+                // Tracks also on this computer (or another server) are shown once.
+                let tracks = if source.duplicates > 0 {
+                    format!(
+                        "{} ({} already in the library)",
+                        plural(source.tracks, "track"),
+                        source.duplicates
+                    )
+                } else {
+                    plural(source.tracks, "track")
+                };
+                match (&source.error, source.syncing, source.last_sync_at) {
+                    (_, true, _) => format!("Copying its catalog… · {tracks}"),
+                    (Some(error), _, _) => format!("{tracks} · {error}"),
+                    (None, _, Some(t)) => format!("{tracks} · synced {}", when(t)),
+                    (None, _, None) => tracks,
                 }
-                (Some(error), _, _) => format!("{} · {error}", plural(source.tracks, "track")),
-                (None, _, Some(t)) => {
-                    format!("{} · synced {}", plural(source.tracks, "track"), when(t))
-                }
-                (None, _, None) => plural(source.tracks, "track"),
             }
             .into(),
             failing: source.error.is_some() && !source.syncing,

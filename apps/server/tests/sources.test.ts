@@ -21,17 +21,17 @@ afterEach(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function put(lib: string, rel: string, tags: Record<string, string>) {
+function put(lib: string, rel: string, tags: Record<string, string>, seconds = 1) {
   const path = join(lib, rel);
   mkdirSync(join(path, ".."), { recursive: true });
-  writeFileSync(path, wav(tags));
+  writeFileSync(path, wav(tags, seconds));
   return path;
 }
 
 /** A server with its own music, listening for real (the engine connects over the network). */
 async function server(opts: { tls?: boolean } = {}) {
   const lib = join(dir, "server-music");
-  put(lib, "Band/Album/1.wav", { INAM: "One", IART: "Band", IPRD: "Album", ITRK: "1" });
+  put(lib, "Band/Album/1.wav", { INAM: "One", IART: "Band", IPRD: "Album", ITRK: "1" }, 31);
   put(lib, "Band/Album/2.wav", { INAM: "Two", IART: "Band", IPRD: "Album", ITRK: "2" });
   put(lib, "Solo/Live/1.wav", { INAM: "Encore", IART: "Solo", IPRD: "Live", ITRK: "1" });
   const cover = await sharp({ create: { width: 8, height: 8, channels: 3, background: "#c03030" } })
@@ -267,4 +267,111 @@ test("a self-signed certificate is accepted once trusted, and only that one", as
   expect(status.sources).toMatchObject([{ tracks: 3, error: null }]);
   const track = (await e.inject("/api/search?q=encore")).json().tracks[0] as { id: string };
   expect((await e.inject(`/api/stream/${track.id}`)).statusCode).toBe(200);
+});
+
+/** Adds the server to the engine and waits for its sync. */
+async function addServer(s: Awaited<ReturnType<typeof server>>, e: Awaited<ReturnType<typeof engine>>) {
+  const add = await e.inject({
+    method: "POST",
+    url: "/api/library/sources",
+    payload: { url: s.url, token: s.token, username: "admin", fingerprint: null },
+  });
+  expect(add.statusCode, add.body).toBe(200);
+  return settled(e.inject);
+}
+
+const search = async (e: Awaited<ReturnType<typeof engine>>, q: string) =>
+  (await e.inject(`/api/search?q=${q}`)).json().tracks as { id: string; title: string }[];
+
+test("a track both on this computer and on the server is shown once, this computer's copy", async () => {
+  const s = await server();
+  const e = await engine();
+  // The same file as the server's, in the player's own folder.
+  put(e.lib, "Band/Album/1.wav", { INAM: "One", IART: "Band", IPRD: "Album", ITRK: "1" }, 31);
+  await e.ctx.startScan();
+  const status = await addServer(s, e);
+  expect(status.sources).toMatchObject([{ tracks: 3, duplicates: 1, error: null }]);
+  // Three on the server, three here, one of them the same: five.
+  expect(status.tracks).toBe(5);
+  const album = (await e.inject(`/api/albums?sort=title`))
+    .json()
+    .items.find((a: { title: string }) => a.title === "Album");
+  const tracks = (await e.inject(`/api/albums/${album.id}`)).json().tracks as { title: string }[];
+  expect(tracks.map((t) => t.title)).toEqual(["One", "Two", "Three"]);
+  // This computer's copy is the one played.
+  const [one] = await search(e, "one");
+  const played = await e.inject(`/api/stream/${one!.id}`);
+  expect(played.rawPayload.equals(readFileSync(join(e.lib, "Band/Album/1.wav")))).toBe(true);
+});
+
+test("queues, playlists and history follow the copy shown", async () => {
+  const s = await server();
+  const e = await engine();
+  await addServer(s, e);
+  const [remote] = await search(e, "one");
+  await e.inject({
+    method: "PUT",
+    url: "/api/queue",
+    payload: { source: { kind: "tracks", trackIds: [remote!.id] } },
+  });
+  const playlist = (
+    await e.inject({
+      method: "POST",
+      url: "/api/playlists",
+      payload: { name: "Mix", trackIds: [remote!.id] },
+    })
+  ).json();
+  await e.inject({
+    method: "POST",
+    url: "/api/history",
+    payload: { trackId: remote!.id, startedAt: new Date().toISOString(), playedMs: 60_000 },
+  });
+
+  // The same track turns up on this computer: its copy is shown, and everything follows.
+  put(e.lib, "Band/Album/1.wav", { INAM: "One", IART: "Band", IPRD: "Album", ITRK: "1" }, 31);
+  await e.ctx.startScan();
+  await settled(e.inject);
+  const [local] = await search(e, "one");
+  expect(local!.id).not.toBe(remote!.id);
+  const queue = (await e.inject("/api/queue")).json();
+  expect(queue.entries.map((x: { track: { id: string } }) => x.track.id)).toEqual([local!.id]);
+  const list = (await e.inject(`/api/playlists/${playlist.id}`)).json();
+  expect(list.entries.map((x: { track: { id: string } }) => x.track.id)).toEqual([local!.id]);
+  const history = (await e.inject("/api/history")).json();
+  expect(history.items.map((x: { track: { id: string } }) => x.track.id)).toEqual([local!.id]);
+
+  // Its file deleted: the server's copy is back, with them.
+  unlinkSync(join(e.lib, "Band/Album/1.wav"));
+  await e.ctx.startScan();
+  await settled(e.inject);
+  const [back] = await search(e, "one");
+  expect(back!.id).toBe(remote!.id);
+  expect((await e.inject("/api/queue")).json().entries[0].track.id).toBe(remote!.id);
+  expect((await e.inject(`/api/playlists/${playlist.id}`)).json().entries[0].track.id).toBe(remote!.id);
+  expect((await e.inject("/api/history")).json().items[0].track.id).toBe(remote!.id);
+});
+
+test("a file that can't be read plays from the server's copy", async () => {
+  const s = await server();
+  const e = await engine();
+  const path = put(e.lib, "Band/Album/1.wav", { INAM: "One", IART: "Band", IPRD: "Album", ITRK: "1" }, 31);
+  await e.ctx.startScan();
+  await addServer(s, e);
+  const [one] = await search(e, "one");
+  // As when the share it's on isn't mounted (the scan keeps its tracks meanwhile).
+  unlinkSync(path);
+  const played = await e.inject(`/api/stream/${one!.id}`);
+  expect(played.statusCode).toBe(200);
+  expect(played.rawPayload.equals(readFileSync(join(s.lib, "Band/Album/1.wav")))).toBe(true);
+});
+
+test("removing the server keeps this computer's copies", async () => {
+  const s = await server();
+  const e = await engine();
+  put(e.lib, "Band/Album/1.wav", { INAM: "One", IART: "Band", IPRD: "Album", ITRK: "1" }, 31);
+  await e.ctx.startScan();
+  const status = await addServer(s, e);
+  const removed = await e.inject({ method: "DELETE", url: `/api/library/sources/${status.sources[0]!.id}` });
+  expect(removed.json()).toMatchObject({ tracks: 3 });
+  expect((await search(e, "one")).map((t) => t.title)).toEqual(["One"]);
 });
