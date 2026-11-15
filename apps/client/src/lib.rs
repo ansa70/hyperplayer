@@ -5,6 +5,7 @@ pub mod adaptive;
 pub mod api;
 pub mod credentials;
 pub mod dirs;
+pub mod engine;
 pub mod palette;
 pub mod pipeline;
 pub mod playback;

@@ -32,3 +32,25 @@ pub fn cache_dir() -> Option<PathBuf> {
         .or_else(|| env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))?;
     Some(base.join("hyperplayer"))
 }
+
+/// Data worth keeping that isn't settings: the local library's database and artwork.
+pub fn data_dir() -> Option<PathBuf> {
+    if cfg!(windows) {
+        return env::var_os("LOCALAPPDATA").map(|d| PathBuf::from(d).join("HyperPlayer"));
+    }
+    if cfg!(target_os = "macos") {
+        return config_dir();
+    }
+    let base = env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .or_else(|| home_dir().map(|h| h.join(".local/share")))?;
+    Some(base.join("hyperplayer"))
+}
+
+/// The user's home folder.
+pub fn home_dir() -> Option<PathBuf> {
+    if cfg!(windows) {
+        return env::var_os("USERPROFILE").map(PathBuf::from);
+    }
+    env::var_os("HOME").map(PathBuf::from)
+}

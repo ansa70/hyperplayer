@@ -192,7 +192,11 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   });
 
   const auth = new Auth(db, config.defaultAdminPassword);
-  if (await auth.ensureDefaultAdmin()) {
+  // Embedded, the player is signed in as the local account; there's no default admin.
+  const embeddedSession = config.embedded
+    ? await auth.signInLocal(config.embedded.username, config.embedded.deviceName, config.embedded.deviceId)
+    : null;
+  if (!config.embedded && (await auth.ensureDefaultAdmin())) {
     app.log.warn(
       `Created the "admin" account with the default password. Sign in from a client to choose a real one; ` +
         `until then it can do nothing else.`,
@@ -375,5 +379,5 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     db.close();
   });
 
-  return { app, startScan, auth, scrobbler, tls, folders };
+  return { app, startScan, auth, scrobbler, tls, folders, embeddedSession };
 }

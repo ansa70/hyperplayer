@@ -1,4 +1,4 @@
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import { delimiter, resolve } from "node:path";
 import { z } from "zod";
 import type { EnrichConfig } from "./enrich/enricher.ts";
@@ -16,6 +16,18 @@ const Env = z.object({
   HP_DATA_DIR: z.string().default(resolve(import.meta.dirname, "../.data")),
   HP_HOST: z.string().default("127.0.0.1"),
   /**
+   * Run as a player's private library engine: only on 127.0.0.1, plain HTTP, one local
+   * account signed in for the player (its token is printed on stdout with the port, never
+   * logged), and stop when the player closes stdin. The player starts it this way.
+   */
+  HP_EMBEDDED: z.stringbool().default(false),
+  /** Embedded: the player's device id, so its queue is the same from one start to the next. */
+  HP_EMBEDDED_DEVICE: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{8,64}$/)
+    .optional(),
+  HP_EMBEDDED_DEVICE_NAME: z.string().trim().min(1).max(100).default("HyperPlayer"),
+  /**
    * HTTPS: `auto` serves it unless the server only listens on this machine (127.0.0.1),
    * `on` always, `off` never (e.g. behind a reverse proxy that does HTTPS).
    */
@@ -25,7 +37,8 @@ const Env = z.object({
   HP_TLS_KEY: z.string().trim().min(1).optional(),
   /** More names (host names or IP addresses, comma-separated) for the self-signed certificate. */
   HP_TLS_NAMES: z.string().default(""),
-  HP_PORT: z.coerce.number().int().min(1).max(65535).default(4533),
+  /** 0 picks a free port (embedded mode does by default). */
+  HP_PORT: z.coerce.number().int().min(0).max(65535).optional(),
   HP_FFMPEG: z.string().default("ffmpeg"),
   HP_VALIDATE_RESPONSES: z.stringbool().default(true),
   /** Fetch credits and artist profiles from MusicBrainz / Wikipedia / fanart.tv. */
@@ -56,6 +69,14 @@ export type TlsConfig = { certFile: string | null; keyFile: string | null; names
 
 export type LastfmConfig = { apiKey: string; secret: string };
 
+/** Embedded mode: the player this engine belongs to (see HP_EMBEDDED). */
+export type EmbeddedConfig = {
+  deviceId: string | undefined;
+  deviceName: string;
+  /** The local account's username, made on first start (the system user's name). */
+  username: string;
+};
+
 export type Config = {
   libraryPaths: string[];
   rescanMinutes: number;
@@ -78,10 +99,32 @@ export type Config = {
   trustProxy: boolean;
   secureCookies: boolean;
   defaultAdminPassword: string;
+  /** Running as a player's library engine, or null for a server. */
+  embedded?: EmbeddedConfig | null;
 };
+
+/** The system user's name, as a HyperPlayer username. */
+function localUsername(): string {
+  let name = "";
+  try {
+    name = userInfo().username;
+  } catch {
+    // No passwd entry (e.g. some containers).
+  }
+  return name.trim().slice(0, 64) || "me";
+}
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const e = Env.parse(env);
+  if (e.HP_EMBEDDED) {
+    // Only this machine's player talks to it: loopback, no HTTPS, a free port.
+    e.HP_HOST = "127.0.0.1";
+    e.HP_TLS = "off";
+    e.HP_TLS_CERT = undefined;
+    e.HP_TLS_KEY = undefined;
+    e.HP_CORS_ORIGINS = "";
+    e.HP_TRUST_PROXY = false;
+  }
   if (!e.HP_TLS_CERT !== !e.HP_TLS_KEY) {
     throw new Error("HP_TLS_CERT and HP_TLS_KEY go together: set both or neither");
   }
@@ -103,7 +146,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     watch: e.HP_WATCH,
     dataDir: resolve(e.HP_DATA_DIR),
     host: e.HP_HOST,
-    port: e.HP_PORT,
+    port: e.HP_PORT ?? (e.HP_EMBEDDED ? 0 : 4533),
     tls: tls
       ? {
           certFile: e.HP_TLS_CERT ? resolve(e.HP_TLS_CERT) : null,
@@ -132,5 +175,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trustProxy: e.HP_TRUST_PROXY,
     secureCookies: e.HP_SECURE_COOKIES,
     defaultAdminPassword: e.HP_DEFAULT_ADMIN_PASSWORD,
+    embedded: e.HP_EMBEDDED
+      ? { deviceId: e.HP_EMBEDDED_DEVICE, deviceName: e.HP_EMBEDDED_DEVICE_NAME, username: localUsername() }
+      : null,
   };
 }

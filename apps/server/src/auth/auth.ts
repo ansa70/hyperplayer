@@ -94,6 +94,23 @@ export class Auth {
     return created;
   }
 
+  /**
+   * Embedded mode (a player's private library): signs the player in as the local account,
+   * made on first start as an admin (it manages the music folders) without a usable
+   * password. Every start issues a new token for the same device, so its queue carries on.
+   */
+  async signInLocal(username: string, deviceName: string, deviceId?: string): Promise<Session> {
+    let row = this.#db.prepare("SELECT * FROM users WHERE admin = 1 ORDER BY created_at LIMIT 1").get() as
+      | Row
+      | undefined;
+    if (!row) {
+      // Nobody signs in with a password here: a random one nobody knows.
+      const user = await this.createUser(username, randomBytes(32).toString("base64url"), true);
+      row = this.#db.prepare("SELECT * FROM users WHERE id = ?").get(user.id) as Row;
+    }
+    return this.#issue(this.#user(row), deviceName, deviceId);
+  }
+
   /** The default admin hasn't been claimed yet (its password is still the default). */
   get defaultAdminActive(): boolean {
     return Boolean(

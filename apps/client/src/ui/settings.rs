@@ -65,6 +65,17 @@ pub fn init(ui: &AppWindow) {
         );
     });
     s.on_add_folder(add_folder);
+    s.on_browse_folder(|| {
+        super::local::pick_folder(|picked| {
+            if let Some(path) = picked {
+                let mut paths = folder_paths();
+                if !paths.contains(&path) {
+                    paths.push(path);
+                    set_folders(paths, "Folder added; scanning it now.");
+                }
+            }
+        })
+    });
     s.on_remove_folder(|path| {
         let paths = folder_paths()
             .into_iter()

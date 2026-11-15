@@ -8,6 +8,7 @@ mod browse;
 mod desktop;
 mod history;
 mod library;
+mod local;
 mod lyrics;
 mod models;
 mod playback;
@@ -476,6 +477,8 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_login_skip_onboarding(account::skip_onboarding);
     ui.on_login_trust(account::trust_server);
     ui.on_login_cancel_trust(account::cancel_trust);
+    ui.on_login_use_local(local::start);
+    ui.on_login_use_server(account::use_server);
     ui.on_sign_out(account::sign_out);
     account::begin(token.is_some());
 
@@ -499,6 +502,8 @@ pub fn run() -> anyhow::Result<()> {
     // left to the thread-local's destructor, Windows has already ended those threads at
     // exit and joining them panics.
     drop(APP.with(|cell| cell.borrow_mut().take()));
+    // Last: the queue's position was just saved through it.
+    local::stop();
     Ok(())
 }
 

@@ -16,6 +16,9 @@ use serde::{Deserialize, Serialize};
 pub struct Settings {
     /// Identifies this device's play queue on the server.
     pub device_id: String,
+    /// Where the music comes from: `local` (this computer's, through the library engine the
+    /// player runs), `server`, or empty until chosen (a server, if one was signed in to).
+    pub mode: String,
     /// Server URL and account last signed in to (the token itself is in the keyring).
     pub server: String,
     pub username: String,
@@ -32,6 +35,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             device_id: new_device_id(),
+            mode: String::new(),
             server: String::new(),
             username: String::new(),
             onboarding_skipped: false,
@@ -55,6 +59,11 @@ fn path() -> Option<PathBuf> {
 }
 
 impl Settings {
+    /// The music on this computer, through the player's own library engine.
+    pub fn is_local(&self) -> bool {
+        self.mode == "local"
+    }
+
     /// Loads settings, creating (and saving) a device id on first run.
     pub fn load() -> Self {
         let loaded = path()

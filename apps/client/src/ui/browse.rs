@@ -22,10 +22,82 @@ pub fn load_artists() {
             with_app(|app| {
                 let Some(ui) = app.ui.upgrade() else { return };
                 ui.set_artists(artist_model(app, &page.items, |ui| ui.get_artists()));
-                ui.set_status(format!("{} on server", plural(page.total, "artist")).into());
+                let place = if app.settings.is_local() {
+                    ""
+                } else {
+                    " on server"
+                };
+                ui.set_status(format!("{}{place}", plural(page.total, "artist")).into());
             })
         },
     );
+}
+
+/// How often the local library is checked: often while it's scanning, rarely otherwise.
+const LIBRARY_SCANNING_POLL: Duration = Duration::from_secs(3);
+const LIBRARY_IDLE_POLL: Duration = Duration::from_secs(60);
+
+/// The music on this computer: shows the library's scan as it goes, and new music as it's
+/// found (right after choosing the folders, the library fills up while you look at it).
+pub fn follow_local_library() {
+    thread_local! {
+        static FOLLOWING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        static TRACKS: std::cell::Cell<i64> = const { std::cell::Cell::new(-1) };
+    }
+    if FOLLOWING.replace(true) {
+        return;
+    }
+    TRACKS.set(-1);
+    fn poll() {
+        let api = with_app(|app| {
+            let signed_in = app.ui.upgrade().is_some_and(|ui| ui.get_signed_in());
+            (signed_in && app.settings.is_local()).then(|| app.api.clone())
+        });
+        let Some(api) = api else {
+            FOLLOWING.set(false);
+            return;
+        };
+        std::thread::spawn(move || {
+            let status = api.library_status();
+            let _ = slint::invoke_from_event_loop(move || {
+                let scanning = match status {
+                    Ok(l) => {
+                        if TRACKS.replace(l.tracks) != l.tracks {
+                            load_artists();
+                        }
+                        if l.scanning {
+                            let found = match &l.scan_progress {
+                                Some(p)
+                                    if p.phase
+                                        == types::LibraryStatusScanProgressPhase::Listing =>
+                                {
+                                    format!("Looking for music… {} files found", p.total)
+                                }
+                                Some(p) => format!("Reading your music: {} of {}", p.done, p.total),
+                                None => "Reading your music…".into(),
+                            };
+                            with_app(|app| {
+                                if let Some(ui) = app.ui.upgrade() {
+                                    ui.set_status(found.into());
+                                }
+                            });
+                        }
+                        l.scanning
+                    }
+                    Err(_) => false,
+                };
+                Timer::single_shot(
+                    if scanning {
+                        LIBRARY_SCANNING_POLL
+                    } else {
+                        LIBRARY_IDLE_POLL
+                    },
+                    poll,
+                );
+            });
+        });
+    }
+    poll();
 }
 
 /// Debounce for search-as-you-type.

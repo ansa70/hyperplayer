@@ -7,7 +7,7 @@ use hyperplayer::{
 };
 
 use super::{
-    App, LoginState, Page, browse, library,
+    App, LoginState, Page, browse, library, local,
     playback::{self, Then},
     with_app,
 };
@@ -49,7 +49,7 @@ fn normalize_server(url: &str) -> String {
 }
 
 /// Human name for this device in the server's device list.
-fn device_name() -> String {
+pub fn device_name() -> String {
     let host = std::fs::read_to_string("/etc/hostname")
         .ok()
         .or_else(|| std::env::var("HOSTNAME").ok())
@@ -68,8 +68,38 @@ fn set_login(app: &App, change: impl FnOnce(&mut LoginState)) {
     }
 }
 
-/// At startup: resume the saved session if its token still works, else show the login screen.
+/// Opening the music on this computer: the choice, with its button busy meanwhile.
+pub fn show_opening_local(app: &App) {
+    if let Some(ui) = app.ui.upgrade() {
+        ui.set_signed_in(false);
+    }
+    let local_available = local::available();
+    set_login(app, |l| {
+        l.busy = true;
+        l.choosing = true;
+        l.local_available = local_available;
+        l.error = "".into();
+        l.trust_fingerprint = "".into();
+    });
+}
+
+/// At startup: the music on this computer if that's what was chosen, else resume the saved
+/// session if its token still works, else ask where the music is (or to sign in).
 pub fn begin(has_token: bool) {
+    let (mode, server_known) = with_app(|app| {
+        (
+            app.settings.mode.clone(),
+            !app.settings.server.is_empty() || std::env::var_os("HP_SERVER").is_some(),
+        )
+    });
+    if mode == "local" {
+        return local::start();
+    }
+    // First start: where's the music? (Players that signed in to a server before this
+    // choice existed carry on with it.)
+    if mode.is_empty() && !server_known && local::available() {
+        return show_choice(None);
+    }
     if !has_token {
         show_login(None);
         return;
@@ -118,8 +148,11 @@ pub fn show_login(error: Option<String>) {
         ui.set_login_username(app.settings.username.clone().into());
         ui.set_login_password("".into());
         ui.set_signed_in(false);
+        let local_available = local::available();
         set_login(app, |s| {
             s.busy = false;
+            s.choosing = false;
+            s.local_available = local_available;
             s.changing_password = false;
             s.onboarding = false;
             s.error = error.unwrap_or_default().into();
@@ -127,6 +160,38 @@ pub fn show_login(error: Option<String>) {
         });
     });
     check_server();
+}
+
+/// Asks where the music is: on this computer, or on a server.
+pub fn show_choice(error: Option<String>) {
+    with_app(|app| {
+        let Some(ui) = app.ui.upgrade() else { return };
+        ui.set_signed_in(false);
+        ui.set_status("".into());
+        let local_available = local::available();
+        set_login(app, |s| {
+            s.busy = false;
+            s.choosing = true;
+            s.local_available = local_available;
+            s.changing_password = false;
+            s.onboarding = false;
+            s.error = error.unwrap_or_default().into();
+            s.trust_fingerprint = "".into();
+        });
+    });
+}
+
+/// Chose a server: the sign-in form, for the last server used.
+pub fn use_server() {
+    // The form shows the last server signed in to, not the library engine's address.
+    with_app(|app| app.api = Api::new(initial_server(&app.settings.server)));
+    show_login(None);
+}
+
+/// Signed in to the library engine on this computer.
+pub fn signed_in_locally(user: &hyperplayer::api::types::User) {
+    with_app(|app| set_login(app, |l| l.choosing = false));
+    signed_in(&display_name(user));
 }
 
 /// Asks whether to trust the certificate `err` (an `UntrustedCertificate`) is about.
@@ -252,12 +317,15 @@ pub fn submit() {
             Ok(session) => {
                 let username = session.user.username.clone();
                 with_app(|app| {
+                    app.settings.mode = "server".into();
                     app.settings.server = server.clone();
                     app.settings.username = username.clone();
                     // The server may assign a different id (e.g. ours belongs to another account).
                     app.settings.device_id = session.device.id.to_string();
                     app.settings.save();
                 });
+                // A server now: the music on this computer isn't needed anymore.
+                std::thread::spawn(local::stop);
                 // Stored even while restricted, so quitting mid-change resumes at the password step.
                 let stored = credentials::save(&server, &username, &session.token);
                 eprintln!("signed in as {username}; token stored in {stored}");
@@ -508,6 +576,9 @@ fn display_name(user: &hyperplayer::api::types::User) -> String {
 fn signed_in(display: &str) {
     with_app(|app| {
         if let Some(ui) = app.ui.upgrade() {
+            let local = app.settings.is_local();
+            ui.set_local_library(local);
+            slint::ComponentHandle::global::<super::SettingsState>(&ui).set_local(local);
             ui.set_signed_in(true);
             ui.set_account(display.into());
             set_login(app, |l| l.busy = false);
@@ -515,6 +586,9 @@ fn signed_in(display: &str) {
     });
     load_preferences();
     browse::load_artists();
+    if with_app(|app| app.settings.is_local()) {
+        browse::follow_local_library();
+    }
     library::load_playlists();
     // Restore this device's queue: show the current track, ready to resume where it stopped.
     playback::queue_op(Then::Show, |api| api.queue());
@@ -523,6 +597,16 @@ fn signed_in(display: &str) {
 
 pub fn sign_out() {
     playback::stop();
+    // The music on this computer: nothing to sign out of; ask where the music is instead.
+    // The engine keeps running until something else is chosen, in case it's chosen again.
+    if with_app(|app| app.settings.is_local()) {
+        with_app(|app| {
+            forget_session(app);
+            app.settings.mode = String::new();
+            app.settings.save();
+        });
+        return show_choice(None);
+    }
     let api = with_app(|app| {
         let api = app.api.clone();
         credentials::delete(api.base(), &app.settings.username);
@@ -543,6 +627,10 @@ pub fn session_ended() {
         return;
     }
     playback::stop();
+    // The engine restarted (with a new token) under a request: connect again.
+    if with_app(|app| app.settings.is_local()) {
+        return local::start();
+    }
     with_app(|app| {
         credentials::delete(app.api.base(), &app.settings.username);
         forget_session(app);

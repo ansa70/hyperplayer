@@ -126,6 +126,10 @@ export struct LoginState {
     /// A server with a certificate this computer doesn't trust: ask whether to (its SHA-256).
     trust-fingerprint: string,
     trust-server: string,
+    /// First start (or switching): music on this computer, or on a server?
+    choosing: bool,
+    /// This player has the library engine, so it can play the music on this computer.
+    local-available: bool,
 }
 
 export enum Page { welcome, artist, album, search, playlist, queue, lyrics, history, albums, settings }
@@ -663,6 +667,8 @@ component Sidebar inherits Rectangle {
     /// "empty", or a smart playlist template: random, artist, albums, genre, custom.
     callback new-playlist(string);
     in property <string> account;
+    /// The music on this computer: "Sign out" becomes choosing the music's place again.
+    in property <bool> local;
     callback sign-out();
     callback search-accepted(string);
     public function focus-search() { search.focus(); }
@@ -828,7 +834,7 @@ component Sidebar inherits Rectangle {
                     settings-ta := TouchArea { mouse-cursor: pointer; clicked => { root.show-settings(); } }
                 }
                 Text {
-                    text: "Sign out";
+                    text: root.local ? "Switch library" : "Sign out";
                     color: out-ta.has-hover ? Theme.text : Theme.faint;
                     font-size: 12px;
                     vertical-alignment: center;
@@ -2209,6 +2215,8 @@ component LoginScreen inherits Rectangle {
     callback skip-onboarding();
     callback trust();
     callback cancel-trust();
+    callback use-local();
+    callback use-server();
     background: Theme.bg;
     // Swallow clicks so nothing behind the screen reacts.
     TouchArea { }
@@ -2254,7 +2262,35 @@ component LoginScreen inherits Rectangle {
                             cancel-ta := TouchArea { mouse-cursor: pointer; clicked => { root.cancel-trust(); } }
                         }
                     }
-                    if root.state.trust-fingerprint == "" && !root.state.changing-password && !root.state.onboarding: VerticalLayout {
+                    if root.state.trust-fingerprint == "" && root.state.choosing: VerticalLayout {
+                        padding: 32px;
+                        spacing: 14px;
+                        Text { text: "HyperPlayer"; color: Theme.text; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+                        Text {
+                            text: "Where is your music?";
+                            color: Theme.muted;
+                            font-size: 13px;
+                            wrap: word-wrap;
+                        }
+                        if root.state.local-available: PrimaryButton {
+                            text: "On this computer";
+                            busy: root.state.busy;
+                            clicked => { root.use-local(); }
+                        }
+                        if root.state.local-available: Text {
+                            color: Theme.muted;
+                            font-size: 12px;
+                            wrap: word-wrap;
+                            text: "Choose your music folders and HyperPlayer does the rest. Nothing else to install.";
+                        }
+                        OutlineButton {
+                            text: "On a HyperPlayer server";
+                            clicked => { root.use-server(); }
+                        }
+                        Text { text: "Sign in to a server at home or elsewhere: it keeps your library, queue and playlists for all your devices."; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                        if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
+                    }
+                    if root.state.trust-fingerprint == "" && !root.state.choosing && !root.state.changing-password && !root.state.onboarding: VerticalLayout {
                         padding: 32px;
                         spacing: 14px;
                         Text { text: "HyperPlayer"; color: Theme.text; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
@@ -2289,6 +2325,13 @@ component LoginScreen inherits Rectangle {
                         }
                         if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
                         PrimaryButton { text: "Sign in"; busy: root.state.busy; clicked => { root.submit(); } }
+                        if root.state.local-available: Text {
+                            text: "Play the music on this computer instead";
+                            color: local-ta.has-hover ? Theme.text : Theme.faint;
+                            font-size: 12px;
+                            horizontal-alignment: center;
+                            local-ta := TouchArea { mouse-cursor: pointer; clicked => { root.use-local(); } }
+                        }
                     }
                     if root.state.trust-fingerprint == "" && root.state.changing-password: VerticalLayout {
                         padding: 32px;
@@ -2433,6 +2476,8 @@ export global SettingsState {
     /// This player's version and the server's.
     in property <string> versions;
     in property <bool> is-admin;
+    /// The music on this computer: no password, devices or users; the folders are this computer's.
+    in property <bool> local;
 
     // Appearance.
     in property <string> accent;
@@ -2507,6 +2552,8 @@ export global SettingsState {
     /// An example path as the server writes them (Windows or not).
     in property <string> folder-example: "/mnt/music";
     callback add-folder();
+    /// Local library: choose a folder with the system's dialog.
+    callback browse-folder();
     callback remove-folder(string);
     in property <string> folders-message;
     in property <bool> folders-error;
@@ -2565,7 +2612,7 @@ component SettingsPage inherits Rectangle {
                 Segmented {
                     selected: SettingsState.tab;
                     // Listeners see the library's state too, read-only, as "Library".
-                    options: [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }, { key: "server", label: SettingsState.is-admin ? "Server" : "Library" }];
+                    options: [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }, { key: "server", label: SettingsState.is-admin && !SettingsState.local ? "Server" : "Library" }];
                     pick(key) => { SettingsState.tab = key; }
                 }
 
@@ -2675,7 +2722,7 @@ component SettingsPage inherits Rectangle {
                         if SettingsState.name-message != "": Note { text: SettingsState.name-message; vertical-alignment: center; }
                     }
                 }
-                if SettingsState.tab == "account": Card {
+                if SettingsState.tab == "account" && !SettingsState.local: Card {
                     title: "Password";
                     Field {
                         label: "CURRENT PASSWORD";
@@ -2701,7 +2748,7 @@ component SettingsPage inherits Rectangle {
                     }
                     Note { text: "Changing it signs out your other devices."; }
                 }
-                if SettingsState.tab == "account": Card {
+                if SettingsState.tab == "account" && !SettingsState.local: Card {
                     title: "Signed-in devices";
                     for device in SettingsState.devices: HorizontalLayout {
                         spacing: 12px;
@@ -2845,7 +2892,12 @@ component SettingsPage inherits Rectangle {
                         text: "Removing a folder takes its tracks out of the library. Playlists keep them, and find them again if the folder comes back.";
                         color: #ff8a80;
                     }
-                    if SettingsState.is-admin: HorizontalLayout {
+                    if SettingsState.is-admin && SettingsState.local: HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+                        OutlineButton { text: "Add a folder…"; clicked => { SettingsState.browse-folder(); } }
+                    }
+                    if SettingsState.is-admin && !SettingsState.local: HorizontalLayout {
                         spacing: 8px;
                         LineEdit {
                             text <=> SettingsState.new-folder;
@@ -2897,12 +2949,14 @@ component SettingsPage inherits Rectangle {
                         }
                     }
                     Note {
-                        text: SettingsState.is-admin
+                        text: SettingsState.local
+                            ? "HyperPlayer notices new music in these folders while it's open, and rescans every few minutes. Folders on a network drive work too, as long as this computer can open them."
+                            : SettingsState.is-admin
                             ? "The server also rescans every few minutes and watches folders where the filesystem allows. Folders set here replace HP_LIBRARY's, until HP_LIBRARY itself is changed (e.g. by the installer). In Docker, only folders mounted into the container can be found."
                             : SettingsState.scanning ? "The server is scanning the library now." : "The server rescans the library every few minutes, so new music shows up on its own.";
                     }
                 }
-                if SettingsState.tab == "server" && SettingsState.is-admin: Card {
+                if SettingsState.tab == "server" && SettingsState.is-admin && !SettingsState.local: Card {
                     title: "Users";
                     for user in SettingsState.users: VerticalLayout {
                         spacing: 8px;
@@ -2968,7 +3022,7 @@ component SettingsPage inherits Rectangle {
                         color: SettingsState.users-error ? #ff8a80 : Theme.muted;
                     }
                 }
-                if SettingsState.tab == "server" && SettingsState.is-admin: Card {
+                if SettingsState.tab == "server" && SettingsState.is-admin && !SettingsState.local: Card {
                     title: "Add a user";
                     HorizontalLayout {
                         spacing: 12px;
@@ -3239,7 +3293,11 @@ export component AppWindow inherits Window {
     callback login-skip-onboarding();
     callback login-trust();
     callback login-cancel-trust();
+    callback login-use-local();
+    callback login-use-server();
     callback sign-out();
+    /// Playing the music on this computer (the player's own library engine), not a server's.
+    in property <bool> local-library;
     property <bool> show-help;
     init => { keys.focus(); }
     callback back-to-artist();
@@ -3332,6 +3390,7 @@ export component AppWindow inherits Window {
                     select-playlist(id) => { root.select-playlist(id); }
                     new-playlist(kind) => { root.new-playlist(kind); }
                     account: root.account;
+                    local: root.local-library;
                     sign-out => { root.sign-out(); }
                     history-open: root.page == Page.history;
                     show-history => { root.show-history(); }
@@ -3520,6 +3579,8 @@ export component AppWindow inherits Window {
             skip-onboarding => { root.login-skip-onboarding(); }
             trust => { root.login-trust(); }
             cancel-trust => { root.login-cancel-trust(); }
+            use-local => { root.login-use-local(); }
+            use-server => { root.login-use-server(); }
         }
     }
 }
