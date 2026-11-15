@@ -482,7 +482,9 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_login_browse_music_folder(account::browse_music_folder);
     ui.on_login_use_music_folder(account::use_music_folder);
     ui.on_login_back_to_choice(|| account::show_choice(None));
+    ui.on_login_back_to_library(account::back_to_library);
     ui.on_sign_out(account::sign_out);
+    ui.on_switch_library(account::switch_library);
     account::begin(token.is_some());
 
     ui.run()?;

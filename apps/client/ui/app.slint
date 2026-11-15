@@ -133,6 +133,8 @@ export struct LoginState {
     /// Standalone's first start: choosing the folder the library starts with.
     picking-folder: bool,
     music-folder: string,
+    /// Switching away from a library in use: it can be gone back to (never at first start).
+    can-go-back: bool,
 }
 
 export enum Page { welcome, artist, album, search, playlist, queue, lyrics, history, albums, settings }
@@ -673,6 +675,9 @@ component Sidebar inherits Rectangle {
     /// Standalone: "Sign out" becomes choosing how to use HyperPlayer again.
     in property <bool> local;
     callback sign-out();
+    /// Signed in to a server on a player with a library of its own: it can switch to it.
+    in property <bool> can-switch;
+    callback switch-library();
     callback search-accepted(string);
     public function focus-search() { search.focus(); }
     /// Scrolls the artist list so row `index` is in view (centred if it was off-screen).
@@ -835,6 +840,13 @@ component Sidebar inherits Rectangle {
                     font-size: 12px;
                     vertical-alignment: center;
                     settings-ta := TouchArea { mouse-cursor: pointer; clicked => { root.show-settings(); } }
+                }
+                if !root.local && root.can-switch: Text {
+                    text: "Switch library";
+                    color: switch-ta.has-hover ? Theme.text : Theme.faint;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                    switch-ta := TouchArea { mouse-cursor: pointer; clicked => { root.switch-library(); } }
                 }
                 Text {
                     text: root.local ? "Switch library" : "Sign out";
@@ -2223,6 +2235,7 @@ component LoginScreen inherits Rectangle {
     callback browse-music-folder();
     callback use-music-folder();
     callback back-to-choice();
+    callback back-to-library();
     background: Theme.bg;
     // Swallow clicks so nothing behind the screen reacts.
     TouchArea { }
@@ -2295,6 +2308,13 @@ component LoginScreen inherits Rectangle {
                         }
                         Text { text: "A server, at home or elsewhere, keeps the library, queue and playlists for all your devices."; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
                         if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
+                        if root.state.can-go-back: HorizontalLayout {
+                            alignment: start;
+                            OutlineButton {
+                                text: "Back to my library";
+                                clicked => { root.back-to-library(); }
+                            }
+                        }
                     }
                     if root.state.trust-fingerprint == "" && root.state.choosing && root.state.picking-folder: VerticalLayout {
                         padding: 32px;
@@ -3461,10 +3481,13 @@ export component AppWindow inherits Window {
     callback login-browse-music-folder();
     callback login-use-music-folder();
     callback login-back-to-choice();
+    callback login-back-to-library();
     callback login-use-server();
     callback sign-out();
     /// Playing the music on this computer (the player's own library engine), not a server's.
     in property <bool> local-library;
+    in property <bool> can-switch-library;
+    callback switch-library();
     property <bool> show-help;
     init => { keys.focus(); }
     callback back-to-artist();
@@ -3559,6 +3582,8 @@ export component AppWindow inherits Window {
                     account: root.account;
                     local: root.local-library;
                     sign-out => { root.sign-out(); }
+                    can-switch: root.can-switch-library;
+                    switch-library => { root.switch-library(); }
                     history-open: root.page == Page.history;
                     show-history => { root.show-history(); }
                     albums-open: root.page == Page.albums;
@@ -3750,6 +3775,7 @@ export component AppWindow inherits Window {
             browse-music-folder => { root.login-browse-music-folder(); }
             use-music-folder => { root.login-use-music-folder(); }
             back-to-choice => { root.login-back-to-choice(); }
+            back-to-library => { root.login-back-to-library(); }
             use-server => { root.login-use-server(); }
         }
     }

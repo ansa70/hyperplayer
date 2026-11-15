@@ -172,10 +172,49 @@ pub fn show_choice(error: Option<String>) {
             s.local_available = local_available;
             s.changing_password = false;
             s.onboarding = false;
+            // The library being left failed to open: going back to it would only fail again.
+            if error.is_some() {
+                s.can_go_back = false;
+            }
             s.error = error.unwrap_or_default().into();
             s.trust_fingerprint = "".into();
         });
     });
+}
+
+thread_local! {
+    /// The mode "Switch library" left (`local` or `server`), for "Back to my library".
+    static SWITCHED_FROM: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+}
+
+/// "Switch library": back to the choice between a standalone player and a server. A
+/// server's session is kept (in the keyring), so choosing it again needs no password.
+pub fn switch_library() {
+    playback::stop();
+    let mode = with_app(|app| {
+        let mode = app.settings.mode.clone();
+        forget_session(app);
+        // Standalone: the engine keeps running until something else is chosen, in case it's
+        // chosen again. A server stays the mode until another is chosen, so that quitting
+        // here starts with it as before.
+        if app.settings.is_local() {
+            app.settings.mode = String::new();
+            app.settings.save();
+        }
+        set_login(app, |l| l.can_go_back = true);
+        mode
+    });
+    SWITCHED_FROM.with(|m| *m.borrow_mut() = mode);
+    show_choice(None);
+}
+
+/// "Back to my library" on the choice screen: the library switched away from.
+pub fn back_to_library() {
+    if SWITCHED_FROM.with(|m| m.borrow().clone()) == "local" {
+        local::start();
+    } else {
+        use_server();
+    }
 }
 
 /// Standalone mode's first start: which folder the library starts with (`suggested`, the
@@ -637,10 +676,14 @@ fn signed_in(display: &str) {
         if let Some(ui) = app.ui.upgrade() {
             let local = app.settings.is_local();
             ui.set_local_library(local);
+            ui.set_can_switch_library(local::available());
             slint::ComponentHandle::global::<super::SettingsState>(&ui).set_local(local);
             ui.set_signed_in(true);
             ui.set_account(display.into());
-            set_login(app, |l| l.busy = false);
+            set_login(app, |l| {
+                l.busy = false;
+                l.can_go_back = false;
+            });
         }
     });
     load_preferences();
@@ -657,14 +700,8 @@ fn signed_in(display: &str) {
 pub fn sign_out() {
     playback::stop();
     // The music on this computer: nothing to sign out of; ask where the music is instead.
-    // The engine keeps running until something else is chosen, in case it's chosen again.
     if with_app(|app| app.settings.is_local()) {
-        with_app(|app| {
-            forget_session(app);
-            app.settings.mode = String::new();
-            app.settings.save();
-        });
-        return show_choice(None);
+        return switch_library();
     }
     let api = with_app(|app| {
         let api = app.api.clone();
