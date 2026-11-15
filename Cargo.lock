@@ -2378,7 +2378,7 @@ dependencies = [
 
 [[package]]
 name = "hyperplayer"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2408,7 +2408,7 @@ dependencies = [
 
 [[package]]
 name = "hyperplayer-service"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "embed-resource",
  "windows-service",
