@@ -86,18 +86,13 @@ pub fn show_opening_local(app: &App) {
 /// At startup: the music on this computer if that's what was chosen, else resume the saved
 /// session if its token still works, else ask where the music is (or to sign in).
 pub fn begin(has_token: bool) {
-    let (mode, server_known) = with_app(|app| {
-        (
-            app.settings.mode.clone(),
-            !app.settings.server.is_empty() || std::env::var_os("HP_SERVER").is_some(),
-        )
-    });
+    let mode = with_app(|app| app.settings.mode.clone());
     if mode == "local" {
         return local::start();
     }
-    // First start: where's the music? (Players that signed in to a server before this
-    // choice existed carry on with it.)
-    if mode.is_empty() && !server_known && local::available() {
+    // Not chosen yet (a first start, or a player from before the choice existed): where's
+    // the music? HP_SERVER (development) means a server.
+    if mode.is_empty() && std::env::var_os("HP_SERVER").is_none() && local::available() {
         return show_choice(None);
     }
     if !has_token {
@@ -183,9 +178,26 @@ pub fn show_choice(error: Option<String>) {
 
 /// Chose a server: the sign-in form, for the last server used.
 pub fn use_server() {
-    // The form shows the last server signed in to, not the library engine's address.
-    with_app(|app| app.api = Api::new(initial_server(&app.settings.server)));
-    show_login(None);
+    // The last server signed in to (not the library engine), resuming its saved session.
+    let has_token = with_app(|app| {
+        let server = initial_server(&app.settings.server);
+        let token = (!app.settings.username.is_empty())
+            .then(|| credentials::load(&server, &app.settings.username))
+            .flatten();
+        app.api = Api::with_token(server, token.as_deref());
+        if token.is_some() {
+            app.settings.mode = "server".into();
+            app.settings.save();
+        }
+        token.is_some()
+    });
+    if has_token {
+        // The session is checked as at startup: still valid, or the sign-in form.
+        with_app(|app| set_login(app, |l| l.choosing = false));
+        begin(true);
+    } else {
+        show_login(None);
+    }
 }
 
 /// Signed in to the library engine on this computer.
