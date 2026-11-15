@@ -84,6 +84,7 @@ pub fn init(ui: &AppWindow) {
             .collect();
         set_folders(paths, "Folder removed; rescanning.");
     });
+    s.on_switch_library(super::account::switch_library);
     s.on_add_source(|| add_source(false));
     s.on_trust_source(|| add_source(true));
     s.on_cancel_trust_source(|| {

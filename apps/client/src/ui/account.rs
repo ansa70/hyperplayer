@@ -677,6 +677,8 @@ fn signed_in(display: &str) {
             let local = app.settings.is_local();
             ui.set_local_library(local);
             ui.set_can_switch_library(local::available());
+            slint::ComponentHandle::global::<super::SettingsState>(&ui)
+                .set_can_switch(local::available());
             slint::ComponentHandle::global::<super::SettingsState>(&ui).set_local(local);
             ui.set_signed_in(true);
             ui.set_account(display.into());

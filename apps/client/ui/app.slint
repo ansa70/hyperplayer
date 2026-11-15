@@ -2550,6 +2550,9 @@ export global SettingsState {
     in property <bool> is-admin;
     /// The music on this computer: no password, devices or users; the folders are this computer's.
     in property <bool> local;
+    /// Signed in to a server, on a player with a library of its own to switch to.
+    in property <bool> can-switch;
+    callback switch-library();
 
     // Appearance.
     in property <string> accent;
@@ -3042,6 +3045,13 @@ component SettingsPage inherits Rectangle {
                             : SettingsState.is-admin
                             ? "The server also rescans every few minutes and watches folders where the filesystem allows. Folders set here replace HP_LIBRARY's, until HP_LIBRARY itself is changed (e.g. by the installer). In Docker, only folders mounted into the container can be found."
                             : SettingsState.scanning ? "The server is scanning the library now." : "The server rescans the library every few minutes, so new music shows up on its own.";
+                    }
+                    if !SettingsState.local && SettingsState.can-switch: Note {
+                        text: "To combine this server's music with folders on this computer, or with other servers, use HyperPlayer as a standalone player and add this server in Settings → Library → Servers.";
+                    }
+                    if !SettingsState.local && SettingsState.can-switch: HorizontalLayout {
+                        alignment: start;
+                        OutlineButton { text: "Switch library…"; clicked => { SettingsState.switch-library(); } }
                     }
                 }
                 if SettingsState.tab == "server" && SettingsState.local: Card {
