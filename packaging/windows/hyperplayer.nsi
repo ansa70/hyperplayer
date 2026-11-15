@@ -1,6 +1,8 @@
 ; HyperPlayer for Windows (packaging/windows/build.sh): the player, the server, or both.
-; The server runs as the "HyperPlayer" Windows service (hyperplayer-service.exe), with
-; settings in %ProgramData%\HyperPlayer\server.env and its data next to them.
+; The player plays the music on this PC with its own library engine, the server's code in
+; $INSTDIR\server (Node.js, sharp, ffmpeg), which it runs itself while it's open. The
+; server runs the same code as the "HyperPlayer" Windows service (hyperplayer-service.exe),
+; with settings in %ProgramData%\HyperPlayer\server.env and its data next to them.
 ;
 ; makensis -DVERSION=x.y.z[-beta.n] -DFILEVERSION=x.y.z.0 -DSTAGE=dir -DOUTFILE=setup.exe
 ;
@@ -56,6 +58,8 @@ Var LastfmKey
 Var LastfmSecret
 Var Enrich
 Var FinishText
+; The service was installed before (it's stopped while its files are replaced).
+Var ServiceInstalled
 ; Controls of the page being shown.
 Var hLibrary
 Var hSmbUser
@@ -99,8 +103,9 @@ Page custom LastfmPage LastfmPageLeave
 
 Section "Player" SecPlayer
   SetShellVarContext all
-  ; A running player keeps its executable locked.
+  ; A running player keeps its executable locked; its library engine stops with it.
   nsExec::Exec 'taskkill /IM hyperplayer.exe /F'
+  Sleep 2000
   SetOutPath "$INSTDIR"
   !ifndef UNINSTALLER
     File "${STAGE}/hyperplayer.exe"
@@ -115,20 +120,40 @@ Section "Desktop shortcut" SecDesktop
   ${EndIf}
 SectionEnd
 
-Section /o "Server" SecServer
+; Chosen on the components page; set up in -ServerSetup, once the files are in.
+Section /o "Server (Windows service)" SecServer
+SectionEnd
+
+; The server's code: the player's library engine, and the service's server.
+Section "-Engine" SecEngine
   SetShellVarContext all
-  DetailPrint "Stopping the server (if it's running)..."
+  ${IfNot} ${SectionIsSelected} ${SecPlayer}
+  ${AndIfNot} ${SectionIsSelected} ${SecServer}
+    Return
+  ${EndIf}
   ${If} ${FileExists} "${SERVICE_EXE}"
+    StrCpy $ServiceInstalled 1
+    DetailPrint "Stopping the server (if it's running)..."
     nsExec::ExecToLog '"${SERVICE_EXE}" stop'
   ${EndIf}
-
   SetOutPath "$INSTDIR\server"
   ; The bundle's chunk names change between versions: start from a clean folder.
   RMDir /r "$INSTDIR\server\dist"
   !ifndef UNINSTALLER
     File /r "${STAGE}/server/*"
   !endif
+  ; Updated with the player only: the service carries on, with the new version.
+  ${If} $ServiceInstalled == 1
+  ${AndIfNot} ${SectionIsSelected} ${SecServer}
+    nsExec::ExecToLog '"${SERVICE_EXE}" start'
+  ${EndIf}
+SectionEnd
 
+Section "-ServerSetup"
+  ${IfNot} ${SectionIsSelected} ${SecServer}
+    Return
+  ${EndIf}
+  SetShellVarContext all
   CreateDirectory "$ServerHome\data"
   CreateDirectory "$ServerHome\logs"
   ; Administrators and the service's account only: the settings hold passwords.
@@ -175,14 +200,14 @@ Section "-Uninstaller"
   WriteRegDWORD HKLM "${UNINSTALL_KEY}" "NoModify" 1
   WriteRegDWORD HKLM "${UNINSTALL_KEY}" "NoRepair" 1
   ${IfNot} ${SectionIsSelected} ${SecServer}
-    StrCpy $FinishText "The ${APP} player is in the Start menu."
+    StrCpy $FinishText "The ${APP} player is in the Start menu. It plays the music on this PC, or connects to a HyperPlayer server."
   ${EndIf}
 SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecPlayer} "The player, to listen to the music on a HyperPlayer server."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecPlayer} "The player: plays the music on this PC (nothing else to install), or on a HyperPlayer server."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "A shortcut to the player on the desktop."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecServer} "The server: keeps your music library and streams it to players on this PC, your network or (behind a reverse proxy) anywhere. Runs as a Windows service."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecServer} "Only to share this PC's music with other devices: a server that streams it to players on your network or (behind a reverse proxy) anywhere. Runs as a Windows service. Not needed to play music on this PC."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; ------------------------------------------------------------------ functions
@@ -463,6 +488,8 @@ FunctionEnd
 Section "Uninstall"
   SetShellVarContext all
   nsExec::Exec 'taskkill /IM hyperplayer.exe /F'
+  ; Its library engine stops with it, releasing the files in server.
+  Sleep 2000
   ${If} ${FileExists} "${SERVICE_EXE}"
     nsExec::ExecToLog '"${SERVICE_EXE}" uninstall'
   ${EndIf}
@@ -479,5 +506,6 @@ Section "Uninstall"
     MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "Also delete the server's data (library database, accounts, certificate) and settings in $APPDATA\${APP}? Keep them to install again later." IDNO +2
     RMDir /r "$APPDATA\${APP}"
   ${EndIf}
-  ; Each user's player settings stay in their own %APPDATA%\HyperPlayer.
+  ; Each user's player settings stay in their own %APPDATA%\HyperPlayer, and the library
+  ; of their music on this PC in %LOCALAPPDATA%\HyperPlayer.
 SectionEnd

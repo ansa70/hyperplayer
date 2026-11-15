@@ -48,7 +48,9 @@ fn executable(dir: &Path, name: &str) -> PathBuf {
 /// ship it) or, for development, the server's sources (`vpx src/main.ts`).
 fn launch_in(dir: &Path) -> Option<Launch> {
     let node = executable(dir, "node");
-    let ffmpeg = Some(executable(dir, "ffmpeg")).filter(|f| f.is_file());
+    let ffmpeg = Some(executable(dir, "ffmpeg"))
+        .filter(|f| f.is_file())
+        .or_else(homebrew_ffmpeg);
     if node.is_file() && dir.join("dist/main.mjs").is_file() {
         return Some(Launch {
             program: node,
@@ -73,6 +75,18 @@ fn launch_in(dir: &Path) -> Option<Launch> {
         });
     }
     None
+}
+
+/// macOS: apps started from the Finder don't get Homebrew's PATH, so its ffmpeg is looked
+/// for where Homebrew puts it (Apple Silicon, then Intel).
+fn homebrew_ffmpeg() -> Option<PathBuf> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
+    ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"]
+        .iter()
+        .map(PathBuf::from)
+        .find(|p| p.is_file())
 }
 
 /// Finds the engine: `HP_ENGINE` (a folder), else the one shipped with the player, else
@@ -109,6 +123,10 @@ pub fn data_dir() -> Option<PathBuf> {
 
 /// The folder music is usually in on this computer, for a first start.
 pub fn default_music_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    if let Some(dir) = windows_music_dir() {
+        return Some(dir);
+    }
     let home = crate::dirs::home_dir()?;
     if cfg!(target_os = "linux")
         && let Some(dir) = xdg_music_dir(&home)
@@ -116,6 +134,25 @@ pub fn default_music_dir() -> Option<PathBuf> {
         return Some(dir);
     }
     Some(home.join("Music"))
+}
+
+/// Windows' Music folder, wherever it is (OneDrive often moves it).
+#[cfg(windows)]
+fn windows_music_dir() -> Option<PathBuf> {
+    use std::os::windows::ffi::OsStringExt;
+    use windows_sys::Win32::{
+        System::Com::CoTaskMemFree,
+        UI::Shell::{FOLDERID_Music, SHGetKnownFolderPath},
+    };
+    let mut path: windows_sys::core::PWSTR = std::ptr::null_mut();
+    let ok =
+        unsafe { SHGetKnownFolderPath(&FOLDERID_Music, 0, std::ptr::null_mut(), &mut path) } == 0;
+    let dir = (ok && !path.is_null()).then(|| unsafe {
+        let len = (0..).take_while(|&i| *path.add(i) != 0).count();
+        PathBuf::from(OsString::from_wide(std::slice::from_raw_parts(path, len)))
+    });
+    unsafe { CoTaskMemFree(path.cast()) };
+    dir
 }
 
 /// XDG_MUSIC_DIR from `user-dirs.dirs` (localised, e.g. ~/Musica).
@@ -196,6 +233,8 @@ impl Engine {
         let mut child = cmd
             .spawn()
             .with_context(|| format!("starting {}", launch.program.display()))?;
+        #[cfg(windows)]
+        kill_with_player(&child);
         let stdin = child.stdin.take();
         let (tx, rx) = mpsc::channel();
         if let Some(out) = child.stdout.take() {
@@ -270,6 +309,39 @@ impl Drop for Engine {
         }
         let _ = child.kill();
         let _ = child.wait();
+    }
+}
+
+/// Windows: puts the engine in a job that ends when the player does, however it ends.
+/// (Its stdin closing already stops it; this also covers an engine that hangs.)
+#[cfg(windows)]
+fn kill_with_player(child: &Child) {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
+        SetInformationJobObject,
+    };
+    // One job for the player's lifetime: the handle is never closed, so Windows closes it
+    // (killing what's in the job) when the player's process ends.
+    static JOB: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    let job = *JOB.get_or_init(|| unsafe {
+        let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+        if job.is_null() {
+            return 0;
+        }
+        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            (&raw const info).cast(),
+            size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        );
+        job as usize
+    });
+    if job != 0 {
+        unsafe { AssignProcessToJobObject(job as _, child.as_raw_handle() as _) };
     }
 }
 

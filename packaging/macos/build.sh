@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Builds the macOS release on a Mac, for its own architecture (Apple Silicon or Intel):
-# release/hyperplayer-<version>-macos-<arm64|x64>.dmg, with HyperPlayer.app.
+# release/hyperplayer-<version>-macos-<arm64|x64>.dmg, with HyperPlayer.app and its library
+# engine (the server's code with Node.js and sharp, in Contents/Resources/server) for the
+# music on this Mac. ffmpeg isn't bundled: the player uses Homebrew's, if it's installed.
 #
 #   packaging/macos/build.sh
 #
@@ -40,6 +42,26 @@ cargo build --release -p hyperplayer
 APP=$STAGE/HyperPlayer.app
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 install -m 755 target/release/hyperplayer "$APP/Contents/MacOS/hyperplayer"
+
+echo "==> Library engine"
+(cd apps/server && vp pack)
+ENGINE=$APP/Contents/Resources/server
+mkdir -p "$ENGINE" "$OUT/cache"
+cp -a apps/server/dist "$ENGINE/dist"
+NODE_VERSION=$(node -p 'process.versions.node')
+NODE_TAR=node-v$NODE_VERSION-darwin-$ARCH.tar.gz
+[[ -s "$OUT/cache/$NODE_TAR" ]] || curl -fL --retry 3 -o "$OUT/cache/$NODE_TAR" "https://nodejs.org/dist/v$NODE_VERSION/$NODE_TAR"
+# nodejs.org's node, signed by the OpenJS Foundation (with the entitlements it needs).
+tar -xzf "$OUT/cache/$NODE_TAR" -C "$ENGINE" --strip-components=2 "node-v$NODE_VERSION-darwin-$ARCH/bin/node"
+SHARP=$(node -p 'require("./apps/server/node_modules/sharp/package.json").version')
+cat >"$ENGINE/package.json" <<JSON
+{ "name": "hyperplayer-server", "version": "$VERSION", "private": true, "type": "module",
+  "dependencies": { "sharp": "$SHARP" } }
+JSON
+NPM_CPU=$([[ $ARCH == x64 ]] && echo x64 || echo arm64)
+(cd "$ENGINE" && npm install --omit=dev --no-package-lock --no-audit --no-fund --os=darwin --cpu=$NPM_CPU --loglevel=error)
+# sharp's native parts, signed ad hoc like the app (Apple Silicon runs no unsigned code).
+find "$ENGINE/node_modules" -type f \( -name '*.node' -o -name '*.dylib' \) -exec codesign --force --sign - {} \;
 
 # The icon, from the PNGs in every size macOS asks for (each also at double density).
 ICONSET=$STAGE/HyperPlayer.iconset

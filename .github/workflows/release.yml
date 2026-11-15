@@ -156,11 +156,13 @@ jobs:
         if: env.SIGN == 'true'
         run: cp -r release/signed-programs/. release/windows/
 
-      # For the Store package (the msix job).
+      # For the Store package (the msix job): the player and its library engine.
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: windows-player
-          path: release/windows/hyperplayer.exe
+          path: |
+            release/windows/hyperplayer.exe
+            release/windows/server
           if-no-files-found: error
 
       - run: packaging/windows/build.sh installer

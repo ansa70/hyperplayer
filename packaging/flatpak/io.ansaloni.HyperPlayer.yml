@@ -1,5 +1,7 @@
 # The player as a Flatpak (packaging/flatpak/build.sh). Built from this checkout;
 # Cargo fetches crates during the build (fine for our own bundles, not for Flathub).
+# With its library engine (the server's code, Node.js, sharp and ffmpeg), which build.sh
+# stages into release/flatpak/engine first.
 id: io.ansaloni.HyperPlayer
 runtime: org.freedesktop.Platform
 runtime-version: "26.08"
@@ -21,7 +23,23 @@ finish-args:
   - --talk-name=org.freedesktop.secrets
   # Media keys and the desktop's player controls (MPRIS).
   - --own-name=org.mpris.MediaPlayer2.hyperplayer
+  # The music on this computer, for the library engine: read only, wherever it usually is
+  # (folders elsewhere are chosen through the folder dialog's portal).
+  - --filesystem=home:ro
+  - --filesystem=/mnt:ro
+  - --filesystem=/media:ro
+  - --filesystem=/run/media:ro
 modules:
+  # The player looks for it in ../lib/hyperplayer/server, next to /app/bin.
+  - name: engine
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/lib/hyperplayer
+      - cp -a . /app/lib/hyperplayer/server
+    sources:
+      - type: dir
+        path: ../../release/flatpak/engine
+
   - name: hyperplayer
     buildsystem: simple
     build-options:

@@ -4,6 +4,8 @@
 #
 #   flatpak install --user hyperplayer-<version>-x86_64.flatpak
 #
+# It has the player's library engine (packaging/linux/stage-server.sh, with a static ffmpeg).
+#
 # Needs Flathub's builder (or a native flatpak-builder, as in CI) and SDK (once, per user):
 #   flatpak install --user flathub org.flatpak.Builder org.freedesktop.Sdk//26.08 \
 #     org.freedesktop.Sdk.Extension.rust-stable//26.08
@@ -14,6 +16,9 @@ VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT/apps/client/Cargo.toml" | h
 WORK=$ROOT/release/flatpak
 OUT=$ROOT/release/hyperplayer-$VERSION-x86_64.flatpak
 mkdir -p "$WORK"
+
+# The library engine, staged for the manifest's engine module.
+"$ROOT/packaging/linux/stage-server.sh" "$WORK/engine" --ffmpeg
 
 if command -v flatpak-builder >/dev/null; then
   BUILDER=(flatpak-builder)

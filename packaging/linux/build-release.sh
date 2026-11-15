@@ -27,24 +27,7 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE"
 
 echo "==> Server"
-vp run @hyperplayer/schemas#generate
-(cd apps/server && vp pack)
-mkdir -p "$STAGE/server"
-cp -a apps/server/dist "$STAGE/server/dist"
-# The Node.js that runs the server, so hosts don't need one. Its real executable, not a
-# version manager's shim (as in CI).
-NODE=$(node -p 'process.execPath')
-"$NODE" -e 'const [a, b] = process.versions.node.split(".").map(Number); process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)' || {
-  echo "Node.js >= 22.18 is needed to build the bundle" >&2
-  exit 1
-}
-cp "$(readlink -f "$NODE")" "$STAGE/server/node"
-SHARP=$(node -p 'require("./apps/server/node_modules/sharp/package.json").version')
-cat >"$STAGE/server/package.json" <<EOF
-{ "name": "hyperplayer-server", "version": "$VERSION", "private": true, "type": "module",
-  "dependencies": { "sharp": "$SHARP" } }
-EOF
-(cd "$STAGE/server" && npm install --omit=dev --no-package-lock --no-audit --no-fund --os=linux --cpu=x64 --libc=glibc --loglevel=error)
+packaging/linux/stage-server.sh "$STAGE/server"
 
 echo "==> Player"
 cargo build --release -p hyperplayer
@@ -53,6 +36,10 @@ rm -rf "$DEB"
 mkdir -p "$DEB/DEBIAN" "$DEB/usr/bin" "$DEB/usr/share/applications" "$DEB/usr/share/icons/hicolor/scalable/apps"
 install -m 755 target/release/hyperplayer "$DEB/usr/bin/hyperplayer"
 strip "$DEB/usr/bin/hyperplayer"
+# The player's library engine (the server's code, for the music on this computer): the
+# player looks for it in ../lib/hyperplayer/server.
+mkdir -p "$DEB/usr/lib/hyperplayer"
+cp -a "$STAGE/server" "$DEB/usr/lib/hyperplayer/server"
 install -m 644 packaging/linux/io.ansaloni.HyperPlayer.desktop "$DEB/usr/share/applications/"
 install -m 644 apps/client/icons/hyperplayer.svg "$DEB/usr/share/icons/hicolor/scalable/apps/io.ansaloni.HyperPlayer.svg"
 for size in 16 32 48 64 128 256 512; do
@@ -77,11 +64,14 @@ Version: ${VERSION/-/\~}
 Architecture: amd64
 Maintainer: Enrico Ansaloni <enrico.ansaloni@gmail.com>
 Depends: $SHLIBS, libxkbcommon0, libwayland-client0 | libx11-6, libegl1 | libgl1
+Recommends: ffmpeg
 Section: sound
 Priority: optional
 Description: HyperPlayer music player
- The native player for a HyperPlayer server: browse the library, stream in the
- best quality the connection sustains, lyrics, history and scrobbling.
+ Plays the music on this computer, or on a HyperPlayer server: browse the
+ library, stream in the best quality the connection sustains, lyrics, history
+ and scrobbling. ffmpeg draws the tracks' waveforms and plays formats the
+ player can't decode itself.
 EOF
 mkdir -p "$STAGE/player"
 fakeroot dpkg-deb --build -Zxz "$DEB" "$STAGE/player/hyperplayer_${VERSION/-/\~}_amd64.deb" >/dev/null

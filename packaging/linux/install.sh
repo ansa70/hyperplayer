@@ -556,7 +556,7 @@ main() {
   choose what "What should be installed on this machine?" \
     "The server and the player" \
     "Only the server (e.g. on a home server or NAS)" \
-    "Only the player"
+    "Only the player (plays the music on this computer, or connects to a server)"
   case $what in
   1) install_server && install_player ;;
   2) install_server ;;

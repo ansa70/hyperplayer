@@ -10,9 +10,10 @@
   <project_license>GPL-3.0-or-later</project_license>
   <description>
     <p>
-      The player for a self-hosted HyperPlayer server: browse your library by artist and album,
-      stream in the best quality your connection sustains, with synced lyrics, credits,
-      listening history and scrobbling to ListenBrainz and Last.fm.
+      A music player for the music on your computer, or on a self-hosted HyperPlayer server:
+      browse your library by artist and album, stream in the best quality your connection
+      sustains, with synced lyrics, credits, listening history and scrobbling to ListenBrainz
+      and Last.fm.
     </p>
   </description>
   <launchable type="desktop-id">io.ansaloni.HyperPlayer.desktop</launchable>

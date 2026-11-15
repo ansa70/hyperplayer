@@ -4,8 +4,9 @@
 #   packaging/windows/build-msix.ps1
 #
 # Runs on Windows: makeappx comes with the Windows SDK. The package is unsigned, as the
-# Store wants it: the Store signs it. The server isn't in it and stays in the installer
-# (a Windows service set up by the installer's pages).
+# Store wants it: the Store signs it. It has the player's library engine (the server's
+# code, which the player runs itself for the music on this PC) from release/windows/server,
+# but not the Windows service: that stays in the installer and install-server.ps1.
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path "$PSScriptRoot/../..").Path
 $Version = (Select-String -Path "$Root/apps/client/Cargo.toml" -Pattern '^version = "(.*)"' |
@@ -25,6 +26,9 @@ Write-Host '==> Store package'
 Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
 New-Item -ItemType Directory $Stage | Out-Null
 Copy-Item "$Root/release/windows/hyperplayer.exe" $Stage
+# The library engine: everything but the service and its status check.
+Copy-Item -Recurse "$Root/release/windows/server" "$Stage/server"
+Remove-Item "$Stage/server/hyperplayer-service.exe", "$Stage/server/server-status.mjs"
 Copy-Item -Recurse "$PSScriptRoot/msix/Assets" $Stage
 (Get-Content -Raw "$PSScriptRoot/msix/AppxManifest.xml") -replace '@VERSION@', $PackageVersion |
     Set-Content -NoNewline -Encoding utf8 "$Stage/AppxManifest.xml"
