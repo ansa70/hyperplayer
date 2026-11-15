@@ -53,13 +53,14 @@ instead.
 
 There are two ways to use HyperPlayer:
 
-- **The player alone** plays the music on the computer it runs on (folders on its disks, or on a network
-  share it can open). At its first start it asks where your music is: choose **On this computer** and pick
-  your music folders. It keeps the library itself, while it's open; nothing else to install or set up.
+- **A standalone player** keeps its own library of your music folders, on the computer's disks or on a
+  network share it can open. At its first start, choose **Standalone player** and then your music folder
+  (more can be added in Settings). It keeps the library itself, while it's open; nothing else to install
+  or set up.
 - **A server and players:** install the server once, on the machine that has (or reaches) the music, and
   the player on every computer you listen on. One library for every device, with a play queue that
   follows you from one to the next and an account for everyone in the household. At the first start,
-  choose **On a HyperPlayer server**.
+  choose **Connect to a HyperPlayer server**.
 
 **Switch library**, at the bottom of the player's sidebar, goes back to that choice.
 
@@ -82,7 +83,7 @@ The wizard asks what to install on this machine: the server, the player, or both
   answering yet (e.g. the NAS is still booting), it retries for up to an hour (`journalctl -u
   hyperplayer-docker`).
 - **Player:** a `.deb` package (Ubuntu 26.04 or newer) or a Flatpak (any distribution; Flatpak needs to be
-  installed). It appears in the applications menu. Both play the music on this computer by themselves;
+  installed). It appears in the applications menu. Both work as a standalone player too;
   the `.deb` recommends ffmpeg, for waveforms and formats the player can't decode itself (the Flatpak has
   its own). The Flatpak reads music in your home folder and under `/mnt`, `/media` and `/run/media`. The Flatpak also installs on its own:
   `flatpak install --user hyperplayer-<version>-x86_64.flatpak`.
@@ -182,9 +183,9 @@ Privacy & Security**, scroll down to the message about HyperPlayer and click **O
 
 ### First sign-in
 
-With a server (for the music on this computer there's nothing to sign in to):
+With a server (a standalone player has nothing to sign in to):
 
-1. Open the player, choose **On a HyperPlayer server** and enter the server's address, e.g. `https://music-server:4533`.
+1. Open the player, choose **Connect to a HyperPlayer server** and enter the server's address, e.g. `https://music-server:4533`.
 2. With a self-signed certificate, the player asks whether to trust the server and shows the
    certificate's fingerprint: check it matches the one the installer showed, then trust it. A certificate
    from a public authority (yours, or your reverse proxy's) needs no question.
@@ -325,8 +326,8 @@ HTTPS, except `localhost` and `127.0.0.1`.
   playlists and history survive until it's back. A folder removed from `HP_LIBRARY` takes its tracks with it.
 - Files modified in the last few seconds are left for the next scan, so half-copied files aren't read.
 
-The player's own library (the music on this computer) works the same way, with the folders chosen in
-**Settings → Library**. The player runs the server's code itself for it, as a private _library engine_:
+A standalone player's own library works the same way, with the folder chosen at its first start and the
+others added in **Settings → Library**. The player runs the server's code itself for it, as a private _library engine_:
 it listens only on `127.0.0.1`, starts and stops with the player, and keeps its data in the user's data
 folder (`~/.local/share/hyperplayer/library`, `%LOCALAPPDATA%\HyperPlayer\library`, or
 `~/Library/Application Support/HyperPlayer/library`). Its log is `engine.log`, next to the player's.

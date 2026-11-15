@@ -121,6 +121,11 @@ pub fn data_dir() -> Option<PathBuf> {
     Some(crate::dirs::data_dir()?.join("library"))
 }
 
+/// Whether the engine has a library on this computer already (it has run here before).
+pub fn has_library() -> bool {
+    data_dir().is_some_and(|d| d.join("library.db").is_file())
+}
+
 /// The folder music is usually in on this computer, for a first start.
 pub fn default_music_dir() -> Option<PathBuf> {
     #[cfg(windows)]
@@ -194,8 +199,14 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// Starts the engine for this device and waits until it answers.
-    pub fn start(launch: &Launch, device_id: &str, device_name: &str) -> Result<Self> {
+    /// Starts the engine for this device and waits until it answers. `music` is the
+    /// library's first folder (else the usual Music folder).
+    pub fn start(
+        launch: &Launch,
+        device_id: &str,
+        device_name: &str,
+        music: Option<&Path>,
+    ) -> Result<Self> {
         let data = data_dir().context("no folder for the library's data")?;
         fs::create_dir_all(&data).with_context(|| format!("creating {}", data.display()))?;
         let mut cmd = Command::new(&launch.program);
@@ -216,7 +227,7 @@ impl Engine {
             .env("HP_EMBEDDED_DEVICE_NAME", device_name)
             .env("HP_DATA_DIR", &data);
         // The first start's folder. Folders chosen in Settings replace it, as long as it stays the same.
-        if let Some(music) = default_music_dir() {
+        if let Some(music) = music.map(Path::to_path_buf).or_else(default_music_dir) {
             cmd.env("HP_LIBRARY", music);
         }
         if let Some(ffmpeg) = &launch.ffmpeg {
@@ -437,7 +448,7 @@ mod tests {
             std::env::set_var("HOME", &scratch);
         }
         let launch = launch_in(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../server")).unwrap();
-        let engine = Engine::start(&launch, "dev-engine-test1", "tests").unwrap();
+        let engine = Engine::start(&launch, "dev-engine-test1", "tests", None).unwrap();
         let api = crate::api::Api::with_token(engine.url.clone(), Some(&engine.token));
         let me = api.me().unwrap();
         assert!(me.user.admin);

@@ -22,6 +22,9 @@ pub struct Settings {
     /// Server URL and account last signed in to (the token itself is in the keyring).
     pub server: String,
     pub username: String,
+    /// The folder the standalone library started with, chosen at its first start (empty:
+    /// the usual Music folder, as before the choice existed).
+    pub music_folder: String,
     /// The admin chose not to register an everyday user from this device.
     pub onboarding_skipped: bool,
     pub volume: f32,
@@ -38,6 +41,7 @@ impl Default for Settings {
             mode: String::new(),
             server: String::new(),
             username: String::new(),
+            music_folder: String::new(),
             onboarding_skipped: false,
             volume: 0.8,
             quality: "auto".into(),

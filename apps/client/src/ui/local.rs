@@ -3,6 +3,7 @@
 //! player in as its local account, with a new token each start.
 
 use std::{
+    path::PathBuf,
     sync::{Mutex, OnceLock},
     thread,
     time::{Duration, Instant},
@@ -48,24 +49,59 @@ pub fn available() -> bool {
     launch().is_some()
 }
 
-/// Switches to the music on this computer: starts the engine (unless it's running) and
-/// signs in to it.
+/// Switches to standalone mode: asks for the music folder the first time, then starts
+/// the engine (unless it's running) and signs in to it.
 pub fn start() {
-    let Some(launch) = launch() else {
-        account::show_choice(Some("This copy of HyperPlayer can't play music from this computer: it only connects to servers.".into()));
+    if launch().is_none() {
+        account::show_choice(Some(
+            "This copy of HyperPlayer can only connect to a server: it has no library of its own."
+                .into(),
+        ));
         return;
-    };
-    let (device_id, device_name) = with_app(|app| {
+    }
+    if with_app(|app| app.settings.music_folder.is_empty()) && !engine::has_library() {
+        let suggested = engine::default_music_dir()
+            .filter(|d| d.is_dir())
+            .map(|d| d.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        return account::show_folder_step(suggested);
+    }
+    open();
+}
+
+/// The library's first folder, from the folder step: remembered, then the library opens.
+pub fn use_folder(folder: String) {
+    if folder.trim().is_empty() {
+        return;
+    }
+    with_app(|app| {
+        app.settings.music_folder = folder.trim().to_string();
+        app.settings.save();
+    });
+    open();
+}
+
+/// Starts the engine (unless it's running) and signs in to it.
+fn open() {
+    let Some(launch) = launch() else { return };
+    let (device_id, device_name, music) = with_app(|app| {
         if let Some(ui) = app.ui.upgrade() {
             ui.set_status("Opening your music library…".into());
         }
         account::show_opening_local(app);
-        (app.settings.device_id.clone(), account::device_name())
+        let music = Some(&app.settings.music_folder)
+            .filter(|f| !f.is_empty())
+            .map(PathBuf::from);
+        (
+            app.settings.device_id.clone(),
+            account::device_name(),
+            music,
+        )
     });
     let generation = next_generation();
     thread::spawn(move || {
         let result = running().map(Ok).unwrap_or_else(|| {
-            let engine = Engine::start(launch, &device_id, &device_name)?;
+            let engine = Engine::start(launch, &device_id, &device_name, music.as_deref())?;
             let session = (engine.url.clone(), engine.token.clone());
             *ENGINE.lock().unwrap() = Some(engine);
             Ok::<_, anyhow::Error>(session)
@@ -73,7 +109,7 @@ pub fn start() {
         let _ = slint::invoke_from_event_loop(move || match result {
             Ok((url, token)) => {
                 connected(url, token);
-                watch(generation, device_id, device_name);
+                watch(generation, device_id, device_name, music);
             }
             Err(e) => {
                 eprintln!("{e:#}");
@@ -122,7 +158,7 @@ fn connected(url: String, token: String) {
 
 /// Restarts the engine if it stops by itself (a crash), and hands the new connection to
 /// the app. Its port and token change; the device, so the queue, stays the same.
-fn watch(generation: u64, device_id: String, device_name: String) {
+fn watch(generation: u64, device_id: String, device_name: String, music: Option<PathBuf>) {
     thread::spawn(move || {
         let mut restarts = 0;
         let mut last_restart = Instant::now();
@@ -154,7 +190,7 @@ fn watch(generation: u64, device_id: String, device_name: String) {
                 return;
             }
             let Some(launch) = launch() else { return };
-            match Engine::start(launch, &device_id, &device_name) {
+            match Engine::start(launch, &device_id, &device_name, music.as_deref()) {
                 Ok(engine) => {
                     let api = Api::with_token(engine.url.clone(), Some(&engine.token));
                     {
@@ -182,9 +218,9 @@ pub fn stop() {
 }
 
 /// Asks for a folder with the system's dialog (the desktop portal on Linux).
-pub fn pick_folder(done: impl FnOnce(Option<String>) + Send + 'static) {
-    let ask = || {
-        let mut dialog = rfd::FileDialog::new().set_title("Add a music folder");
+pub fn pick_folder(title: &'static str, done: impl FnOnce(Option<String>) + Send + 'static) {
+    let ask = move || {
+        let mut dialog = rfd::FileDialog::new().set_title(title);
         if let Some(dir) = engine::default_music_dir().filter(|d| d.is_dir()) {
             dialog = dialog.set_directory(dir);
         }

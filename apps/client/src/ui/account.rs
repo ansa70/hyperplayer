@@ -147,6 +147,7 @@ pub fn show_login(error: Option<String>) {
         set_login(app, |s| {
             s.busy = false;
             s.choosing = false;
+            s.picking_folder = false;
             s.local_available = local_available;
             s.changing_password = false;
             s.onboarding = false;
@@ -167,6 +168,7 @@ pub fn show_choice(error: Option<String>) {
         set_login(app, |s| {
             s.busy = false;
             s.choosing = true;
+            s.picking_folder = false;
             s.local_available = local_available;
             s.changing_password = false;
             s.onboarding = false;
@@ -174,6 +176,46 @@ pub fn show_choice(error: Option<String>) {
             s.trust_fingerprint = "".into();
         });
     });
+}
+
+/// Standalone mode's first start: which folder the library starts with (`suggested`, the
+/// usual Music folder, if there is one).
+pub fn show_folder_step(suggested: String) {
+    with_app(|app| {
+        let Some(ui) = app.ui.upgrade() else { return };
+        ui.set_signed_in(false);
+        ui.set_status("".into());
+        set_login(app, |s| {
+            s.busy = false;
+            s.choosing = true;
+            s.picking_folder = true;
+            s.music_folder = suggested.into();
+            s.changing_password = false;
+            s.onboarding = false;
+            s.error = "".into();
+            s.trust_fingerprint = "".into();
+        });
+    });
+}
+
+/// The folder step's "Choose another folder…": the system's dialog.
+pub fn browse_music_folder() {
+    local::pick_folder("Choose your music folder", |picked| {
+        if let Some(folder) = picked {
+            with_app(|app| set_login(app, |l| l.music_folder = folder.into()));
+        }
+    });
+}
+
+/// The folder step's "Use this folder".
+pub fn use_music_folder() {
+    let folder = with_app(|app| {
+        app.ui
+            .upgrade()
+            .map(|ui| ui.get_login().music_folder.to_string())
+    })
+    .unwrap_or_default();
+    local::use_folder(folder);
 }
 
 /// Chose a server: the sign-in form, for the last server used.
@@ -202,7 +244,12 @@ pub fn use_server() {
 
 /// Signed in to the library engine on this computer.
 pub fn signed_in_locally(user: &hyperplayer::api::types::User) {
-    with_app(|app| set_login(app, |l| l.choosing = false));
+    with_app(|app| {
+        set_login(app, |l| {
+            l.choosing = false;
+            l.picking_folder = false;
+        })
+    });
     signed_in(&display_name(user));
 }
 

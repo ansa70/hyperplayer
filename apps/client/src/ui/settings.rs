@@ -66,7 +66,7 @@ pub fn init(ui: &AppWindow) {
     });
     s.on_add_folder(add_folder);
     s.on_browse_folder(|| {
-        super::local::pick_folder(|picked| {
+        super::local::pick_folder("Add a music folder", |picked| {
             if let Some(path) = picked {
                 let mut paths = folder_paths();
                 if !paths.contains(&path) {

@@ -479,6 +479,9 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_login_cancel_trust(account::cancel_trust);
     ui.on_login_use_local(local::start);
     ui.on_login_use_server(account::use_server);
+    ui.on_login_browse_music_folder(account::browse_music_folder);
+    ui.on_login_use_music_folder(account::use_music_folder);
+    ui.on_login_back_to_choice(|| account::show_choice(None));
     ui.on_sign_out(account::sign_out);
     account::begin(token.is_some());
 
