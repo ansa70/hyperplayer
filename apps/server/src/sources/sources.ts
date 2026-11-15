@@ -1,6 +1,15 @@
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage, OutgoingHttpHeaders } from "node:http";
-import type { AddSource, Lyrics, Source, SyncPage, Waveform } from "@hyperplayer/schemas";
+import type {
+  AddSource,
+  Lyrics,
+  Playlist,
+  PlaylistSummary,
+  Source,
+  SyncPage,
+  Waveform,
+} from "@hyperplayer/schemas";
+import { newId } from "../collections/sources.ts";
 import type { Db } from "../db.ts";
 import { HttpError } from "../http/contract.ts";
 import type { ArtworkStore } from "../library/artwork.ts";
@@ -78,7 +87,8 @@ export class Sources {
     const rows = this.#db
       .prepare(
         `SELECT s.*, (SELECT COUNT(*) FROM all_tracks WHERE source_id = s.id) AS track_count,
-                (SELECT COUNT(*) FROM all_tracks WHERE source_id = s.id AND duplicate_of IS NOT NULL) AS duplicates
+                (SELECT COUNT(*) FROM all_tracks WHERE source_id = s.id AND duplicate_of IS NOT NULL) AS duplicates,
+                (SELECT COUNT(*) FROM playlists WHERE source_id = s.id) AS playlist_count
          FROM sources s ORDER BY s.added_at`,
       )
       .all() as Row[];
@@ -88,6 +98,7 @@ export class Sources {
       username: String(r.username),
       tracks: Number(r.track_count),
       duplicates: Number(r.duplicates),
+      playlists: Number(r.playlist_count),
       syncing: this.#syncing.has(String(r.id)),
       lastSyncAt: (r.last_sync_at as string | null) ?? null,
       error: (r.last_error as string | null) ?? null,
@@ -291,6 +302,90 @@ export class Sources {
     }
     if (written || removed) tracksChanged(db);
     return written > 0 || removed > 0;
+  }
+
+  /**
+   * Copies the playlists of the account this library signed in to the server with, for
+   * `owner`. A playlist copied before is brought up to date (changes made to the copy here
+   * are replaced); one deleted on the server stays here. Entries point at the copy of each
+   * track that the library shows, which may be this computer's. Returns how many were copied.
+   */
+  async importPlaylists(id: string, owner: string): Promise<number> {
+    const row = this.#row(id);
+    if (!row) throw new HttpError(404, "not_found", "No such server in this library");
+    const host = new URL(String(row.url)).host;
+    const client = this.#client(row);
+    const fetched: { summary: PlaylistSummary; entries: Playlist["entries"] }[] = [];
+    try {
+      for (const summary of await client.json<PlaylistSummary[]>("/api/playlists")) {
+        // A smart playlist is its rules: they work out its tracks here as on the server.
+        const entries = summary.rules
+          ? []
+          : (await client.json<Playlist>(`/api/playlists/${encodeURIComponent(summary.id)}`)).entries;
+        fetched.push({ summary, entries });
+      }
+    } catch (err) {
+      throw new HttpError(502, "source_failed", describe(err, host));
+    }
+
+    const db = this.#db;
+    const existing = db.prepare(
+      "SELECT id FROM playlists WHERE source_id = ? AND remote_id = ? AND owner_id = ?",
+    );
+    const update = db.prepare(
+      "UPDATE playlists SET name = ?, description = ?, rules = ?, updated_at = ? WHERE id = ?",
+    );
+    const insert = db.prepare(
+      `INSERT INTO playlists (id, owner_id, name, description, rules, created_at, updated_at, source_id, remote_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const clear = db.prepare("DELETE FROM playlist_entries WHERE playlist_id = ?");
+    const local = db.prepare(
+      `SELECT COALESCE(duplicate_of, id) AS id, musicbrainz_recording_id AS recording
+       FROM all_tracks WHERE source_id = ? AND remote_id = ?`,
+    );
+    const addEntry = db.prepare(
+      `INSERT INTO playlist_entries
+         (entry_id, playlist_id, position, track_id, recording_id, title, artist_name, album_title, duration_ms, added_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    db.exec("BEGIN");
+    try {
+      for (const { summary: p, entries } of fetched) {
+        const rules = p.rules ? JSON.stringify(p.rules) : null;
+        const found = existing.get(id, p.id, owner) as Row | undefined;
+        let playlistId: string;
+        if (found) {
+          playlistId = String(found.id);
+          update.run(p.name, p.description, rules, p.updatedAt, playlistId);
+          clear.run(playlistId);
+        } else {
+          playlistId = newId();
+          insert.run(playlistId, owner, p.name, p.description, rules, p.createdAt, p.updatedAt, id, p.id);
+        }
+        entries.forEach((e, i) => {
+          const track = e.track ? (local.get(id, e.track.id) as Row | undefined) : undefined;
+          addEntry.run(
+            newId(),
+            playlistId,
+            i,
+            (track?.id as string | undefined) ?? null,
+            (track?.recording as string | null | undefined) ?? null,
+            e.snapshot.title,
+            e.snapshot.artistName,
+            e.snapshot.albumTitle,
+            e.snapshot.durationMs,
+            e.addedAt,
+          );
+        });
+      }
+      db.exec("COMMIT");
+    } catch (err) {
+      db.exec("ROLLBACK");
+      throw err;
+    }
+    this.#log.info({ server: host, playlists: fetched.length }, "playlists copied from a server");
+    return fetched.length;
   }
 
   /** Where a server's track is played from; null for this computer's tracks. */

@@ -352,7 +352,10 @@ recording) and nearly the same length. The computer's own copy is preferred, the
 its file can't be read (a share that isn't mounted), the server's copy plays instead, and if it's deleted,
 the server's copy takes its place in queues, playlists and history.
 
-Playlists, the play queue and listening history (and scrobbling) stay in the player's own library. A
+Playlists, the play queue and listening history (and scrobbling) stay in the player's own library.
+Adding a server copies the playlists of its account into the library (smart playlists as their rules),
+pointing at the copy of each track the library shows; **Copy playlists** brings those copies up to date
+with the server's, and removing the server keeps them. A
 self-signed certificate is trusted the same way as when connecting to a server, and from then on only
 that certificate is accepted. Removing a server takes its music out of the library and signs the
 library out of the server. The servers need HyperPlayer 0.3.0 or later.

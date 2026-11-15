@@ -2703,6 +2703,7 @@ export global SettingsState {
     callback trust-source();
     callback cancel-trust-source();
     callback remove-source(string);
+    callback import-source-playlists(string);
 
     // Admin: users.
     in property <[UserItem]> users;
@@ -3113,7 +3114,7 @@ component SettingsPage inherits Rectangle {
                 if SettingsState.tab == "server" && SettingsState.local: Card {
                     title: "Servers";
                     Note {
-                        text: "Music on a HyperPlayer server can join this library: its artists and albums merge with yours, and it plays from the server whenever this computer can reach it. Playlists, the queue and your listening history stay on this computer.";
+                        text: "Music on a HyperPlayer server can join this library: its artists and albums merge with yours, and it plays from the server whenever this computer can reach it. Your playlists on the server are copied here when you add it, and Copy playlists brings those copies up to date (replacing changes made to them here). The queue, playlists and listening history stay on this computer.";
                     }
                     for source in SettingsState.sources: HorizontalLayout {
                         spacing: 10px;
@@ -3122,6 +3123,13 @@ component SettingsPage inherits Rectangle {
                             horizontal-stretch: 1;
                             Text { text: source.title; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
                             Note { text: source.detail; color: source.failing ? #ff8a80 : Theme.muted; }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            OutlineButton {
+                                text: "Copy playlists";
+                                clicked => { SettingsState.import-source-playlists(source.id); }
+                            }
                         }
                         VerticalLayout {
                             alignment: center;

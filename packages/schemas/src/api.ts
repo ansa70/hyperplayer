@@ -683,6 +683,16 @@ export const api = {
     query: NoQuery,
     response: LibraryStatus,
   }),
+  importSourcePlaylists: json({
+    method: "POST",
+    path: "/api/library/sources/{id}/playlists",
+    summary:
+      "Copy the playlists of the server's account into this library; ones copied before are brought up to date",
+    access: "admin",
+    params: IdParams,
+    query: NoQuery,
+    response: LibraryStatus,
+  }),
   stream: binary({
     method: "GET",
     path: "/api/stream/{id}",

@@ -277,13 +277,25 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     return status(true);
   });
   route.json(api.sync, ({ query }) => syncPage(db, query));
-  route.json(api.addSource, async ({ body }) => {
+  route.json(api.addSource, async ({ auth: a, body }) => {
     // A server's own users have their own players: copying servers is for a player's library.
     if (!config.embedded) {
       throw new HttpError(400, "not_standalone", "Only a standalone player's library can add servers");
     }
     const id = await sources.add(body);
-    void syncSources(id);
+    // Its playlists come along once its tracks are here for them to point at.
+    void syncSources(id).then(() =>
+      sources
+        .importPlaylists(id, a.user.id)
+        .then(() => playlists.relink())
+        .catch((err: unknown) => app.log.warn(err, "copying a server's playlists failed")),
+    );
+    return status(true);
+  });
+  route.json(api.importSourcePlaylists, async ({ auth: a, params }) => {
+    await sources.importPlaylists(params.id, a.user.id);
+    // Entries the server had lost its track for may find one here.
+    playlists.relink();
     return status(true);
   });
   route.json(api.removeSource, ({ params }) => {

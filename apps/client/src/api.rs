@@ -310,6 +310,15 @@ impl Api {
         self.send(Method::POST, "/api/library/sources", Some(&body))
     }
 
+    /// Copies the playlists of the server's account into the library, again if done before.
+    pub fn import_source_playlists(&self, id: &str) -> Result<LibraryStatus> {
+        self.send::<_, ()>(
+            Method::POST,
+            &format!("/api/library/sources/{id}/playlists"),
+            None,
+        )
+    }
+
     /// Takes a server's music out of the library.
     pub fn remove_source(&self, id: &str) -> Result<LibraryStatus> {
         self.send::<_, ()>(Method::DELETE, &format!("/api/library/sources/{id}"), None)

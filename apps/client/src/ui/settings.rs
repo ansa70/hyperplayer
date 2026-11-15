@@ -101,6 +101,18 @@ pub fn init(ui: &AppWindow) {
             },
         );
     });
+    s.on_import_source_playlists(|id| {
+        let api = with_app(|app| app.api.clone());
+        sources_message("Copying its playlists…", false);
+        background(
+            move || api.import_source_playlists(&id),
+            |library| {
+                state(|s| show_library(&s, &library));
+                super::library::load_playlists();
+                sources_message("Playlists copied from the server.", false);
+            },
+        );
+    });
     s.on_set_admin(|id, admin| update_user(id, serde_json::json!({ "admin": admin }), "Saved."));
     s.on_reset_password(|id, password| {
         if password.chars().count() < 8 {
@@ -541,6 +553,10 @@ fn show_library(s: &SettingsState, l: &types::LibraryStatus) {
                 } else {
                     plural(source.tracks, "track")
                 };
+                let tracks = match source.playlists {
+                    0 => tracks,
+                    n => format!("{tracks}, {}", plural(n, "playlist")),
+                };
                 match (&source.error, source.syncing, source.last_sync_at) {
                     (_, true, _) => format!("Copying its catalog… · {tracks}"),
                     (Some(error), _, _) => format!("{tracks} · {error}"),
@@ -553,6 +569,14 @@ fn show_library(s: &SettingsState, l: &types::LibraryStatus) {
         })
         .collect();
     s.set_sources(ModelRc::new(VecModel::from(sources)));
+    // A server's playlists arrive after its tracks: the sidebar shows them once they're here.
+    let playlists: u64 = l.sources.iter().map(|s| s.playlists as u64).sum();
+    if SOURCE_PLAYLISTS
+        .replace(Some(playlists))
+        .is_some_and(|n| n != playlists)
+    {
+        super::library::load_playlists();
+    }
     if l.scanning || l.sources.iter().any(|s| s.syncing) {
         follow_scan();
     }
@@ -798,6 +822,8 @@ fn create_user() {
 thread_local! {
     /// A status refresh is already due.
     static FOLLOWING_SCAN: Cell<bool> = const { Cell::new(false) };
+    /// Playlists copied from servers, as last seen.
+    static SOURCE_PLAYLISTS: Cell<Option<u64>> = const { Cell::new(None) };
 }
 
 /// While a scan runs, refreshes its progress every second as long as Settings is open.

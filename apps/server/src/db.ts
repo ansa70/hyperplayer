@@ -256,6 +256,9 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ["artwork", "source_id", "TEXT"],
   // Another copy of the track is the one shown (see `separateCopies`).
   ["tracks", "duplicate_of", "TEXT"],
+  // A playlist copied from a server, and its id there. It stays when the server is removed.
+  ["playlists", "source_id", "TEXT REFERENCES sources(id) ON DELETE SET NULL"],
+  ["playlists", "remote_id", "TEXT"],
 ];
 
 /** The table tracks are stored in: `all_tracks` once `separateCopies` has run. */

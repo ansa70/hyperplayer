@@ -375,3 +375,85 @@ test("removing the server keeps this computer's copies", async () => {
   expect(removed.json()).toMatchObject({ tracks: 3 });
   expect((await search(e, "one")).map((t) => t.title)).toEqual(["One"]);
 });
+
+test("a server's playlists are copied along, pointing at the copy of each track shown", async () => {
+  const s = await server();
+  const onServer = authed(s.ctx.app, s.token);
+  const serverTracks = (await onServer("/api/sync")).json().tracks as { id: string; title: string }[];
+  const id = (title: string) => serverTracks.find((t) => t.title === title)!.id;
+  const trip = (
+    await onServer({
+      method: "POST",
+      url: "/api/playlists",
+      payload: { name: "Road trip", trackIds: [id("Two"), id("Encore")] },
+    })
+  ).json() as { id: string };
+  await onServer({
+    method: "POST",
+    url: "/api/playlists",
+    payload: { name: "Band only", rules: { rules: [{ field: "artist", op: "is", value: "Band" }] } },
+  });
+
+  const e = await engine();
+  // This computer has "Two" too: the playlist plays that copy.
+  put(e.lib, "Band/Album/2.wav", { INAM: "Two", IART: "Band", IPRD: "Album", ITRK: "2" });
+  await e.ctx.startScan();
+  await e.inject({
+    method: "POST",
+    url: "/api/library/sources",
+    payload: { url: s.url, token: s.token, username: "admin", fingerprint: null },
+  });
+  type Summary = { id: string; name: string; trackCount: number; rules: unknown };
+  let lists: Summary[] = [];
+  for (let i = 0; i < 200 && lists.length < 2; i++) {
+    await new Promise((r) => setTimeout(r, 20));
+    lists = (await e.inject("/api/playlists")).json() as Summary[];
+  }
+  expect(lists.map((p) => p.name).sort()).toEqual(["Band only", "Road trip"]);
+  const status = await settled(e.inject);
+  expect(status.sources).toMatchObject([{ playlists: 2, duplicates: 1 }]);
+
+  const road = lists.find((p) => p.name === "Road trip")!;
+  type Entry = { track: { id: string; title: string } | null };
+  const copy = (await e.inject(`/api/playlists/${road.id}`)).json() as { entries: Entry[] };
+  expect(copy.entries.map((x) => x.track?.title)).toEqual(["Two", "Encore"]);
+  const localTwo = (await e.inject("/api/search?q=two")).json().tracks[0] as { id: string };
+  expect(copy.entries[0]!.track!.id).toBe(localTwo.id);
+  // The smart one works out its tracks here: the band's, from both places.
+  const smart = lists.find((p) => p.name === "Band only")!;
+  expect(smart.rules).not.toBeNull();
+  expect(smart.trackCount).toBe(3);
+
+  // Importing again brings the copies up to date, without doubling them.
+  await onServer({
+    method: "PATCH",
+    url: `/api/playlists/${trip.id}`,
+    payload: { name: "Long road trip" },
+  });
+  await onServer({
+    method: "POST",
+    url: `/api/playlists/${trip.id}/entries`,
+    payload: { source: { kind: "tracks", trackIds: [id("One")] } },
+  });
+  const again = await e.inject({
+    method: "POST",
+    url: `/api/library/sources/${status.sources[0]!.id}/playlists`,
+  });
+  expect(again.statusCode, again.body).toBe(200);
+  const after = (await e.inject("/api/playlists")).json() as Summary[];
+  expect(after.map((p) => p.name).sort()).toEqual(["Band only", "Long road trip"]);
+  expect(
+    (await e.inject(`/api/playlists/${road.id}`)).json().entries.map((x: Entry) => x.track?.title),
+  ).toEqual(["Two", "Encore", "One"]);
+
+  // Removing the server keeps the playlists; what was only on the server is missing from them.
+  await e.inject({ method: "DELETE", url: `/api/library/sources/${status.sources[0]!.id}` });
+  const kept = (await e.inject(`/api/playlists/${road.id}`)).json() as {
+    entries: (Entry & { snapshot: { title: string } })[];
+  };
+  expect(kept.entries.map((x) => [x.snapshot.title, x.track?.title ?? null])).toEqual([
+    ["Two", "Two"],
+    ["Encore", null],
+    ["One", null],
+  ]);
+});

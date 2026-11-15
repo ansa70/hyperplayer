@@ -316,6 +316,8 @@ export const Source = named(
     tracks: Count,
     /** Of those, the ones also in the library otherwise (on this computer, say): shown once. */
     duplicates: Count.default(0),
+    /** Playlists copied from the account on the server (see `importSourcePlaylists`). */
+    playlists: Count.default(0),
     syncing: z.boolean(),
     lastSyncAt: z.iso.datetime().nullable(),
     /** Why the last sync failed, in words for the user; null when it worked. */
