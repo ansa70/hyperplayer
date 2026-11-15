@@ -64,7 +64,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libasound2-dev libudev-dev libfontconfig-dev dpkg-dev fakeroot flatpak flatpak-builder
+            libasound2-dev libudev-dev libfontconfig-dev dpkg-dev fakeroot flatpak flatpak-builder elfutils
 
       # Flathub's SDK for the Flatpak (built with Ubuntu's flatpak-builder: Flathub's own
       # doesn't find the SDK here). The build sandbox needs unprivileged user
