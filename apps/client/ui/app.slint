@@ -159,6 +159,9 @@ global Icons {
     // Lucide "user".
     out property <string> user: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M8 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0";
     out property <string> more: "M12 12h.01 M19 12h.01 M5 12h.01";
+    out property <string> settings: "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0";
+    out property <string> switch-library: "M8 3L4 7l4 4 M4 7h16 M16 21l4-4-4-4 M20 17H4";
+    out property <string> sign-out: "M16 17l5-5-5-5 M21 12H9 M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4";
     out property <string> plus: "M5 12h14 M12 5v14";
     out property <string> window-close: "M18 6 6 18 M6 6l12 12";
     out property <string> window-minimize: "M6 12h12";
@@ -240,6 +243,54 @@ component IconButton inherits Rectangle {
         stroke-line-join: round;
     }
     ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+/// A small icon action in the sidebar's account row, named by a label shown above it on hover.
+component SidebarAction inherits Rectangle {
+    in property <string> commands;
+    in property <string> label;
+    in property <bool> active;
+    callback clicked;
+    width: 26px;
+    height: 26px;
+    border-radius: 13px;
+    background: ta.has-hover ? Theme.surface-hi : transparent;
+    animate background { duration: 120ms; }
+    Path {
+        x: 6px;
+        y: 6px;
+        width: 14px;
+        height: 14px;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: root.commands;
+        fill: transparent;
+        stroke: root.active || ta.has-hover ? Theme.text : Theme.muted;
+        stroke-width: 2px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    // Right-aligned with the icon, so the last one's label stays inside the sidebar.
+    if ta.has-hover: Rectangle {
+        x: parent.width - self.width;
+        y: -self.height - 6px;
+        width: tip.preferred-width + 16px;
+        height: 24px;
+        border-radius: 6px;
+        background: Theme.surface-hi;
+        tip := Text {
+            text: root.label;
+            color: Theme.text;
+            font-size: 11px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
 }
 
 /// Toggle with a vector icon; an accent dot underneath marks it active.
@@ -834,26 +885,31 @@ component Sidebar inherits Rectangle {
                     }
                 }
                 Text { text: root.account; color: Theme.text; font-size: 12px; font-weight: 600; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
-                Text {
-                    text: "Settings";
-                    color: root.settings-open || settings-ta.has-hover ? Theme.text : Theme.faint;
-                    font-size: 12px;
-                    vertical-alignment: center;
-                    settings-ta := TouchArea { mouse-cursor: pointer; clicked => { root.show-settings(); } }
-                }
-                if !root.local && root.can-switch: Text {
-                    text: "Switch library";
-                    color: switch-ta.has-hover ? Theme.text : Theme.faint;
-                    font-size: 12px;
-                    vertical-alignment: center;
-                    switch-ta := TouchArea { mouse-cursor: pointer; clicked => { root.switch-library(); } }
-                }
-                Text {
-                    text: root.local ? "Switch library" : "Sign out";
-                    color: out-ta.has-hover ? Theme.text : Theme.faint;
-                    font-size: 12px;
-                    vertical-alignment: center;
-                    out-ta := TouchArea { mouse-cursor: pointer; clicked => { root.sign-out(); } }
+                HorizontalLayout {
+                    spacing: 2px;
+                    SidebarAction {
+                        commands: Icons.settings;
+                        label: "Settings";
+                        active: root.settings-open;
+                        clicked => { root.show-settings(); }
+                    }
+                    // Standalone, there's no account to sign out of: "sign out" is switching library.
+                    if root.local || root.can-switch: SidebarAction {
+                        commands: Icons.switch-library;
+                        label: "Switch library";
+                        clicked => {
+                            if root.local {
+                                root.sign-out();
+                            } else {
+                                root.switch-library();
+                            }
+                        }
+                    }
+                    if !root.local: SidebarAction {
+                        commands: Icons.sign-out;
+                        label: "Sign out";
+                        clicked => { root.sign-out(); }
+                    }
                 }
             }
         }
