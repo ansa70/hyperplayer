@@ -58,6 +58,7 @@ import {
   User,
   UserList,
 } from "./auth.ts";
+import { AddSource, SyncPage, SyncQuery } from "./sources.ts";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -655,6 +656,33 @@ export const api = {
     response: QueueState,
   }),
 
+  sync: json({
+    method: "GET",
+    path: "/api/sync",
+    summary: "The catalog for another library to copy: everything, or what changed since a revision",
+    params: NoParams,
+    query: SyncQuery,
+    response: SyncPage,
+  }),
+  addSource: json({
+    method: "POST",
+    path: "/api/library/sources",
+    summary: "Add a server's music to this library (a standalone player's) and sync it",
+    access: "admin",
+    params: NoParams,
+    query: NoQuery,
+    body: AddSource,
+    response: LibraryStatus,
+  }),
+  removeSource: json({
+    method: "DELETE",
+    path: "/api/library/sources/{id}",
+    summary: "Take a server's music out of this library",
+    access: "admin",
+    params: IdParams,
+    query: NoQuery,
+    response: LibraryStatus,
+  }),
   stream: binary({
     method: "GET",
     path: "/api/stream/{id}",

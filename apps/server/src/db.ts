@@ -33,6 +33,23 @@ CREATE TABLE IF NOT EXISTS albums (
   added_at  TEXT NOT NULL
 );
 
+-- Servers whose music is part of this library (a standalone player's engine): their
+-- tracks are copied into the catalog and played from the server.
+CREATE TABLE IF NOT EXISTS sources (
+  id           TEXT PRIMARY KEY,
+  url          TEXT NOT NULL UNIQUE,
+  username     TEXT NOT NULL,
+  token        TEXT NOT NULL,
+  -- A self-signed certificate the user trusted: its SHA-256 and PEM, the only one accepted.
+  fingerprint  TEXT,
+  certificate  TEXT,
+  library_id   TEXT,
+  revision     INTEGER NOT NULL DEFAULT 0,
+  added_at     TEXT NOT NULL,
+  last_sync_at TEXT,
+  last_error   TEXT
+);
+
 CREATE TABLE IF NOT EXISTS tracks (
   id           TEXT PRIMARY KEY,
   path         TEXT NOT NULL UNIQUE,
@@ -62,6 +79,12 @@ CREATE INDEX IF NOT EXISTS tracks_artist ON tracks(artist_id);
 CREATE INDEX IF NOT EXISTS albums_artist ON albums(artist_id);
 
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
+-- Tracks removed from the library, by the scan that removed them, for /api/sync.
+CREATE TABLE IF NOT EXISTS removed_tracks (
+  id  TEXT PRIMARY KEY,
+  rev INTEGER NOT NULL
+);
 
 -- One row per (person, role) on a track; the catalog merges roles per person.
 CREATE TABLE IF NOT EXISTS credits (
@@ -226,6 +249,13 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ["tracks", "rg_track_peak", "REAL"],
   ["tracks", "rg_album_gain", "REAL"],
   ["tracks", "rg_album_peak", "REAL"],
+  // The scan generation that last wrote the track (for /api/sync); null before it existed.
+  ["tracks", "rev", "INTEGER"],
+  // A track from a server (see `sources`), and its id there; null for this library's files.
+  ["tracks", "source_id", "TEXT REFERENCES sources(id) ON DELETE CASCADE"],
+  ["tracks", "remote_id", "TEXT"],
+  // A server's cover not fetched yet has an empty path.
+  ["artwork", "source_id", "TEXT"],
 ];
 
 function migrate(db: DatabaseSync) {
@@ -234,6 +264,8 @@ function migrate(db: DatabaseSync) {
     if (!columns.some((c) => c.name === column))
       db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
+  db.exec("CREATE INDEX IF NOT EXISTS tracks_rev ON tracks(rev, id)");
+  db.exec("CREATE INDEX IF NOT EXISTS tracks_source ON tracks(source_id, remote_id)");
 }
 
 export type Db = DatabaseSync;

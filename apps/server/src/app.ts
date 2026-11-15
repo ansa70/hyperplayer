@@ -25,6 +25,8 @@ import { Scanner } from "./library/scanner.ts";
 import { LibraryFolders } from "./library/folders.ts";
 import { LibraryWatcher } from "./library/watcher.ts";
 import { Waveforms } from "./library/waveform.ts";
+import { Sources } from "./sources/sources.ts";
+import { syncPage } from "./sources/sync.ts";
 import {
   mimeForContainer,
   openFile,
@@ -66,6 +68,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     app.addHook("onClose", async () => clearInterval(timer));
   }
   const enricher = new Enricher(db, artwork, app.log, config.enrich);
+  const sources = new Sources(db, artwork, app.log, { userAgent: `HyperPlayer/${SERVER_VERSION} (library)` });
   const catalog = new Catalog(db, enricher);
   const playlists = new Playlists(db, catalog);
   const queues = new Queues(db, catalog, (userId) => auth.preferences(userId).shuffleScope);
@@ -76,7 +79,10 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   });
   app.addHook("onClose", async () => scrobbler.close());
   const history = new History(db, catalog, scrobbler);
-  const waveforms = new Waveforms(db, config.ffmpeg);
+  const waveforms = new Waveforms(db, config.ffmpeg, (trackId) => {
+    const remote = sources.remote(trackId);
+    return remote ? sources.waveform(remote) : null;
+  });
   // LRCLIB is an online lookup like enrichment, so it's off when enrichment is.
   const lyrics = new LyricsService(
     db,
@@ -95,6 +101,19 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   let again: Promise<void> | null = null;
   /** A cancel also drops the scan queued after the running one. */
   let dropQueued = false;
+  /** After tracks were added or removed: playlists find moved tracks, new albums get enriched. */
+  const catalogChanged = () => {
+    const relinked = playlists.relink();
+    if (relinked) app.log.info({ relinked }, "playlist entries relinked to moved tracks");
+    enricher.enqueuePending();
+  };
+  const syncSources = (only?: string) =>
+    (only ? sources.sync(only) : sources.syncAll())
+      .then((changed) => {
+        if (changed) catalogChanged();
+      })
+      // E.g. the server closed meanwhile (its database with it).
+      .catch((err: unknown) => app.log.warn(err, "syncing servers failed"));
   const scanOnce = () =>
     scanner
       .scan(folders.paths)
@@ -104,13 +123,11 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
         if (s.cancelled) app.log.info(s, "library scan cancelled");
         else if (changed || s.errors || s.unavailable.length) app.log.info(s, "library scan finished");
         if (s.unsettled) watcher.scheduleSoon();
-        if (changed) {
-          const relinked = playlists.relink();
-          if (relinked) app.log.info({ relinked }, "playlist entries relinked to moved tracks");
-          enricher.enqueuePending();
-        }
+        if (changed) catalogChanged();
       })
       .catch((err: unknown) => app.log.error(err, "library scan failed"))
+      // The servers whose music is part of the library are synced along (a standalone player's).
+      .then(() => syncSources())
       .finally(() => {
         scanning = null;
         void watcher.sync();
@@ -161,6 +178,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     ...catalog.counts(),
     enrichmentQueue: enricher.queueSize,
     scanProgress: scanner.progress,
+    sources: admin ? sources.list() : [],
   });
 
   // A request without a body can still arrive with an empty one: a proxy turning HTTP/2
@@ -258,6 +276,21 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     void startScan();
     return status(true);
   });
+  route.json(api.sync, ({ query }) => syncPage(db, query));
+  route.json(api.addSource, async ({ body }) => {
+    // A server's own users have their own players: copying servers is for a player's library.
+    if (!config.embedded) {
+      throw new HttpError(400, "not_standalone", "Only a standalone player's library can add servers");
+    }
+    const id = await sources.add(body);
+    void syncSources(id);
+    return status(true);
+  });
+  route.json(api.removeSource, ({ params }) => {
+    sources.remove(params.id);
+    catalogChanged();
+    return status(true);
+  });
   route.json(api.listArtists, ({ query }) => catalog.listArtists(query.offset, query.limit));
   route.json(
     api.getArtist,
@@ -276,7 +309,11 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     return catalog.trackCredits(params.id) ?? Promise.reject(notFound("Track"));
   });
   route.json(api.waveform, ({ params }) => waveforms.get(params.id) ?? Promise.reject(notFound("Track")));
-  route.json(api.lyrics, ({ params }) => lyrics.get(params.id) ?? Promise.reject(notFound("Track")));
+  route.json(api.lyrics, ({ params }) => {
+    const remote = sources.remote(params.id);
+    if (remote) return sources.lyrics(remote, params.id);
+    return lyrics.get(params.id) ?? Promise.reject(notFound("Track"));
+  });
   route.json(api.enrichArtist, ({ params }) => {
     if (!catalog.getArtist(params.id)) throw notFound("Artist");
     enricher.refreshArtist(params.id);
@@ -336,6 +373,34 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     const track = catalog.trackPath(params.id);
     if (!track) throw notFound("Track");
     const limit = (s: Readable) => (config.debugThrottleKbps ? throttle(s, config.debugThrottleKbps) : s);
+    const remote = sources.remote(params.id);
+    if (remote) {
+      // A server's track: its stream, passed through as it comes (range requests included).
+      const stop = new AbortController();
+      reply.raw.on("close", () => stop.abort());
+      const res = await sources
+        .stream(remote, query, request.headers.range ? { range: request.headers.range } : {}, stop.signal)
+        .catch((err: unknown) => {
+          throw new HttpError(502, "source_unavailable", (err as Error).message);
+        });
+      const code = res.statusCode ?? 502;
+      if (code !== 200 && code !== 206 && code !== 416) {
+        res.resume();
+        throw new HttpError(
+          502,
+          "source_failed",
+          code === 401
+            ? "The server no longer accepts this player's sign-in: remove it in Settings and add it again"
+            : `The server answered ${code} for this track`,
+        );
+      }
+      reply.status(code);
+      for (const h of ["content-type", "content-length", "content-range", "accept-ranges", "cache-control"]) {
+        const v = res.headers[h];
+        if (v !== undefined) reply.header(h, v);
+      }
+      return reply.send(code === 416 ? (res.resume(), undefined) : limit(res));
+    }
     if (query.format !== "original") {
       const t = await transcode(config.ffmpeg, track.path, query.format, query.bitrate, query.start).catch(
         (err: unknown) => {
@@ -361,7 +426,9 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   });
 
   route.binary(api.artwork, async ({ params, query, reply }) => {
-    const art = catalog.artworkPath(params.id);
+    const known = catalog.artworkPath(params.id);
+    // A server's cover is fetched from it the first time.
+    const art = known && !known.path ? await sources.artwork(params.id) : known;
     if (!art) throw notFound("Artwork");
     // Private: artwork now requires a session, so shared caches must not keep it.
     reply.header("Cache-Control", "private, max-age=31536000, immutable");

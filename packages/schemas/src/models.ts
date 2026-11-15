@@ -305,6 +305,23 @@ export const LibraryFolder = named(
   }),
 );
 
+export const Source = named(
+  "Source",
+  z.object({
+    id: Id,
+    /** The server's address, as added. */
+    url: z.string(),
+    /** The account the library signed in with. */
+    username: z.string(),
+    tracks: Count,
+    syncing: z.boolean(),
+    lastSyncAt: z.iso.datetime().nullable(),
+    /** Why the last sync failed, in words for the user; null when it worked. */
+    error: z.string().nullable(),
+  }),
+  "A server whose music is part of this library.",
+);
+
 export const LibraryStatus = named(
   "LibraryStatus",
   z.object({
@@ -327,6 +344,8 @@ export const LibraryStatus = named(
         total: Count,
       })
       .nullable(),
+    /** Servers whose music is part of this library (a standalone player's). */
+    sources: z.array(Source).default([]),
   }),
 );
 
@@ -377,6 +396,7 @@ export type TrackPage = z.infer<typeof TrackPage>;
 export type SearchResults = z.infer<typeof SearchResults>;
 export type LibraryFolder = z.infer<typeof LibraryFolder>;
 export type LibraryStatus = z.infer<typeof LibraryStatus>;
+export type Source = z.infer<typeof Source>;
 export type GenreSummary = z.infer<typeof GenreSummary>;
 export type SetLibraryFolders = z.infer<typeof SetLibraryFolders>;
 export type StreamFormat = z.infer<typeof StreamFormat>;

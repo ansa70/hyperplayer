@@ -70,12 +70,15 @@ function decode(ffmpeg: string, path: string): Promise<Int16Array> {
 export class Waveforms {
   readonly #db: Db;
   readonly #ffmpeg: string;
+  /** Waveforms of tracks on a server (a standalone player's sources) come from the server. */
+  readonly #remote: (trackId: string) => Promise<number[]> | null;
   readonly #inFlight = new Map<string, Promise<Waveform>>();
   #queue: Promise<unknown> = Promise.resolve();
 
-  constructor(db: Db, ffmpeg: string) {
+  constructor(db: Db, ffmpeg: string, remote: (trackId: string) => Promise<number[]> | null = () => null) {
     this.#db = db;
     this.#ffmpeg = ffmpeg;
+    this.#remote = remote;
   }
 
   /** Null when the track doesn't exist. */
@@ -94,7 +97,8 @@ export class Waveforms {
     let pending = this.#inFlight.get(trackId);
     if (!pending) {
       const run = async () => {
-        const points = envelope(await decode(this.#ffmpeg, String(track.path)));
+        const points =
+          (await this.#remote(trackId)) ?? envelope(await decode(this.#ffmpeg, String(track.path)));
         this.#db
           .prepare("INSERT OR REPLACE INTO waveforms (track_id, track_mtime, points) VALUES (?, ?, ?)")
           .run(trackId, mtime, JSON.stringify(points));

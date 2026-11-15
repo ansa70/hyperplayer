@@ -27,6 +27,15 @@ export class ArtworkStore {
     this.dir = join(dataDir, "artwork");
   }
 
+  /** Stores the image of a known artwork row whose file was missing (a server's cover). */
+  async fill(id: string, data: Uint8Array, mime: string): Promise<string> {
+    const path = join(this.dir, `${id}.${EXT[mime] ?? "bin"}`);
+    await mkdir(this.dir, { recursive: true });
+    await writeFile(path, data);
+    this.#db.prepare("UPDATE artwork SET path = ? WHERE id = ?").run(path, id);
+    return path;
+  }
+
   async put(data: Uint8Array, mime: string): Promise<string | null> {
     const id = createHash("sha1").update(data).digest("hex").slice(0, 20);
     if (this.#known.has(id) || this.#db.prepare("SELECT 1 FROM artwork WHERE id = ?").get(id)) {

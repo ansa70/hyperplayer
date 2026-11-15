@@ -2514,6 +2514,14 @@ export struct FolderItem {
     available: bool,
 }
 
+/// A server whose music is part of the standalone library.
+export struct SourceItem {
+    id: string,
+    title: string,
+    detail: string,
+    failing: bool,
+}
+
 /// State and actions of the Settings page, driven from Rust (`ui.global::<SettingsState>()`).
 export global SettingsState {
     in-out property <string> tab: "playback";
@@ -2602,6 +2610,21 @@ export global SettingsState {
     in property <string> folders-message;
     in property <bool> folders-error;
 
+    // Local library: servers whose music is part of it.
+    in property <[SourceItem]> sources;
+    in-out property <string> source-url;
+    in-out property <string> source-username;
+    in-out property <string> source-password;
+    in property <bool> source-busy;
+    /// The server's self-signed certificate, waiting for the user to trust it.
+    in property <string> source-fingerprint;
+    in property <string> sources-message;
+    in property <bool> sources-error;
+    callback add-source();
+    callback trust-source();
+    callback cancel-trust-source();
+    callback remove-source(string);
+
     // Admin: users.
     in property <[UserItem]> users;
     in property <string> users-message;
@@ -2638,6 +2661,7 @@ component Note inherits Text {
 component SettingsPage inherits Rectangle {
     // Per-row admin actions waiting for input or confirmation.
     property <string> removing-folder;
+    property <string> removing-source;
     property <string> resetting;
     property <string> reset-password;
     property <string> deleting;
@@ -2998,6 +3022,102 @@ component SettingsPage inherits Rectangle {
                             : SettingsState.is-admin
                             ? "The server also rescans every few minutes and watches folders where the filesystem allows. Folders set here replace HP_LIBRARY's, until HP_LIBRARY itself is changed (e.g. by the installer). In Docker, only folders mounted into the container can be found."
                             : SettingsState.scanning ? "The server is scanning the library now." : "The server rescans the library every few minutes, so new music shows up on its own.";
+                    }
+                }
+                if SettingsState.tab == "server" && SettingsState.local: Card {
+                    title: "Servers";
+                    Note {
+                        text: "Music on a HyperPlayer server can join this library: its artists and albums merge with yours, and it plays from the server whenever this computer can reach it. Playlists, the queue and your listening history stay on this computer.";
+                    }
+                    for source in SettingsState.sources: HorizontalLayout {
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            horizontal-stretch: 1;
+                            Text { text: source.title; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
+                            Note { text: source.detail; color: source.failing ? #ff8a80 : Theme.muted; }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            OutlineButton {
+                                danger: true;
+                                text: root.removing-source == source.id ? "Confirm remove" : "Remove";
+                                clicked => {
+                                    if root.removing-source == source.id {
+                                        root.removing-source = "";
+                                        SettingsState.remove-source(source.id);
+                                    } else {
+                                        root.removing-source = source.id;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if root.removing-source != "": Note {
+                        text: "Removing a server takes its music out of this library. Playlists keep its tracks, and find them again if the server is added back.";
+                        color: #ff8a80;
+                    }
+                    if SettingsState.source-fingerprint == "": VerticalLayout {
+                        spacing: 12px;
+                        Field {
+                            label: "SERVER ADDRESS";
+                            LineEdit { text <=> SettingsState.source-url; placeholder-text: "e.g. music.example.com or 192.168.1.20:4533"; }
+                        }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            Field {
+                                label: "USERNAME";
+                                LineEdit { text <=> SettingsState.source-username; }
+                            }
+                            Field {
+                                label: "PASSWORD";
+                                LineEdit {
+                                    text <=> SettingsState.source-password;
+                                    input-type: InputType.password;
+                                    accepted => { SettingsState.add-source(); }
+                                }
+                            }
+                        }
+                        HorizontalLayout {
+                            alignment: start;
+                            PrimaryButton {
+                                width: 160px;
+                                text: "Add server";
+                                busy: SettingsState.source-busy;
+                                clicked => { SettingsState.add-source(); }
+                            }
+                        }
+                    }
+                    if SettingsState.source-fingerprint != "": VerticalLayout {
+                        spacing: 10px;
+                        Text {
+                            text: "Trust this server's certificate?";
+                            color: Theme.text;
+                            font-size: 14px;
+                            font-weight: 700;
+                        }
+                        Note {
+                            text: "The server uses a certificate of its own rather than one from a known authority, as home servers usually do. Its fingerprint should match the one in the server's log:";
+                        }
+                        Text { text: SettingsState.source-fingerprint; color: Theme.text; font-size: 12px; wrap: char-wrap; font-family: "monospace"; }
+                        HorizontalLayout {
+                            alignment: start;
+                            spacing: 12px;
+                            PrimaryButton {
+                                width: 160px;
+                                text: "Trust and add";
+                                busy: SettingsState.source-busy;
+                                clicked => { SettingsState.trust-source(); }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                OutlineButton { text: "Cancel"; clicked => { SettingsState.cancel-trust-source(); } }
+                            }
+                        }
+                    }
+                    if SettingsState.sources-message != "": Note {
+                        text: SettingsState.sources-message;
+                        color: SettingsState.sources-error ? #ff8a80 : Theme.muted;
                     }
                 }
                 if SettingsState.tab == "server" && SettingsState.is-admin && !SettingsState.local: Card {

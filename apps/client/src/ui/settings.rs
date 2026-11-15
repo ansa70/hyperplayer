@@ -12,13 +12,14 @@ use std::{
 
 use chrono::{DateTime, Local, Utc};
 use hyperplayer::{
-    api::{ServerError, types},
+    api::{Api, ServerError, Unauthorized, types},
     replaygain,
+    trust::{self, UntrustedCertificate},
 };
 use slint::{ComponentHandle, Model, ModelRc, SharedString, Timer, VecModel};
 
 use super::{
-    App, AppWindow, DeviceItem, FolderItem, Page, SettingsState, UserItem, background,
+    App, AppWindow, DeviceItem, FolderItem, Page, SettingsState, SourceItem, UserItem, background,
     models::plural, with_app,
 };
 
@@ -83,6 +84,22 @@ pub fn init(ui: &AppWindow) {
             .collect();
         set_folders(paths, "Folder removed; rescanning.");
     });
+    s.on_add_source(|| add_source(false));
+    s.on_trust_source(|| add_source(true));
+    s.on_cancel_trust_source(|| {
+        state(|s| s.set_source_fingerprint("".into()));
+        sources_message("Not added: its certificate isn't trusted.", true);
+    });
+    s.on_remove_source(|id| {
+        let api = with_app(|app| app.api.clone());
+        background(
+            move || api.remove_source(&id),
+            |library| {
+                state(|s| show_library(&s, &library));
+                sources_message("Server removed; its music is out of the library.", false);
+            },
+        );
+    });
     s.on_set_admin(|id, admin| update_user(id, serde_json::json!({ "admin": admin }), "Saved."));
     s.on_reset_password(|id, password| {
         if password.chars().count() < 8 {
@@ -135,6 +152,7 @@ fn load() {
     // Outcomes of earlier actions (perhaps by another account) are stale now.
     users_message("", false);
     state(|s| s.set_folders_message("".into()));
+    sources_message("", false);
     let api = with_app(|app| app.api.clone());
     background(
         move || {
@@ -497,9 +515,156 @@ fn show_library(s: &SettingsState, l: &types::LibraryStatus) {
     };
     s.set_scan_progress(progress);
     s.set_scan_detail(detail.into());
-    if l.scanning {
+    let sources: Vec<SourceItem> = l
+        .sources
+        .iter()
+        .map(|source| SourceItem {
+            id: source.id.to_string().into(),
+            title: format!(
+                "{} · {}",
+                source
+                    .url
+                    .split_once("://")
+                    .map_or(&*source.url, |(_, rest)| rest),
+                source.username
+            )
+            .into(),
+            detail: match (&source.error, source.syncing, source.last_sync_at) {
+                (_, true, _) => {
+                    format!("Copying its catalog… · {}", plural(source.tracks, "track"))
+                }
+                (Some(error), _, _) => format!("{} · {error}", plural(source.tracks, "track")),
+                (None, _, Some(t)) => {
+                    format!("{} · synced {}", plural(source.tracks, "track"), when(t))
+                }
+                (None, _, None) => plural(source.tracks, "track"),
+            }
+            .into(),
+            failing: source.error.is_some() && !source.syncing,
+        })
+        .collect();
+    s.set_sources(ModelRc::new(VecModel::from(sources)));
+    if l.scanning || l.sources.iter().any(|s| s.syncing) {
         follow_scan();
     }
+}
+
+fn sources_message(msg: &str, error: bool) {
+    state(|s| {
+        s.set_sources_message(msg.into());
+        s.set_sources_error(error);
+    });
+}
+
+/// What adding a server came to.
+enum Added {
+    Library(types::LibraryStatus),
+    /// Its certificate needs the user's trust first.
+    Untrusted(String),
+    Failed(String),
+}
+
+/// An error in the words worth showing: the server's own message when it gave one.
+fn error_text(e: &anyhow::Error) -> String {
+    if let Some(e) = e.downcast_ref::<ServerError>() {
+        return e.message.clone();
+    }
+    if let Some(Unauthorized(msg)) = e.downcast_ref::<Unauthorized>()
+        && !msg.is_empty()
+    {
+        return msg.clone();
+    }
+    format!("{e:#}")
+}
+
+/// Adds a server's music to the local library: signs in to the server as a device of its
+/// own (the library's), then hands the library that session. `trusted`: the user just
+/// accepted the server's certificate.
+fn add_source(trusted: bool) {
+    let Some((url, username, password, fingerprint, device_id)) = with_app(|app| {
+        let ui = app.ui.upgrade()?;
+        let s = ui.global::<SettingsState>();
+        Some((
+            Some(s.get_source_url().trim().to_string())
+                .filter(|u| !u.is_empty())
+                .map(|u| super::account::normalize_server(&u))
+                .unwrap_or_default(),
+            s.get_source_username().trim().to_string(),
+            s.get_source_password().to_string(),
+            s.get_source_fingerprint().to_string(),
+            // Its own device on the server, apart from this player's if it signs in there too.
+            format!("{}-library", app.settings.device_id),
+        ))
+    }) else {
+        return;
+    };
+    if url.is_empty() || username.is_empty() || password.is_empty() {
+        return sources_message(
+            "Enter the server's address, your username there and its password.",
+            true,
+        );
+    }
+    if trusted && !fingerprint.is_empty() {
+        trust::trust(&url, &fingerprint);
+    }
+    let library = with_app(|app| app.api.clone());
+    let device_name = format!("{} (library)", super::account::device_name());
+    state(|s| {
+        s.set_source_busy(true);
+        s.set_source_fingerprint("".into());
+    });
+    sources_message("", false);
+    thread::spawn(move || {
+        // Connections are set up with the trusted certificates, so this one is new.
+        let server = Api::new(url.clone());
+        let outcome = match server.login(&username, &password, &device_name, &device_id) {
+            Err(e) => match e.downcast_ref::<UntrustedCertificate>() {
+                Some(u) => Added::Untrusted(u.fingerprint.clone()),
+                None => Added::Failed(error_text(&e)),
+            },
+            Ok(session) => {
+                let signed_in = Api::with_token(url.clone(), Some(&session.token));
+                if session.user.must_change_password {
+                    let _ = signed_in.logout();
+                    Added::Failed(
+                        "This account still has the password it was given: sign in to the server with HyperPlayer once to choose your own, then add it here."
+                            .into(),
+                    )
+                } else {
+                    let pinned = trust::pinned(&url);
+                    match library.add_source(&url, &session.token, &username, pinned.as_deref()) {
+                        Ok(status) => Added::Library(status),
+                        Err(e) => {
+                            // Not added: the session is of no use to anyone.
+                            let _ = signed_in.logout();
+                            Added::Failed(error_text(&e))
+                        }
+                    }
+                }
+            }
+        };
+        let _ = slint::invoke_from_event_loop(move || {
+            state(|s| s.set_source_busy(false));
+            match outcome {
+                Added::Library(status) => {
+                    state(|s| {
+                        s.set_source_url("".into());
+                        s.set_source_username("".into());
+                        s.set_source_password("".into());
+                        show_library(&s, &status);
+                    });
+                    sources_message(
+                        "Server added: its music is being copied into your library.",
+                        false,
+                    );
+                }
+                Added::Untrusted(fingerprint) => {
+                    state(|s| s.set_source_fingerprint(fingerprint.into()))
+                }
+                Added::Failed(msg) => sources_message(&msg, true),
+            }
+        });
+    });
 }
 
 fn show_users(s: &SettingsState, users: &[types::User], me: &str) {

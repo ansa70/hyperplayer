@@ -2670,6 +2670,169 @@
         }
       }
     },
+    "/api/sync": {
+      "get": {
+        "operationId": "sync",
+        "summary": "The catalog for another library to copy: everything, or what changed since a revision",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The catalog for another library to copy: everything, or what changed since a revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/library/sources": {
+      "post": {
+        "operationId": "addSource",
+        "summary": "Add a server's music to this library (a standalone player's) and sync it",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSource"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Add a server's music to this library (a standalone player's) and sync it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/library/sources/{id}": {
+      "delete": {
+        "operationId": "removeSource",
+        "summary": "Take a server's music out of this library",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Take a server's music out of this library",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/stream/{id}": {
       "get": {
         "operationId": "stream",
@@ -3791,6 +3954,48 @@
         ],
         "additionalProperties": false
       },
+      "Source": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "url": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "tracks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "syncing": {
+            "type": "boolean"
+          },
+          "lastSyncAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "error": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "username",
+          "tracks",
+          "syncing",
+          "lastSyncAt",
+          "error"
+        ],
+        "additionalProperties": false
+      },
       "LibraryStatus": {
         "type": "object",
         "properties": {
@@ -3865,6 +4070,13 @@
               "total"
             ],
             "additionalProperties": false
+          },
+          "sources": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
           }
         },
         "required": [
@@ -3876,7 +4088,8 @@
           "albums",
           "tracks",
           "enrichmentQueue",
-          "scanProgress"
+          "scanProgress",
+          "sources"
         ],
         "additionalProperties": false
       },
@@ -5332,6 +5545,262 @@
         },
         "required": [
           "token"
+        ],
+        "additionalProperties": false
+      },
+      "SyncArtist": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sortName": {
+            "type": "string"
+          },
+          "musicbrainzId": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "sortName",
+          "musicbrainzId"
+        ],
+        "additionalProperties": false
+      },
+      "SyncCredit": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/CreditCategory"
+          },
+          "musicbrainzId": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "role",
+          "category",
+          "musicbrainzId"
+        ],
+        "additionalProperties": false
+      },
+      "SyncTrack": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artistCredit": {
+            "type": "string"
+          },
+          "artist": {
+            "$ref": "#/components/schemas/SyncArtist"
+          },
+          "albumArtist": {
+            "$ref": "#/components/schemas/SyncArtist"
+          },
+          "album": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "year": {
+                "nullable": true,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "musicbrainzId": {
+                "nullable": true,
+                "type": "string"
+              },
+              "addedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "title",
+              "year",
+              "musicbrainzId",
+              "addedAt"
+            ],
+            "additionalProperties": false
+          },
+          "trackNumber": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "discNumber": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "year": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "format": {
+            "$ref": "#/components/schemas/AudioFormat"
+          },
+          "replayGain": {
+            "$ref": "#/components/schemas/ReplayGain"
+          },
+          "fileSize": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "modifiedMs": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "musicbrainzRecordingId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "cover": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Artwork"
+              }
+            ]
+          },
+          "credits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncCredit"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "artistCredit",
+          "artist",
+          "albumArtist",
+          "album",
+          "trackNumber",
+          "discNumber",
+          "year",
+          "durationMs",
+          "genres",
+          "format",
+          "replayGain",
+          "fileSize",
+          "modifiedMs",
+          "musicbrainzRecordingId",
+          "cover",
+          "credits"
+        ],
+        "additionalProperties": false
+      },
+      "SyncPage": {
+        "type": "object",
+        "properties": {
+          "libraryId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "full": {
+            "type": "boolean"
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncTrack"
+            }
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          "next": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ]
+          }
+        },
+        "required": [
+          "libraryId",
+          "revision",
+          "full",
+          "tracks",
+          "removed",
+          "next"
+        ],
+        "additionalProperties": false
+      },
+      "AddSource": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "fingerprint": {
+            "nullable": true,
+            "type": "string",
+            "pattern": "^([0-9A-F]{2}:){31}[0-9A-F]{2}$"
+          }
+        },
+        "required": [
+          "url",
+          "token",
+          "username",
+          "fingerprint"
         ],
         "additionalProperties": false
       }

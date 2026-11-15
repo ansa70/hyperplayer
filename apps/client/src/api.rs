@@ -295,6 +295,26 @@ impl Api {
         self.send(Method::PUT, "/api/library/folders", Some(&body))
     }
 
+    /// Adds a server's music to the library (a standalone player's engine), signed in with
+    /// `token`; `fingerprint` is the self-signed certificate the user trusted, if any.
+    pub fn add_source(
+        &self,
+        url: &str,
+        token: &str,
+        username: &str,
+        fingerprint: Option<&str>,
+    ) -> Result<LibraryStatus> {
+        let body = serde_json::json!({
+            "url": url, "token": token, "username": username, "fingerprint": fingerprint,
+        });
+        self.send(Method::POST, "/api/library/sources", Some(&body))
+    }
+
+    /// Takes a server's music out of the library.
+    pub fn remove_source(&self, id: &str) -> Result<LibraryStatus> {
+        self.send::<_, ()>(Method::DELETE, &format!("/api/library/sources/{id}"), None)
+    }
+
     pub fn me(&self) -> Result<Me> {
         self.get("/api/me")
     }

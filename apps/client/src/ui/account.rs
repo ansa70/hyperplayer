@@ -34,7 +34,7 @@ pub fn initial_server(settings_server: &str) -> String {
         .unwrap_or_else(|| DEFAULT_SERVER.into())
 }
 
-fn normalize_server(url: &str) -> String {
+pub fn normalize_server(url: &str) -> String {
     let url = url.trim().trim_end_matches('/');
     if url.contains("://") {
         return url.to_string();

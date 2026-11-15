@@ -62,6 +62,9 @@ There are two ways to use HyperPlayer:
   follows you from one to the next and an account for everyone in the household. At the first start,
   choose **Connect to a HyperPlayer server**.
 
+A standalone player can also bring in the music of HyperPlayer servers (**Settings → Library → Servers**):
+it joins the player's library, merged with the music on the computer, and plays from the server.
+
 **Switch library**, at the bottom of the player's sidebar, goes back to that choice.
 
 ### Linux
@@ -331,6 +334,22 @@ others added in **Settings → Library**. The player runs the server's code itse
 it listens only on `127.0.0.1`, starts and stops with the player, and keeps its data in the user's data
 folder (`~/.local/share/hyperplayer/library`, `%LOCALAPPDATA%\HyperPlayer\library`, or
 `~/Library/Application Support/HyperPlayer/library`). Its log is `engine.log`, next to the player's.
+
+### Servers in a standalone library
+
+A standalone player can add HyperPlayer servers to its library in **Settings → Library → Servers**,
+signing in with an account on each (as a device of its own, listed on the server as
+"HyperPlayer on … (library)"). The engine copies each server's catalog into its own library: the same
+artist or album on the server and on the computer becomes one. When it rescans its folders, it also
+fetches what changed on the servers since the last time (`GET /api/sync`), so this stays cheap however
+big the server's library is. The tracks play from the server, which also provides their covers and
+waveforms (fetched once, then kept) and lyrics. A server that can't be reached keeps
+its tracks in the library; they just don't play until it's back.
+
+Playlists, the play queue and listening history (and scrobbling) stay in the player's own library. A
+self-signed certificate is trusted the same way as when connecting to a server, and from then on only
+that certificate is accepted. Removing a server takes its music out of the library and signs the
+library out of the server. The servers need HyperPlayer 0.3.0 or later.
 
 ## Enrichment
 
