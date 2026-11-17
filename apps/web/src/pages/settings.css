@@ -105,3 +105,21 @@
     flex-wrap: wrap;
   }
 }
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  border: 3px solid transparent;
+}
+.swatch.on {
+  border-color: var(--text);
+}
+.cover-swatch {
+  background: linear-gradient(135deg, #ff5fa2 0%, #f5c542 50%, #2dd4bf 100%);
+}

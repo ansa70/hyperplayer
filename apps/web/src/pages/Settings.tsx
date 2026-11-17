@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, call, errorMessage } from "../api.ts";
 import { Segmented } from "../components/Segmented.tsx";
 import { Library, Users } from "./settings/Admin.tsx";
+import { Appearance } from "./settings/Appearance.tsx";
 import { Card } from "./settings/Card.tsx";
 import { Scrobbling } from "./settings/Scrobbling.tsx";
 import { canBoost } from "../player/output.ts";
@@ -11,7 +12,7 @@ import { useSession } from "../stores/session.ts";
 import "./pages.css";
 import "./settings.css";
 
-type Tab = "playback" | "account" | "scrobbling" | "library" | "users";
+type Tab = "playback" | "appearance" | "account" | "scrobbling" | "library" | "users";
 
 /** Settings, like the Rust player's: playback (the account's preferences) and the account. */
 export function Settings() {
@@ -26,6 +27,7 @@ export function Settings() {
         value={tab}
         options={[
           { key: "playback", label: "Playback" },
+          { key: "appearance", label: "Appearance" },
           { key: "account", label: "Account" },
           { key: "scrobbling", label: "Scrobbling" },
           ...(user?.admin
@@ -38,6 +40,7 @@ export function Settings() {
         onPick={(k) => setTab(k as Tab)}
       />
       {tab === "playback" && <Playback />}
+      {tab === "appearance" && <Appearance />}
       {tab === "account" && <Account />}
       {tab === "scrobbling" && <Scrobbling />}
       {tab === "library" && <Library />}

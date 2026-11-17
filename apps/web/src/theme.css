@@ -1,4 +1,23 @@
 /* The Rust player's theme (ui/app.slint, `Theme`), as CSS variables. */
+
+/* The window's gradient, from the playing album's colours (player/appearance.ts):
+   registered as colours so they fade to a new album's, as in the Rust player. */
+@property --tint-a {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0c0d10;
+}
+@property --tint-b {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0c0d10;
+}
+@property --tint-c {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0c0d10;
+}
+
 :root {
   --bg: #0c0d10;
   --surface: #15171c;
@@ -20,7 +39,12 @@
   font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 13px;
   color: var(--text);
-  background: var(--bg);
+  background: linear-gradient(150deg, var(--tint-a) 0%, var(--tint-b) 55%, var(--tint-c) 100%);
+  background-attachment: fixed;
+  transition:
+    --tint-a 0.9s ease-in-out,
+    --tint-b 0.9s ease-in-out,
+    --tint-c 0.9s ease-in-out;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
