@@ -55,6 +55,8 @@ interface PlayerState {
   seek: (seconds: number) => void;
   jump: (entryId: string) => Promise<void>;
   toggleShuffle: () => Promise<void>;
+  /** Shuffles from the account's shuffle scope (saved first, by the caller): redraws if already on. */
+  shuffleFrom: () => Promise<void>;
   cycleRepeat: () => Promise<void>;
   setVolume: (v: number) => void;
   setMode: (m: Mode) => void;
@@ -213,6 +215,13 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     const on = !get().queue?.shuffle;
     await queueOp(() => call(api.updateQueue, { body: { shuffle: on } }));
     // Nothing playing: the server picked a track to start.
+    if (currentEntry(get().queue)?.entryId !== before) playCurrent(0);
+  },
+
+  async shuffleFrom() {
+    const before = currentEntry(get().queue)?.entryId;
+    // On again: the server redraws from the (new) scope around the playing track.
+    await queueOp(() => call(api.updateQueue, { body: { shuffle: true } }));
     if (currentEntry(get().queue)?.entryId !== before) playCurrent(0);
   },
 

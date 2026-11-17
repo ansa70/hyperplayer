@@ -336,6 +336,34 @@
   align-items: center;
   gap: 12px;
 }
+.shuffle {
+  position: relative;
+  display: inline-flex;
+}
+/* To the left of the button, as in the Rust player, without moving the controls. */
+.shuffle-caption {
+  position: absolute;
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 220px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.shuffle-caption.on {
+  color: var(--accent);
+}
+.shuffle-menu {
+  top: auto;
+  right: auto;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  min-width: 190px;
+}
+.menu-item.checked {
+  color: var(--accent);
+}
 .controls.large {
   justify-content: space-between;
   width: 100%;
@@ -498,4 +526,22 @@
 .sheet-info {
   text-align: center;
   font-size: 11px;
+}
+
+/* Phones: the menu is a sheet from the bottom, like the other menus; in the full
+   player the caption goes under the button (it's at the left edge). */
+@media (max-width: 760px) {
+  .shuffle-menu {
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + var(--safe-bottom));
+    transform: none;
+  }
+}
+.controls.large .shuffle-caption {
+  right: auto;
+  left: 0;
+  top: calc(100% + 2px);
+  transform: none;
+  max-width: 60vw;
 }
