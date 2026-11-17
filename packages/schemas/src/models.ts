@@ -397,6 +397,22 @@ export const StreamFormat = named(
   "`original` serves the file untouched (with HTTP range support); others are transcoded with ffmpeg.",
 );
 
+export const UploadInfo = named(
+  "UploadInfo",
+  z.object({
+    /** The server has a folder for uploads (HP_UPLOAD_DIR). */
+    enabled: z.boolean(),
+    /** The largest file accepted. */
+    maxFileBytes: z.int().nonnegative(),
+    /** How much each user may upload in all; null for no limit. */
+    quotaBytes: z.int().nonnegative().nullable(),
+    /** The caller's uploads so far. */
+    usedBytes: z.int().nonnegative(),
+    tracks: z.int().nonnegative(),
+  }),
+  "Uploading music: private to whoever uploads it, kept in the server's uploads folder.",
+);
+
 export const ApiError = named(
   "ApiError",
   z.object({
@@ -420,6 +436,7 @@ export type Artist = z.infer<typeof Artist>;
 export type AlbumSummary = z.infer<typeof AlbumSummary>;
 export type AudioFormat = z.infer<typeof AudioFormat>;
 export type Track = z.infer<typeof Track>;
+export type UploadInfo = z.infer<typeof UploadInfo>;
 export type TrackTrim = z.infer<typeof TrackTrim>;
 export type Silence = z.infer<typeof Silence>;
 export type ReplayGain = z.infer<typeof ReplayGain>;

@@ -55,6 +55,12 @@ const Env = z.object({
   HP_LASTFM_SECRET: z.string().trim().min(1).optional(),
   /** Development only: cap every audio stream at this many kbit/s. */
   HP_DEBUG_THROTTLE_KBPS: z.coerce.number().int().positive().optional(),
+  /** A writable folder for users' uploads (private to each); uploads are off without it. */
+  HP_UPLOAD_DIR: z.string().trim().min(1).optional(),
+  /** The largest file accepted, in MB. */
+  HP_UPLOAD_MAX_MB: z.coerce.number().int().positive().default(2048),
+  /** How much each user may upload in all, in MB; no limit when unset. */
+  HP_UPLOAD_QUOTA_MB: z.coerce.number().int().positive().optional(),
   /** The web player's build (`index.html` and its assets); found beside the server when unset. */
   HP_WEB_DIR: z.string().trim().min(1).optional(),
   /** Browser origins allowed to call the API cross-origin (comma-separated); none by default. */
@@ -105,6 +111,8 @@ export type Config = {
   embedded?: EmbeddedConfig | null;
   /** Where the web player's build is, if set (see `findWebDir`). */
   webDir?: string;
+  /** Users' uploads: off when null or absent. */
+  uploads?: { dir: string; maxFileBytes: number; quotaBytes: number | null } | null;
 };
 
 /** The system user's name, as a HyperPlayer username. */
@@ -174,6 +182,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         : null,
     debugThrottleKbps: e.HP_DEBUG_THROTTLE_KBPS ?? null,
     webDir: e.HP_WEB_DIR ? resolve(e.HP_WEB_DIR) : undefined,
+    // Not in a player's library engine: one person, their own files.
+    uploads:
+      e.HP_UPLOAD_DIR && !e.HP_EMBEDDED
+        ? {
+            dir: resolve(e.HP_UPLOAD_DIR),
+            maxFileBytes: e.HP_UPLOAD_MAX_MB * 1024 * 1024,
+            quotaBytes: e.HP_UPLOAD_QUOTA_MB ? e.HP_UPLOAD_QUOTA_MB * 1024 * 1024 : null,
+          }
+        : null,
     corsOrigins: e.HP_CORS_ORIGINS.split(",")
       .map((o) => o.trim())
       .filter(Boolean),

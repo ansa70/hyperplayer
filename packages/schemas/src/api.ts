@@ -17,6 +17,7 @@ import {
   TrackPage,
   Track,
   TrackTrim,
+  UploadInfo,
 } from "./models.ts";
 import {
   AddToPlaylist,
@@ -105,7 +106,23 @@ export interface BinaryEndpoint<P extends z.ZodType = z.ZodType, Q extends z.Zod
   contentTypes: string[];
 }
 
-export type Endpoint = JsonEndpoint | BinaryEndpoint;
+/**
+ * An upload: the request body is a raw file (one of `contentTypes`), the response JSON.
+ * The file's name is a path parameter, for its type.
+ */
+export interface UploadEndpoint<P extends z.ZodType = z.ZodType, R extends z.ZodType = z.ZodType> {
+  kind: "upload";
+  method: Method;
+  path: string;
+  summary: string;
+  access: Access;
+  params: P;
+  query: z.ZodType;
+  contentTypes: string[];
+  response: R;
+}
+
+export type Endpoint = JsonEndpoint | BinaryEndpoint | UploadEndpoint;
 
 const NoParams = z.object({});
 const NoQuery = z.object({});
@@ -128,6 +145,10 @@ const json = <
 >(
   e: Omit<JsonEndpoint<P, Q, R, B>, "kind" | "body" | "access"> & { body?: B; access?: Access },
 ): JsonEndpoint<P, Q, R, B> => ({ kind: "json", access: "user", ...e, body: (e.body ?? NoBody) as B });
+
+const upload = <P extends z.ZodType, R extends z.ZodType>(
+  e: Omit<UploadEndpoint<P, R>, "kind" | "access" | "query"> & { access?: Access },
+): UploadEndpoint<P, R> => ({ kind: "upload", access: "user", query: NoQuery, ...e });
 
 const binary = <P extends z.ZodType, Q extends z.ZodType>(
   e: Omit<BinaryEndpoint<P, Q>, "kind" | "access"> & { access?: Access },
@@ -705,6 +726,40 @@ export const api = {
     params: IdParams,
     query: NoQuery,
     response: LibraryStatus,
+  }),
+  // ----------------------------------------------------------------- uploads
+  uploadInfo: json({
+    method: "GET",
+    path: "/api/uploads",
+    summary: "Whether uploads are on, their limits, and how much the caller has uploaded",
+    params: NoParams,
+    query: NoQuery,
+    response: UploadInfo,
+  }),
+  listUploads: json({
+    method: "GET",
+    path: "/api/uploads/tracks",
+    summary: "The caller's uploads, newest first",
+    params: NoParams,
+    query: Pagination,
+    response: TrackPage,
+  }),
+  uploadTrack: upload({
+    method: "PUT",
+    path: "/api/uploads/{name}",
+    summary:
+      "Upload an audio file (the body; `name` is its file name): filed by its tags, added to the caller's library only",
+    params: z.object({ name: z.string().min(1).max(255) }),
+    contentTypes: ["audio/*", "application/octet-stream"],
+    response: Track,
+  }),
+  deleteUpload: json({
+    method: "DELETE",
+    path: "/api/uploads/{id}",
+    summary: "Delete an upload (its owner, or an admin): the file and the track",
+    params: IdParams,
+    query: NoQuery,
+    response: Ok,
   }),
   stream: binary({
     method: "GET",

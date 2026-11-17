@@ -46,6 +46,8 @@ export interface TrackRecord {
   rev: number | null;
   seenScan: number;
   source: { id: string; remoteId: string } | null;
+  /** An upload's owner (only they see it); null or absent for the shared library. */
+  owner?: string | null;
 }
 
 /** The path a server's track is stored under: unique, and never a file on this computer. */
@@ -97,8 +99,8 @@ export function writeTrack(db: Db, t: TrackRecord): string {
       id, path, mtime_ms, title, artist_id, album_id, track_number, disc_number, year, duration_ms, genres,
       codec, container, lossless, bitrate, sample_rate, bit_depth, channels, file_size, cover_id, seen_scan,
       musicbrainz_recording_id, artist_credit, rg_track_gain, rg_track_peak, rg_album_gain, rg_album_peak,
-      rev, source_id, remote_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      rev, source_id, remote_id, owner_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       mtime_ms = excluded.mtime_ms, title = excluded.title, artist_id = excluded.artist_id,
       album_id = excluded.album_id, track_number = excluded.track_number, disc_number = excluded.disc_number,
@@ -109,7 +111,8 @@ export function writeTrack(db: Db, t: TrackRecord): string {
       musicbrainz_recording_id = excluded.musicbrainz_recording_id, artist_credit = excluded.artist_credit,
       rg_track_gain = excluded.rg_track_gain, rg_track_peak = excluded.rg_track_peak,
       rg_album_gain = excluded.rg_album_gain, rg_album_peak = excluded.rg_album_peak,
-      rev = excluded.rev, source_id = excluded.source_id, remote_id = excluded.remote_id`).run(
+      rev = excluded.rev, source_id = excluded.source_id, remote_id = excluded.remote_id,
+      owner_id = excluded.owner_id`).run(
     trackId,
     t.path,
     t.mtimeMs,
@@ -140,6 +143,7 @@ export function writeTrack(db: Db, t: TrackRecord): string {
     t.rev,
     t.source?.id ?? null,
     t.source?.remoteId ?? null,
+    t.owner ?? null,
   );
 
   db.prepare("DELETE FROM credits WHERE track_id = ? AND source = 'tags'").run(trackId);

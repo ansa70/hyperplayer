@@ -1,4 +1,6 @@
 import { access, readdir, readFile } from "node:fs/promises";
+import { Uploads } from "./library/uploads.ts";
+import { inBackground } from "./viewer.ts";
 import { mkdirSync } from "node:fs";
 import type { Server as TlsServer } from "node:tls";
 import type { Readable } from "node:stream";
@@ -43,7 +45,14 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   mkdirSync(config.dataDir, { recursive: true });
   const db = openDb(join(config.dataDir, "library.db"));
   const artwork = new ArtworkStore(db, config.dataDir);
-  const scanner = new Scanner(db, artwork, { settleMs: config.scanSettleMs });
+  const scanner = new Scanner(db, artwork, {
+    settleMs: config.scanSettleMs,
+    uploadDir: config.uploads?.dir ?? null,
+  });
+  const uploads = new Uploads(db, scanner, config.uploads ?? null);
+  if (uploads.dir) mkdirSync(uploads.dir, { recursive: true });
+  /** What scans and the watcher cover: the music folders and the uploads folder. */
+  const scanRoots = () => (uploads.dir ? [...folders.paths, uploads.dir] : folders.paths);
   const tls = config.tls ? loadTls(config.tls, config.dataDir) : null;
   const app = Fastify({
     logger: opts.logger ?? true,
@@ -108,8 +117,9 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     if (relinked) app.log.info({ relinked }, "playlist entries relinked to moved tracks");
     enricher.enqueuePending();
   };
+  // Background work sees every user's tracks, whichever request set it off.
   const syncSources = (only?: string) =>
-    (only ? sources.sync(only) : sources.syncAll())
+    inBackground(() => (only ? sources.sync(only) : sources.syncAll()))
       .then((changed) => {
         if (changed) catalogChanged();
       })
@@ -117,7 +127,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
       .catch((err: unknown) => app.log.warn(err, "syncing servers failed"));
   const scanOnce = () =>
     scanner
-      .scan(folders.paths)
+      .scan(scanRoots())
       .then((s) => {
         const changed = s.updated > 0 || s.removed > 0;
         // Periodic rescans that find nothing new stay quiet.
@@ -138,19 +148,20 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
    * (the running one may already have passed the changed files); further requests
    * join that one.
    */
-  const startScan = (): Promise<void> => {
-    if (!scanning) return (scanning = scanOnce());
-    again ??= scanning.then(() => {
-      again = null;
-      if (dropQueued) {
-        dropQueued = false;
-        return;
-      }
-      return startScan();
+  const startScan = (): Promise<void> =>
+    inBackground(() => {
+      if (!scanning) return (scanning = scanOnce());
+      again ??= scanning.then(() => {
+        again = null;
+        if (dropQueued) {
+          dropQueued = false;
+          return;
+        }
+        return startScan();
+      });
+      return again;
     });
-    return again;
-  };
-  const watcher = new LibraryWatcher(folders.paths, {
+  const watcher = new LibraryWatcher(scanRoots(), {
     rescanMinutes: config.rescanMinutes,
     watch: config.watch,
     debounceMs: config.watchDebounceMs,
@@ -273,7 +284,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   });
   route.json(api.setLibraryFolders, async ({ body }) => {
     await folders.set(body.paths);
-    watcher.setRoots(folders.paths);
+    watcher.setRoots(scanRoots());
     void startScan();
     return status(true);
   });
@@ -346,7 +357,37 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   route.json(api.historyStats, ({ auth: a, query }) => history.stats(a.user.id, query.days, query.limit));
   route.json(api.updateMe, ({ auth: a, body }) => auth.updateMe(a.user.id, body));
   route.json(api.updateUser, ({ auth: a, params, body }) => auth.updateUser(a, params.id, body));
-  route.json(api.deleteUser, ({ auth: a, params }) => auth.deleteUser(a, params.id));
+  route.json(api.deleteUser, async ({ auth: a, params }) => {
+    const result = auth.deleteUser(a, params.id);
+    // Their uploads' tracks went with them; the files go too.
+    await uploads.removeUser(params.id);
+    return result;
+  });
+  route.json(api.uploadInfo, ({ auth: a }) => uploads.info(a.user.id));
+  route.json(api.listUploads, ({ auth: a, query }) => {
+    const { ids, total } = uploads.list(a.user.id, query.offset, query.limit);
+    const tracks = catalog.tracksByIds(ids);
+    return {
+      items: ids.flatMap((id) => tracks.get(id) ?? []),
+      total,
+      offset: query.offset,
+      limit: query.limit,
+    };
+  });
+  route.upload(api.uploadTrack, async ({ auth: a, params, request }) => {
+    const length = Number(request.headers["content-length"]);
+    const id = await uploads.receive(
+      a.user.id,
+      params.name,
+      request.raw,
+      Number.isFinite(length) && length > 0 ? length : null,
+    );
+    return catalog.getTrack(id) ?? Promise.reject(notFound("Track"));
+  });
+  route.json(api.deleteUpload, async ({ auth: a, params }) => {
+    await uploads.delete(params.id, a.user.id, a.user.admin);
+    return { ok: true as const };
+  });
   route.json(api.playingNow, ({ auth: a, body }) => {
     if (!catalog.getTrack(body.trackId)) throw notFound("Track");
     scrobbler.nowPlaying(a.user.id, body.trackId);

@@ -1,4 +1,5 @@
 import type { BandMember, ExternalLink } from "@hyperplayer/schemas";
+import { inBackground } from "../viewer.ts";
 import type { FastifyBaseLogger } from "fastify";
 import { rebuildSearchIndex } from "../catalog/searchIndex.ts";
 import type { Db } from "../db.ts";
@@ -158,7 +159,7 @@ export class Enricher {
     const artists = this.#db.prepare("SELECT id FROM artists WHERE enrich_status IS NULL").all() as Row[];
     for (const r of albums) this.#push(`album:${String(r.id)}`);
     for (const r of artists) this.#push(`artist:${String(r.id)}`);
-    void this.#run();
+    void inBackground(() => this.#run());
   }
 
   /** Moves the album and artists of a track to the front of the queue. */
@@ -176,7 +177,7 @@ export class Enricher {
     ] as Job[]) {
       if (this.#queue.includes(job)) this.#push(job, true);
     }
-    void this.#run();
+    void inBackground(() => this.#run());
   }
 
   /** Forgets an artist's enrichment and fetches it again ahead of everything else. */
@@ -185,7 +186,7 @@ export class Enricher {
     this.#db.prepare("UPDATE artists SET enrich_status = NULL WHERE id = ?").run(artistId);
     this.#failed.delete(`artist:${artistId}`);
     this.#push(`artist:${artistId}`, true);
-    void this.#run();
+    void inBackground(() => this.#run());
   }
 
   /** `pending` while an entity is queued, so clients know to poll again. */

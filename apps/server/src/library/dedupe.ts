@@ -17,9 +17,13 @@ interface Copy {
   lossless: boolean;
   bitrate: number;
   shownAs: string | null;
+  /** An upload's owner; null for the shared library. */
+  owner: string | null;
 }
 
+/** Shared copies first (an upload is seen by its owner only), then this computer's, then the better file. */
 const better = (a: Copy, b: Copy) =>
+  Number(a.owner !== null) - Number(b.owner !== null) ||
   a.place - b.place ||
   Number(b.lossless) - Number(a.lossless) ||
   b.bitrate - a.bitrate ||
@@ -36,7 +40,7 @@ export function dedupe(db: Db): number {
   const rows = db
     .prepare(
       `SELECT t.id, t.album_id, t.disc_number, t.track_number, t.title, t.musicbrainz_recording_id,
-              t.duration_ms, t.lossless, t.bitrate, t.duplicate_of,
+              t.duration_ms, t.lossless, t.bitrate, t.duplicate_of, t.owner_id,
               CASE WHEN t.source_id IS NULL THEN 0
                    ELSE 1 + (SELECT COUNT(*) FROM sources o WHERE o.added_at < s.added_at) END AS place
        FROM all_tracks t LEFT JOIN sources s ON s.id = t.source_id`,
@@ -54,6 +58,7 @@ export function dedupe(db: Db): number {
     lossless: Boolean(r.lossless),
     bitrate: Number(r.bitrate ?? 0),
     shownAs: (r.duplicate_of as string | null) ?? null,
+    owner: (r.owner_id as string | null) ?? null,
   }));
 
   // Copies grouped by position on the album, then joined by title or recording.
@@ -77,7 +82,10 @@ export function dedupe(db: Db): number {
         const a = list[i]!;
         const b = list[j]!;
         const sameName = a.title === b.title || (a.recording !== null && a.recording === b.recording);
-        if (sameName && Math.abs(a.durationMs - b.durationMs) <= DURATION_TOLERANCE_MS) {
+        // Two people's uploads are never copies of each other: either would hide the
+        // other's from its owner. (Through a shared copy they may meet: then it's shown.)
+        const sameOwner = a.owner === null || b.owner === null || a.owner === b.owner;
+        if (sameOwner && sameName && Math.abs(a.durationMs - b.durationMs) <= DURATION_TOLERANCE_MS) {
           parent.set(find(a.id), find(b.id));
         }
       }

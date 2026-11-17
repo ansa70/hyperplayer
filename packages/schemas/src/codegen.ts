@@ -91,6 +91,16 @@ export function openApiDocument(version = "0.0.0"): JsonSchema {
       ...(e.kind === "json" && e.body !== NoBody
         ? { requestBody: { required: true, content: { "application/json": { schema: ref(e.body) } } } }
         : {}),
+      ...(e.kind === "upload"
+        ? {
+            requestBody: {
+              required: true,
+              content: Object.fromEntries(
+                e.contentTypes.map((t) => [t, { schema: { type: "string", format: "binary" } }]),
+              ),
+            },
+          }
+        : {}),
       responses: responses(e),
     };
   }

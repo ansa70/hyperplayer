@@ -27,7 +27,11 @@ export function ensureSearchIndex(db: Db) {
   if (!indexed && db.prepare("SELECT 1 FROM tracks LIMIT 1").get()) rebuildSearchIndex(db);
 }
 
-/** Rebuilds the whole index; cheap enough to run after every scan or enrichment batch. */
+/**
+ * Rebuilds the whole index; cheap enough to run after every scan or enrichment batch.
+ * Everyone's tracks, uploads included, whoever's request set it off: results are fetched
+ * through the tracks view, which leaves out other people's uploads.
+ */
 export function rebuildSearchIndex(db: Db) {
   db.exec("BEGIN");
   try {
@@ -40,7 +44,8 @@ export function rebuildSearchIndex(db: Db) {
       INSERT INTO search_index (kind, ref, name, context, people)
         SELECT 'track', t.id, t.title, COALESCE(t.artist_credit, ar.name) || ' ' || ar.name || ' ' || al.title,
                COALESCE((SELECT group_concat(DISTINCT c.name) FROM credits c WHERE c.track_id = t.id AND c.scope = 'track'), '')
-        FROM tracks t JOIN artists ar ON ar.id = t.artist_id JOIN albums al ON al.id = t.album_id;
+        FROM all_tracks t JOIN artists ar ON ar.id = t.artist_id JOIN albums al ON al.id = t.album_id
+        WHERE t.duplicate_of IS NULL;
     `);
     db.exec("COMMIT");
   } catch (err) {

@@ -1,4 +1,5 @@
-import type { Access, BinaryEndpoint, JsonEndpoint } from "@hyperplayer/schemas";
+import type { Access, BinaryEndpoint, JsonEndpoint, UploadEndpoint } from "@hyperplayer/schemas";
+import { asViewer } from "../viewer.ts";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { Auth, AuthContext } from "../auth/auth.ts";
@@ -60,7 +61,7 @@ function token(request: FastifyRequest): string | undefined {
   return fromCookie;
 }
 
-export interface Input<E extends JsonEndpoint | BinaryEndpoint> {
+export interface Input<E extends JsonEndpoint | BinaryEndpoint | UploadEndpoint> {
   params: z.output<E["params"]>;
   query: z.output<E["query"]>;
   body: E extends JsonEndpoint ? z.output<E["body"]> : undefined;
@@ -100,12 +101,19 @@ export class Router {
     return ctx;
   }
 
-  #input<E extends JsonEndpoint | BinaryEndpoint>(
+  /** Whose library the request sees: its caller's (anonymous: the shared tracks only). */
+  #viewerOf(endpoint: JsonEndpoint | BinaryEndpoint | UploadEndpoint, request: FastifyRequest): string {
+    if (endpoint.access === "public") return "";
+    return (request as FastifyRequest & { hpUserId?: string }).hpUserId ?? "";
+  }
+
+  #input<E extends JsonEndpoint | BinaryEndpoint | UploadEndpoint>(
     endpoint: E,
     request: FastifyRequest,
     reply: FastifyReply,
   ): Input<E> {
     const auth = this.#authorize(endpoint.access, request);
+    if (auth) (request as FastifyRequest & { hpUserId?: string }).hpUserId = auth.user.id;
     const input = {
       params: parse<E["params"]>(endpoint.params, request.params, "path parameters"),
       query: parse<E["query"]>(endpoint.query, request.query, "query"),
@@ -132,9 +140,37 @@ export class Router {
       method: endpoint.method,
       url: toFastifyPath(endpoint.path),
       handler: async (request, reply) => {
-        const result = await handler(this.#input(endpoint, request, reply));
-        return reply.send(this.#validateResponses ? endpoint.response.parse(result) : result);
+        const input = this.#input(endpoint, request, reply);
+        return asViewer(this.#viewerOf(endpoint, request), async () => {
+          const result = await handler(input);
+          return reply.send(this.#validateResponses ? endpoint.response.parse(result) : result);
+        });
       },
+    });
+  }
+
+  /**
+   * Uploads: the body isn't parsed but handed to the handler as a stream (`request.raw`),
+   * in a scope of its own so the rest of the API keeps refusing non-JSON bodies.
+   */
+  upload<E extends UploadEndpoint>(
+    endpoint: E,
+    handler: (input: Input<E>) => z.input<E["response"]> | Promise<z.input<E["response"]>>,
+  ) {
+    void this.#app.register(async (scope) => {
+      scope.removeAllContentTypeParsers();
+      scope.addContentTypeParser("*", (_request, _payload, done) => done(null, undefined));
+      scope.route({
+        method: endpoint.method,
+        url: toFastifyPath(endpoint.path),
+        handler: async (request, reply) => {
+          const input = this.#input(endpoint, request, reply);
+          return asViewer(this.#viewerOf(endpoint, request), async () => {
+            const result = await handler(input);
+            return reply.send(this.#validateResponses ? endpoint.response.parse(result) : result);
+          });
+        },
+      });
     });
   }
 
@@ -146,7 +182,10 @@ export class Router {
     this.#app.route({
       method: endpoint.method,
       url: toFastifyPath(endpoint.path),
-      handler: (request, reply) => handler(this.#input(endpoint, request, reply)),
+      handler: (request, reply) => {
+        const input = this.#input(endpoint, request, reply);
+        return asViewer(this.#viewerOf(endpoint, request), () => handler(input));
+      },
     });
   }
 }

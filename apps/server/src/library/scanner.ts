@@ -90,13 +90,41 @@ export class Scanner {
   #folderCovers = new Map<string, Promise<string | null>>();
 
   readonly #settleMs: number;
+  /** The uploads folder: files in `<uploads>/<user id>/` belong to that user. */
+  readonly #uploadDir: string | null;
   #progress: ScanProgress | null = null;
   #cancelled = false;
 
-  constructor(db: Db, artwork: ArtworkStore, opts: { settleMs?: number } = {}) {
+  constructor(db: Db, artwork: ArtworkStore, opts: { settleMs?: number; uploadDir?: string | null } = {}) {
     this.#db = db;
     this.#artwork = artwork;
     this.#settleMs = opts.settleMs ?? SETTLE_MS;
+    this.#uploadDir = opts.uploadDir ?? null;
+  }
+
+  /**
+   * Who a file belongs to: null for the shared library; for an upload, its user. A file
+   * in the uploads folder that isn't in a user's own folder (or whose user is gone) is
+   * refused: it must never become shared music.
+   */
+  #ownerOf(path: string): string | null {
+    const dir = this.#uploadDir;
+    if (!dir || !inside(dir, path)) return null;
+    const user = path.slice(dir.length).split(sep).find(Boolean) ?? "";
+    const known = this.#db.prepare("SELECT 1 FROM users WHERE id = ?").get(user);
+    if (!known) throw new Error("in the uploads folder, but not in a user's own folder");
+    return user;
+  }
+
+  /** Adds (or updates) one file right away, e.g. one just uploaded; a scan would find it too. */
+  async indexFile(path: string): Promise<void> {
+    const { mtimeMs, size } = await stat(path);
+    const meta = await parseFile(path, { duration: true });
+    const generation = Number(
+      (this.#db.prepare("SELECT value FROM meta WHERE key = 'scan_generation'").get()?.value as string) ?? 0,
+    );
+    await this.#upsert(path, Math.trunc(mtimeMs), size, meta, generation);
+    tracksChanged(this.#db);
   }
 
   /** The running scan's progress; null between scans. */
@@ -246,6 +274,7 @@ export class Scanner {
   }
 
   async #upsert(path: string, mtimeMs: number, size: number, meta: IAudioMetadata, generation: number) {
+    const owner = this.#ownerOf(path);
     const { common, format } = meta;
     const artistCredit = common.artist?.trim() || "Unknown Artist";
     const albumArtistCredit = common.albumartist?.trim() || artistCredit;
@@ -303,6 +332,7 @@ export class Scanner {
       rev: generation,
       seenScan: generation,
       source: null,
+      owner,
     });
   }
 

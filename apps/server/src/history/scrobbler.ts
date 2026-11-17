@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { inBackground } from "../viewer.ts";
 import type { LastfmAuthorization, ScrobbleAccount, ScrobbleSettings } from "@hyperplayer/schemas";
 import type { LastfmConfig } from "../config.ts";
 import type { Db } from "../db.ts";
@@ -266,7 +267,8 @@ export class Scrobbler {
     }
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = null;
-    this.#running = this.#drain()
+    // Everyone's listens go out from here, whatever request set it off.
+    this.#running = inBackground(() => this.#drain())
       .catch((err: unknown) => this.#log.warn({ err }, "scrobbling failed"))
       .finally(() => {
         this.#running = null;

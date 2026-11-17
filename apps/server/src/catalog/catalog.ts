@@ -54,16 +54,25 @@ function artwork(r: Row, p: string): Artwork | null {
   };
 }
 
+/**
+ * Albums and artists with a track the requesting user can see (not only someone else's
+ * uploads); every listing reads them through these, so no query has to remember to.
+ */
+const VISIBLE_ALBUMS = `(SELECT * FROM albums WHERE EXISTS (SELECT 1 FROM tracks v WHERE v.album_id = albums.id))`;
+const VISIBLE_ARTISTS = `(SELECT * FROM artists WHERE
+    EXISTS (SELECT 1 FROM tracks v WHERE v.artist_id = artists.id)
+    OR EXISTS (SELECT 1 FROM albums a2 JOIN tracks v ON v.album_id = a2.id WHERE a2.artist_id = artists.id))`;
+
 const ARTIST_SELECT = `
   SELECT ar.*, ${ARTWORK("i", "i_")}, ${ARTWORK("b", "b_")},
-         (SELECT COUNT(*) FROM albums WHERE artist_id = ar.id) AS album_count,
+         (SELECT COUNT(*) FROM ${VISIBLE_ALBUMS} va WHERE va.artist_id = ar.id) AS album_count,
          (SELECT COUNT(*) FROM tracks WHERE artist_id = ar.id) AS track_count,
          -- No photo: use the newest cover of an album by, or featuring, the artist.
-         (SELECT al.cover_id FROM albums al
+         (SELECT al.cover_id FROM ${VISIBLE_ALBUMS} al
            WHERE al.cover_id IS NOT NULL
              AND (al.artist_id = ar.id OR al.id IN (SELECT album_id FROM tracks WHERE artist_id = ar.id))
            ORDER BY al.artist_id = ar.id DESC, al.year DESC LIMIT 1) AS fallback_image_id
-  FROM artists ar
+  FROM ${VISIBLE_ARTISTS} ar
   LEFT JOIN artwork i ON i.id = ar.image_id
   LEFT JOIN artwork b ON b.id = ar.banner_id`;
 
@@ -71,7 +80,7 @@ const ALBUM_SELECT = `
   SELECT al.*, ar.name AS artist_name, ${ARTWORK("c", "c_")},
          (SELECT COUNT(*) FROM tracks WHERE album_id = al.id) AS track_count,
          (SELECT COALESCE(SUM(duration_ms), 0) FROM tracks WHERE album_id = al.id) AS duration_ms
-  FROM albums al
+  FROM ${VISIBLE_ALBUMS} al
   JOIN artists ar ON ar.id = al.artist_id
   LEFT JOIN artwork c ON c.id = al.cover_id`;
 
@@ -241,7 +250,7 @@ export class Catalog {
     const rows = this.#db
       .prepare(`${ARTIST_SELECT} ORDER BY sort_key(ar.name), ar.name LIMIT ? OFFSET ?`)
       .all(limit, offset) as Row[];
-    return { items: rows.map(this.#artistSummary), total: this.#count("artists"), offset, limit };
+    return { items: rows.map(this.#artistSummary), total: this.#count(VISIBLE_ARTISTS), offset, limit };
   }
 
   getArtist(id: string): Artist | null {
@@ -263,7 +272,7 @@ export class Catalog {
     const rows = this.#db
       .prepare(`${ALBUM_SELECT} ORDER BY ${ALBUM_ORDER[sort]} LIMIT ? OFFSET ?`)
       .all(limit, offset) as Row[];
-    return { items: rows.map(this.#albumSummary), total: this.#count("albums"), offset, limit };
+    return { items: rows.map(this.#albumSummary), total: this.#count(VISIBLE_ALBUMS), offset, limit };
   }
 
   #albumSummaryById(id: string): AlbumSummary | null {

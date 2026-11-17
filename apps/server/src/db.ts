@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import { viewer } from "./viewer.ts";
 import { ensureSearchIndex } from "./catalog/searchIndex.ts";
 
 const SCHEMA = `
@@ -266,6 +267,8 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   // Silence at the ends of the audio, found with the waveform; null before it was looked for.
   ["waveforms", "leading_silence_ms", "INTEGER"],
   ["waveforms", "trailing_silence_ms", "INTEGER"],
+  // An upload (see `viewer`): only its owner sees it. Null for the shared library.
+  ["tracks", "owner_id", "TEXT REFERENCES users(id) ON DELETE CASCADE"],
 ];
 
 /** The table tracks are stored in: `all_tracks` once `separateCopies` has run. */
@@ -290,6 +293,7 @@ function migrate(db: DatabaseSync) {
   db.exec(`CREATE INDEX IF NOT EXISTS tracks_rev ON ${tracks}(rev, id)`);
   db.exec(`CREATE INDEX IF NOT EXISTS tracks_source ON ${tracks}(source_id, remote_id)`);
   db.exec(`CREATE INDEX IF NOT EXISTS tracks_duplicate ON ${tracks}(duplicate_of)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS tracks_owner ON ${tracks}(owner_id)`);
 }
 
 /** References to a track that follow it to the copy shown instead (`$from` → `$to`). */
@@ -299,9 +303,20 @@ const MOVE_REFERENCES = `
     UPDATE OR IGNORE listens SET track_id = $to WHERE track_id = $from;
     UPDATE OR IGNORE scrobbles SET track_id = $to WHERE track_id = $from;`;
 
-/** Which of a deleted track's hidden copies is shown in its place: as in `dedupe`, local first. */
+/**
+ * Which of a deleted track's hidden copies is shown in its place: as in `dedupe`, a shared
+ * copy before anyone's upload (others' references would lose the track), then local first.
+ */
 const SUCCESSOR = `(SELECT c.id FROM all_tracks c WHERE c.duplicate_of = OLD.id
-                    ORDER BY c.source_id IS NOT NULL, c.lossless DESC, c.bitrate DESC, c.id LIMIT 1)`;
+                    ORDER BY c.owner_id IS NOT NULL, c.source_id IS NOT NULL, c.lossless DESC, c.bitrate DESC, c.id
+                    LIMIT 1)`;
+
+/**
+ * The tracks every query reads: one copy of each, and of uploads only the requesting
+ * user's own (`viewer()`: "*" outside requests, where everything is seen).
+ */
+const TRACKS_VIEW = `CREATE VIEW tracks AS SELECT * FROM all_tracks
+  WHERE duplicate_of IS NULL AND (owner_id IS NULL OR owner_id = viewer() OR viewer() = '*')`;
 
 /**
  * The same track can be in the library more than once: on this computer and on a server
@@ -317,8 +332,12 @@ function separateCopies(db: DatabaseSync) {
   if (tracksTable(db) === "tracks") {
     // Other tables' foreign keys follow the rename.
     db.exec("ALTER TABLE tracks RENAME TO all_tracks");
-    db.exec("CREATE VIEW tracks AS SELECT * FROM all_tracks WHERE duplicate_of IS NULL");
   }
+  // Recreated every time, so a library made before uploads gets their filter.
+  db.exec("DROP VIEW IF EXISTS tracks");
+  db.exec(TRACKS_VIEW);
+  // The same for the trigger's choice of successor.
+  db.exec("DROP TRIGGER IF EXISTS all_tracks_succeeded");
   db.exec(`
     CREATE TRIGGER IF NOT EXISTS all_tracks_hidden AFTER UPDATE OF duplicate_of ON all_tracks
     WHEN NEW.duplicate_of IS NOT NULL BEGIN
@@ -353,6 +372,7 @@ export function sortKey(name: string): string {
 export function openDb(path: string): Db {
   const db = new DatabaseSync(path);
   db.function("sort_key", { deterministic: true }, (name) => sortKey(String(name ?? "")));
+  db.function("viewer", { deterministic: false }, () => viewer());
   db.exec(SCHEMA);
   migrate(db);
   separateCopies(db);

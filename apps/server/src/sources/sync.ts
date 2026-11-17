@@ -36,7 +36,8 @@ const SELECT = `
 /**
  * A page of the catalog for another library to copy (a standalone player's engine): every
  * track, or with `since` only those written by later scans, plus the ones removed since.
- * Only this library's own files are listed, never tracks it copied from elsewhere.
+ * Only this library's own files are listed, never tracks it copied from elsewhere, and
+ * of uploads only the caller's.
  */
 export function syncPage(db: Db, q: { since: number; after?: string; limit: number }): SyncPage {
   const rev = revision(db);
@@ -44,7 +45,9 @@ export function syncPage(db: Db, q: { since: number; after?: string; limit: numb
   const full = q.since === 0 || q.since > rev;
   const rows = db
     .prepare(
-      `${SELECT} WHERE t.source_id IS NULL AND t.id > ? ${full ? "" : "AND t.rev > ?"}
+      // Of uploads, only the caller's own (`viewer()`, as in the tracks view).
+      `${SELECT} WHERE t.source_id IS NULL AND (t.owner_id IS NULL OR t.owner_id = viewer() OR viewer() = '*')
+         AND t.id > ? ${full ? "" : "AND t.rev > ?"}
        ORDER BY t.id LIMIT ?`,
     )
     .all(...(full ? [q.after ?? "", q.limit] : [q.after ?? "", q.since, q.limit])) as Row[];
