@@ -132,6 +132,9 @@ pub fn stop() {
     with_app(|app| {
         cancel_preload(app);
         app.session = None;
+        if let Some(a) = &app.audio {
+            a.stop();
+        }
         app.generation += 1; // drop any stream still opening
         app.loading = false;
         if let Some(ui) = app.ui.upgrade() {
@@ -203,7 +206,9 @@ pub fn toggle_play() {
     }
     let what = with_app(|app| match &app.audio {
         Some(a) if app.session.is_some() => {
-            a.toggle();
+            if let Err(e) = a.toggle() {
+                set_status(app, &format!("{e:#}"));
+            }
             if a.is_paused() {
                 save_position(app);
             }
@@ -288,7 +293,10 @@ pub fn start_stream(track: types::Track, quality: Quality, start: Duration, foll
                 // The output's queued track was gated on the stream being replaced.
                 app.preload = None;
                 app.preload_tried = None;
-                audio.play(opened.source);
+                if let Err(e) = audio.play(opened.source) {
+                    app.session = None;
+                    return set_status(app, &format!("Cannot play {title}: {e:#}"));
+                }
                 app.monitor.reset();
                 app.session = Some(Session {
                     track,
@@ -432,8 +440,10 @@ fn maybe_preload(app: &mut App) {
 fn promote_preload() -> bool {
     let promoted = with_app(|app| {
         let p = app.preload.take()?;
-        if let Some(a) = &app.audio {
-            a.promote_next();
+        if let Some(a) = &app.audio
+            && let Err(e) = a.promote_next()
+        {
+            set_status(app, &format!("{e:#}"));
         }
         let id = p.session.track.id.to_string();
         super::history::begin(app, &p.session.track);
@@ -581,7 +591,13 @@ pub fn tick() {
     if let Some((track, quality, at)) = switch {
         start_stream(track, quality, at, true);
     } else if finished && !promote_preload() {
-        with_app(|app| app.session = None);
+        // Close the output until the next track (if any) starts.
+        with_app(|app| {
+            app.session = None;
+            if let Some(a) = &app.audio {
+                a.stop();
+            }
+        });
         next(true);
     }
 }
