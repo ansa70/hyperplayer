@@ -32,6 +32,7 @@ export const icons = {
   // Lucide "search", "list-music", "chevron-down", "chevron-left", for the mobile layout.
   search: "M21 21l-4.34-4.34 M3 11a8 8 0 1 0 16 0a8 8 0 1 0-16 0",
   playlists: "M21 15V6 M16 18a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0 M12 12H3 M16 6H3 M12 18H3",
+  upload: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12",
   chevronDown: "M6 9l6 6 6-6",
   back: "M15 18l-6-6 6-6",
   library: "M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0 M10 12a2 2 0 1 0 4 0a2 2 0 1 0-4 0",

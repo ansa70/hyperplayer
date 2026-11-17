@@ -13,6 +13,7 @@ import { Playlists } from "./pages/Playlists.tsx";
 import { Queue } from "./pages/Queue.tsx";
 import { Search } from "./pages/Search.tsx";
 import { Settings } from "./pages/Settings.tsx";
+import { Uploads } from "./pages/Uploads.tsx";
 import { useLibrary } from "./stores/library.ts";
 import { usePlayer } from "./stores/player.ts";
 import { useSession } from "./stores/session.ts";
@@ -30,6 +31,7 @@ export function App() {
     if (status === "signed-in") {
       void usePlayer.getState().loadQueue();
       void useLibrary.getState().loadPlaylists();
+      void useLibrary.getState().loadUploads();
     } else if (status === "signed-out") usePlayer.getState().stop();
   }, [status]);
 
@@ -54,6 +56,7 @@ export function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="lyrics" element={<Lyrics />} />
           <Route path="history" element={<History />} />
+          <Route path="uploads" element={<Uploads />} />
           <Route path="*" element={<Home />} />
         </Route>
       </Routes>

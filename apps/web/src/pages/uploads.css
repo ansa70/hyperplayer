@@ -1,0 +1,69 @@
+.uploads {
+  max-width: 900px;
+}
+.quota {
+  height: 4px;
+  margin: -10px 0 18px;
+  border-radius: 2px;
+  background: var(--surface-hi);
+  overflow: hidden;
+}
+.quota div {
+  height: 100%;
+  background: var(--accent);
+}
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 20px;
+  border: 2px dashed var(--faint);
+  border-radius: var(--radius);
+  text-align: center;
+  cursor: pointer;
+  color: var(--text);
+}
+.dropzone:hover,
+.dropzone.over {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.dropzone .muted {
+  font-size: 12px;
+  max-width: 420px;
+}
+.jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+.job {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  font-size: 13px;
+}
+.job-bar {
+  grid-column: 1 / span 2;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface-hi);
+  overflow: hidden;
+}
+.job-bar div {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s;
+}
+.job.failed .job-bar div {
+  background: #ff8a80;
+}
+.job-message {
+  grid-column: 1 / span 2;
+  font-size: 12px;
+}
+.job-state {
+  font-variant-numeric: tabular-nums;
+}

@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { ArtistRow, useArtists } from "../layout/Sidebar.tsx";
 import { usePhone } from "../layout/Shell.tsx";
+import { useLibrary } from "../stores/library.ts";
 import { useSession } from "../stores/session.ts";
 import { Icon } from "../components/Icon.tsx";
 import "./pages.css";
@@ -9,6 +10,7 @@ import "./pages.css";
 export function Home() {
   const phone = usePhone();
   const user = useSession((s) => s.user);
+  const uploadsOn = useLibrary((s) => s.uploads?.enabled ?? false);
   const artists = useArtists();
   if (!phone) {
     return (
@@ -32,6 +34,11 @@ export function Home() {
       <Link to="/history" className="nav-row">
         <Icon name="history" size={18} /> History
       </Link>
+      {uploadsOn && (
+        <Link to="/uploads" className="nav-row">
+          <Icon name="upload" size={18} /> Uploads
+        </Link>
+      )}
       <div className="caps section">Artists</div>
       {artists.map((a) => (
         <ArtistRow key={a.id} artist={a} />

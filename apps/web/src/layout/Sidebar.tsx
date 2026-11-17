@@ -14,6 +14,8 @@ import { useSession } from "../stores/session.ts";
 /** Loads every artist, a page at a time. */
 export function useArtists(): ArtistSummary[] {
   const [artists, setArtists] = useState<ArtistSummary[]>([]);
+  // Loaded again when uploads add or remove artists.
+  const version = useLibrary((s) => s.version);
   useEffect(() => {
     let stop = false;
     void (async () => {
@@ -28,7 +30,7 @@ export function useArtists(): ArtistSummary[] {
     return () => {
       stop = true;
     };
-  }, []);
+  }, [version]);
   return artists;
 }
 
@@ -105,6 +107,7 @@ export function NewPlaylistMenu() {
 export function Sidebar() {
   const artists = useArtists();
   const playlists = useLibrary((s) => s.playlists);
+  const uploadsOn = useLibrary((s) => s.uploads?.enabled ?? false);
   const { user, signOut } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
@@ -136,6 +139,11 @@ export function Sidebar() {
         <NavLink to="/history" className="nav-row">
           <Icon name="history" size={18} /> History
         </NavLink>
+        {uploadsOn && (
+          <NavLink to="/uploads" className="nav-row">
+            <Icon name="upload" size={18} /> Uploads
+          </NavLink>
+        )}
       </div>
       <div className="sidebar-artists">
         <div className="sidebar-heading-row">
