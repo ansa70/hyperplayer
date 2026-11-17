@@ -100,8 +100,8 @@ export function Sidebar() {
         <NavLink to="/albums" className="nav-row">
           <Icon name="albums" size={18} /> Albums
         </NavLink>
-        <NavLink to="/queue" className="nav-row">
-          <Icon name="queue" size={18} /> Queue
+        <NavLink to="/history" className="nav-row">
+          <Icon name="history" size={18} /> History
         </NavLink>
       </div>
       <div className="sidebar-artists">

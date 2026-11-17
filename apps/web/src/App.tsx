@@ -4,7 +4,9 @@ import { Shell } from "./layout/Shell.tsx";
 import { Album } from "./pages/Album.tsx";
 import { Albums } from "./pages/Albums.tsx";
 import { Artist } from "./pages/Artist.tsx";
+import { History } from "./pages/History.tsx";
 import { Home } from "./pages/Home.tsx";
+import { Lyrics } from "./pages/Lyrics.tsx";
 import { Login } from "./pages/Login.tsx";
 import { Playlist } from "./pages/Playlist.tsx";
 import { Playlists } from "./pages/Playlists.tsx";
@@ -50,6 +52,8 @@ export function App() {
           <Route path="playlists" element={<Playlists />} />
           <Route path="playlist/:id" element={<Playlist />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="lyrics" element={<Lyrics />} />
+          <Route path="history" element={<History />} />
           <Route path="*" element={<Home />} />
         </Route>
       </Routes>

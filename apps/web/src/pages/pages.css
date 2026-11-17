@@ -88,7 +88,7 @@
 }
 .queue-row {
   display: grid;
-  grid-template-columns: 40px 1fr auto 32px;
+  grid-template-columns: 40px 1fr auto auto;
   gap: 12px;
   align-items: center;
   padding: 6px 10px;
@@ -166,4 +166,60 @@
 }
 .search-more a {
   text-decoration: underline;
+}
+
+.lyrics {
+  max-width: 720px;
+}
+.lyrics-artist {
+  margin: 4px 0 24px;
+}
+.lyrics-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.lyrics-line {
+  text-align: left;
+  color: var(--text);
+}
+.lyrics-lines.synced .lyrics-line {
+  color: var(--faint);
+  transition: color 0.2s;
+}
+.lyrics-lines.synced .lyrics-line.past {
+  color: var(--muted);
+}
+.lyrics-lines.synced .lyrics-line.now {
+  color: var(--text);
+}
+.lyrics-lines.synced .lyrics-line:hover {
+  color: var(--accent);
+}
+.lyrics-break {
+  height: 14px;
+}
+.lyrics-source {
+  margin-top: 32px;
+  font-size: 11px;
+}
+.top-artists {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 16px;
+}
+.top-artist {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  text-align: center;
+  font-size: 12px;
+}
+.load-more {
+  margin-top: 16px;
 }

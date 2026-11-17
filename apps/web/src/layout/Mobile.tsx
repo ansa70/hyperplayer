@@ -76,9 +76,14 @@ export function NowPlayingSheet({ onClose }: { onClose: () => void }) {
           <Icon name="chevronDown" size={26} />
         </button>
         <span className="caps">Now playing</span>
-        <Link to="/queue" className="icon-button" onClick={close} title="Queue">
-          <Icon name="queue" size={22} />
-        </Link>
+        <span>
+          <Link to="/lyrics" className="icon-button" onClick={close} title="Lyrics">
+            <Icon name="lyrics" size={22} />
+          </Link>
+          <Link to="/queue" className="icon-button" onClick={close} title="Queue">
+            <Icon name="queue" size={22} />
+          </Link>
+        </span>
       </div>
       <Cover art={track.cover} size={600} className="sheet-cover" />
       <div className="sheet-text">

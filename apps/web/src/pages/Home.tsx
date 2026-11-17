@@ -29,6 +29,9 @@ export function Home() {
       <Link to="/albums" className="nav-row">
         <Icon name="albums" size={18} /> All albums
       </Link>
+      <Link to="/history" className="nav-row">
+        <Icon name="history" size={18} /> History
+      </Link>
       <div className="caps section">Artists</div>
       {artists.map((a) => (
         <ArtistRow key={a.id} artist={a} />

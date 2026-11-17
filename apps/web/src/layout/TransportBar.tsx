@@ -41,9 +41,14 @@ export function TransportBar() {
         </div>
         <Chips />
         <div className={`ellipsis transport-info ${error ? "error" : "faint"}`}>{error || info}</div>
-        <Link to="/queue" className="icon-button" title="Queue">
-          <Icon name="queue" size={18} />
-        </Link>
+        <div className="transport-pages">
+          <Link to="/lyrics" className="icon-button" title="Lyrics">
+            <Icon name="lyrics" size={18} />
+          </Link>
+          <Link to="/queue" className="icon-button" title="Queue">
+            <Icon name="queue" size={18} />
+          </Link>
+        </div>
       </div>
     </footer>
   );
