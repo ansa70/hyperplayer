@@ -1,19 +1,22 @@
 import type { Device } from "@hyperplayer/schemas";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api, call, errorMessage } from "../api.ts";
 import { Segmented } from "../components/Segmented.tsx";
+import { Library, Users } from "./settings/Admin.tsx";
+import { Card } from "./settings/Card.tsx";
+import { Scrobbling } from "./settings/Scrobbling.tsx";
 import { canBoost } from "../player/output.ts";
 import { useLibrary } from "../stores/library.ts";
 import { useSession } from "../stores/session.ts";
 import "./pages.css";
 import "./settings.css";
 
-type Tab = "playback" | "account";
+type Tab = "playback" | "account" | "scrobbling" | "library" | "users";
 
 /** Settings, like the Rust player's: playback (the account's preferences) and the account. */
 export function Settings() {
   const [tab, setTab] = useState<Tab>("playback");
-  const { serverVersion } = useSession();
+  const { serverVersion, user } = useSession();
   return (
     <div className="page settings">
       <div className="page-head">
@@ -24,21 +27,23 @@ export function Settings() {
         options={[
           { key: "playback", label: "Playback" },
           { key: "account", label: "Account" },
+          { key: "scrobbling", label: "Scrobbling" },
+          ...(user?.admin
+            ? [
+                { key: "library", label: "Library" },
+                { key: "users", label: "Users" },
+              ]
+            : []),
         ]}
         onPick={(k) => setTab(k as Tab)}
       />
-      {tab === "playback" ? <Playback /> : <Account />}
+      {tab === "playback" && <Playback />}
+      {tab === "account" && <Account />}
+      {tab === "scrobbling" && <Scrobbling />}
+      {tab === "library" && <Library />}
+      {tab === "users" && <Users />}
       <p className="faint versions">HyperPlayer web · server {serverVersion}</p>
     </div>
-  );
-}
-
-function Card({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="card">
-      <h2>{title}</h2>
-      {children}
-    </section>
   );
 }
 

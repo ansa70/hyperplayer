@@ -76,3 +76,32 @@
   margin-top: 24px;
   font-size: 11px;
 }
+
+.card textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-hi);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 9px 12px;
+  resize: vertical;
+}
+.card a {
+  text-decoration: underline;
+}
+.note.error {
+  color: #ff8a80;
+}
+.device .row {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+@media (max-width: 760px) {
+  .device {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .device .row {
+    flex-wrap: wrap;
+  }
+}
