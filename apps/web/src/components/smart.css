@@ -1,0 +1,44 @@
+.smart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.smart-line,
+.smart-rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.smart select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-hi);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 8px;
+}
+.smart-rule input {
+  flex: 1;
+  min-width: 120px;
+}
+.smart-limit {
+  width: 80px;
+}
+.smart .primary-button {
+  height: 32px;
+  font-size: 13px;
+  padding: 0 18px;
+}
+.smart .check {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.smart .check input {
+  accent-color: var(--accent);
+}

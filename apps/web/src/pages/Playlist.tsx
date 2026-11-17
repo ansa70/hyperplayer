@@ -5,6 +5,8 @@ import { api, call, errorMessage } from "../api.ts";
 import { Icon } from "../components/Icon.tsx";
 import { MenuButton } from "../components/Menu.tsx";
 import { Mosaic } from "../components/Mosaic.tsx";
+import { SmartEditor } from "../components/SmartEditor.tsx";
+import { freshName } from "../player/smart.ts";
 import { TrackList, type Row } from "../components/TrackList.tsx";
 import { queueAndPlaylistItems } from "../components/trackActions.ts";
 import { duration, plural } from "../format.ts";
@@ -132,7 +134,22 @@ export function Playlist() {
         </div>
       </header>
       {p.rules && (
-        <p className="faint">Its tracks follow its rules; edit them in the desktop player for now.</p>
+        <SmartEditor
+          key={p.id}
+          playlist={p}
+          onChanged={changed}
+          onSaveCopy={() => {
+            const name = freshName(
+              `${p.name} (saved)`,
+              useLibrary.getState().playlists.map((x) => x.name),
+            );
+            const trackIds = p.entries.flatMap((e) => (e.track ? [e.track.id] : []));
+            void useLibrary
+              .getState()
+              .createPlaylist(name, trackIds)
+              .then((newId) => newId && navigate(`/playlist/${newId}`));
+          }}
+        />
       )}
       {p.entries.length === 0 && !p.rules && (
         <p className="muted">Empty. Add tracks with the ⋯ menu next to any track or album.</p>

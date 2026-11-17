@@ -1,11 +1,13 @@
 import type { ArtistSummary, PlaylistSummary } from "@hyperplayer/schemas";
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { api, call } from "../api.ts";
+import { api, call, errorMessage } from "../api.ts";
 import { Cover } from "../components/Cover.tsx";
 import { Icon } from "../components/Icon.tsx";
 import { plural } from "../format.ts";
+import { MenuButton } from "../components/Menu.tsx";
 import { Mosaic } from "../components/Mosaic.tsx";
+import { freshName, TEMPLATES } from "../player/smart.ts";
 import { useLibrary } from "../stores/library.ts";
 import { useSession } from "../stores/session.ts";
 
@@ -57,21 +59,52 @@ export function PlaylistRow({ playlist }: { playlist: PlaylistSummary }) {
   );
 }
 
-/** Asks for a name and makes an empty playlist, then opens it. */
-export function useNewPlaylist() {
-  const create = useLibrary((s) => s.createPlaylist);
+/** The "+" menu: an empty playlist (asking its name), or a smart one from a template. */
+export function NewPlaylistMenu() {
+  const { createPlaylist, playlists, notify } = useLibrary();
   const navigate = useNavigate();
-  return () => {
-    const name = window.prompt("Name of the new playlist");
-    if (name?.trim()) void create(name.trim()).then((id) => id && navigate(`/playlist/${id}`));
+  const open = (id: string | null) => {
+    if (id) void navigate(`/playlist/${id}`);
   };
+  return (
+    <MenuButton
+      title="New playlist"
+      items={() => [
+        {
+          label: "Empty playlist",
+          onSelect: () => {
+            const name = window.prompt("Name of the new playlist");
+            if (name?.trim()) void createPlaylist(name.trim()).then(open);
+          },
+        },
+        ...TEMPLATES.map((t) => ({
+          label: `Smart: ${t.label.toLowerCase()}`,
+          onSelect: () => {
+            const name = freshName(
+              t.name,
+              playlists.map((p) => p.name),
+            );
+            call(api.createPlaylist, { body: { name, rules: t.rules } })
+              .then((p) => {
+                void useLibrary.getState().loadPlaylists();
+                open(p.id);
+              })
+              .catch((e: unknown) => notify(errorMessage(e)));
+          },
+        })),
+      ]}
+    >
+      <span className="plus-button">
+        <Icon name="plus" size={16} />
+      </span>
+    </MenuButton>
+  );
 }
 
 /** The desktop sidebar: search, navigation, playlists, the artists, and the account. */
 export function Sidebar() {
   const artists = useArtists();
   const playlists = useLibrary((s) => s.playlists);
-  const newPlaylist = useNewPlaylist();
   const { user, signOut } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
@@ -107,9 +140,7 @@ export function Sidebar() {
       <div className="sidebar-artists">
         <div className="sidebar-heading-row">
           <span className="caps">Playlists</span>
-          <button className="plus-button" title="New playlist" onClick={newPlaylist}>
-            <Icon name="plus" size={16} />
-          </button>
+          <NewPlaylistMenu />
         </div>
         {playlists.map((p) => (
           <PlaylistRow key={p.id} playlist={p} />
