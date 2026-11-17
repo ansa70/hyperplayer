@@ -4,7 +4,8 @@ import { defineConfig, lazyPlugins } from "vite-plus";
 // In development the API is a local HyperPlayer server (`vp run server`), reached through
 // this dev server so the page and the API share one origin, as when the server serves
 // the built app. Its Host header is kept, so the server's same-origin check passes.
-const server = process.env.HP_DEV_SERVER ?? "https://127.0.0.1:4533";
+// It serves plain HTTP when it only listens on this machine (HP_TLS=auto).
+const server = process.env.HP_DEV_SERVER ?? "http://127.0.0.1:4533";
 
 export default defineConfig({
   plugins: lazyPlugins(() => [react()]),
