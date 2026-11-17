@@ -10,6 +10,7 @@
 }
 .page-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -26,14 +27,6 @@
   align-items: center;
   text-align: center;
   max-width: none;
-}
-.select {
-  font: inherit;
-  color: var(--text);
-  background: var(--surface-hi);
-  border: none;
-  border-radius: 8px;
-  padding: 7px 10px;
 }
 .sentinel {
   height: 1px;

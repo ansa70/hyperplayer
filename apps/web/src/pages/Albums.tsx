@@ -2,6 +2,7 @@ import type { AlbumSummary } from "@hyperplayer/schemas";
 import { useEffect, useRef, useState } from "react";
 import { api, call } from "../api.ts";
 import { AlbumGrid } from "../components/AlbumGrid.tsx";
+import { Segmented } from "../components/Segmented.tsx";
 import "./pages.css";
 
 type Sort = "artist" | "title" | "year" | "added";
@@ -49,13 +50,7 @@ export function Albums() {
     <div className="page">
       <div className="page-head">
         <h1>Albums</h1>
-        <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="select">
-          {SORTS.map((s) => (
-            <option key={s.key} value={s.key}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+        <Segmented value={sort} options={SORTS} onPick={(k) => setSort(k as Sort)} />
       </div>
       <AlbumGrid albums={albums} />
       <div ref={end} className="sentinel" />

@@ -89,8 +89,9 @@ export function NowPlayingPanel() {
         </div>
       ) : (
         <div className="credits">
-          {details.credits.map((c) => (
-            <div key={`${c.name}-${c.scope}`} className="credit">
+          {details.credits.map((c, i) => (
+            // The same person can be credited more than once (track and album, or in two categories).
+            <div key={`${i}-${c.name}`} className="credit">
               {c.artistId ? <Link to={`/artist/${c.artistId}`}>{c.name}</Link> : <span>{c.name}</span>}
               <span className="faint">{c.roles.join(", ")}</span>
             </div>
@@ -107,8 +108,8 @@ export function NowPlayingPanel() {
           </p>
           {details.artist.members.length > 0 && (
             <div className="credits">
-              {details.artist.members.map((m) => (
-                <div key={m.name} className="credit">
+              {details.artist.members.map((m, i) => (
+                <div key={`${i}-${m.name}`} className="credit">
                   {m.artistId ? <Link to={`/artist/${m.artistId}`}>{m.name}</Link> : <span>{m.name}</span>}
                   <span className="faint">{[m.roles.join(", "), m.years].filter(Boolean).join(" · ")}</span>
                 </div>

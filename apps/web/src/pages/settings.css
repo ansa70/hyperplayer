@@ -21,26 +21,6 @@
   font-size: 12px;
   line-height: 1.5;
 }
-.segmented {
-  display: inline-flex;
-  align-self: flex-start;
-  flex-wrap: wrap;
-  padding: 3px;
-  gap: 2px;
-  border-radius: 8px;
-  background: var(--surface-hi);
-}
-.segmented button {
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 6px;
-  color: var(--muted);
-  font-weight: 600;
-}
-.segmented button.on {
-  background: var(--bg);
-  color: var(--text);
-}
 .slider-row {
   display: grid;
   grid-template-columns: auto 1fr 60px;

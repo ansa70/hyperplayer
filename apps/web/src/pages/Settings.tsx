@@ -1,6 +1,7 @@
 import type { Device } from "@hyperplayer/schemas";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, call, errorMessage } from "../api.ts";
+import { Segmented } from "../components/Segmented.tsx";
 import { canBoost } from "../player/output.ts";
 import { useLibrary } from "../stores/library.ts";
 import { useSession } from "../stores/session.ts";
@@ -38,32 +39,6 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
       <h2>{title}</h2>
       {children}
     </section>
-  );
-}
-
-function Segmented({
-  value,
-  options,
-  onPick,
-}: {
-  value: string;
-  options: { key: string; label: string }[];
-  onPick: (key: string) => void;
-}) {
-  return (
-    <div className="segmented" role="radiogroup">
-      {options.map((o) => (
-        <button
-          key={o.key}
-          role="radio"
-          aria-checked={o.key === value}
-          className={o.key === value ? "on" : ""}
-          onClick={() => onPick(o.key)}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
   );
 }
 
