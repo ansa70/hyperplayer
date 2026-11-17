@@ -15,6 +15,8 @@ import {
   TrackCredits,
   StreamFormat,
   TrackPage,
+  Track,
+  TrackTrim,
 } from "./models.ts";
 import {
   AddToPlaylist,
@@ -385,6 +387,17 @@ export const api = {
     params: IdParams,
     query: NoQuery,
     response: Waveform,
+  }),
+  setTrackTrim: json({
+    method: "PUT",
+    path: "/api/tracks/{id}/trim",
+    summary:
+      "Set the part of a track to play (both null: all of it, and don't offer to trim it again); for every user",
+    access: "admin",
+    params: IdParams,
+    query: NoQuery,
+    body: TrackTrim,
+    response: Track,
   }),
   lyrics: json({
     method: "GET",

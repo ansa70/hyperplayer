@@ -150,6 +150,28 @@ export const ReplayGain = named(
   "Loudness normalisation data from the file's tags; all null when untagged.",
 );
 
+export const TrackTrim = named(
+  "TrackTrim",
+  z.object({
+    /** Where playback starts (skipping silence before it); null for the file's start. */
+    startMs: z.int().nonnegative().nullable(),
+    /** Where playback ends (skipping silence after it); null for the file's end. */
+    endMs: z.int().positive().nullable(),
+  }),
+  "The part of a track to play, e.g. without minutes of silence before a hidden track.",
+);
+
+export const Silence = named(
+  "Silence",
+  z.object({
+    /** Silence at the start of the file. */
+    leadingMs: z.int().nonnegative(),
+    /** Silence at the end of the file. */
+    trailingMs: z.int().nonnegative(),
+  }),
+  "Silence found at the ends of a track's audio.",
+);
+
 export const Track = named(
   "Track",
   z.object({
@@ -168,6 +190,11 @@ export const Track = named(
     replayGain: ReplayGain,
     fileSize: z.int().nonnegative(),
     cover: Artwork.nullable(),
+    /**
+     * The part to play. Null until someone decides: then the player may offer to trim
+     * silence it finds; `{ startMs: null, endMs: null }` means play it all, don't ask.
+     */
+    trim: TrackTrim.nullable().default(null),
   }),
 );
 
@@ -216,6 +243,8 @@ export const Waveform = named(
     trackId: Id,
     /** The track's loudness envelope from start to end, as heights from 0 to 100. */
     points: z.array(z.int().min(0).max(100)),
+    /** Silence at either end; null when unknown (a server too old to say). */
+    silence: Silence.nullable().default(null),
   }),
 );
 
@@ -391,6 +420,8 @@ export type Artist = z.infer<typeof Artist>;
 export type AlbumSummary = z.infer<typeof AlbumSummary>;
 export type AudioFormat = z.infer<typeof AudioFormat>;
 export type Track = z.infer<typeof Track>;
+export type TrackTrim = z.infer<typeof TrackTrim>;
+export type Silence = z.infer<typeof Silence>;
 export type ReplayGain = z.infer<typeof ReplayGain>;
 export type Album = z.infer<typeof Album>;
 export type NowPlaying = z.infer<typeof NowPlaying>;

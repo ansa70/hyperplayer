@@ -509,6 +509,60 @@
       ],
       "additionalProperties": false
     },
+    "TrackTrim": {
+      "type": "object",
+      "properties": {
+        "startMs": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "endMs": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "startMs",
+        "endMs"
+      ],
+      "additionalProperties": false
+    },
+    "Silence": {
+      "type": "object",
+      "properties": {
+        "leadingMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "trailingMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "leadingMs",
+        "trailingMs"
+      ],
+      "additionalProperties": false
+    },
     "Track": {
       "type": "object",
       "properties": {
@@ -597,6 +651,17 @@
               "type": "null"
             }
           ]
+        },
+        "trim": {
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TrackTrim"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -614,7 +679,8 @@
         "format",
         "replayGain",
         "fileSize",
-        "cover"
+        "cover",
+        "trim"
       ],
       "additionalProperties": false
     },
@@ -795,11 +861,23 @@
             "minimum": 0,
             "maximum": 100
           }
+        },
+        "silence": {
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Silence"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
         "trackId",
-        "points"
+        "points",
+        "silence"
       ],
       "additionalProperties": false
     },
@@ -1647,6 +1725,20 @@
               "$ref": "#/definitions/ShuffleScope"
             }
           ]
+        },
+        "crossfade": {
+          "default": 0,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 12
+        },
+        "crossfadeOnSkip": {
+          "default": false,
+          "type": "boolean"
+        },
+        "crossfadeAlbums": {
+          "default": false,
+          "type": "boolean"
         }
       },
       "required": [
@@ -1656,7 +1748,10 @@
         "accent",
         "coverBackground",
         "visualizer",
-        "shuffleScope"
+        "shuffleScope",
+        "crossfade",
+        "crossfadeOnSkip",
+        "crossfadeAlbums"
       ],
       "additionalProperties": false
     },
@@ -1701,6 +1796,17 @@
               "$ref": "#/definitions/ShuffleScope"
             }
           ]
+        },
+        "crossfade": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 12
+        },
+        "crossfadeOnSkip": {
+          "type": "boolean"
+        },
+        "crossfadeAlbums": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

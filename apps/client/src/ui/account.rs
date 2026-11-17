@@ -767,9 +767,15 @@ pub fn handle_error(err: &anyhow::Error) -> bool {
 fn load_preferences() {
     let api = with_app(|app| app.api.clone());
     super::background(
-        move || api.preferences(),
-        |prefs| {
+        move || Ok((api.preferences()?, api.me()?.user.admin)),
+        |(prefs, admin)| {
             with_app(|app| {
+                app.admin = admin;
+                app.crossfade = playback::Crossfade {
+                    seconds: prefs.crossfade.max(0) as u32,
+                    on_skip: prefs.crossfade_on_skip,
+                    albums: prefs.crossfade_albums,
+                };
                 // HP_QUALITY overrides the stored quality mode for this run.
                 if std::env::var_os("HP_QUALITY").is_none() {
                     app.mode = super::mode_from(&prefs.quality.to_string());

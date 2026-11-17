@@ -33,6 +33,26 @@ pub fn init(ui: &AppWindow) {
         super::set_replaygain_preamp(db);
         super::save_replaygain_preamp();
     });
+    s.on_crossfade_changed(|secs| set_crossfade(|c| c.seconds = secs.max(0) as u32, None));
+    s.on_crossfade_released(|secs| {
+        let secs = secs.clamp(0, 12);
+        set_crossfade(
+            |c| c.seconds = secs as u32,
+            Some(serde_json::json!({ "crossfade": secs })),
+        )
+    });
+    s.on_set_crossfade_on_skip(|on| {
+        set_crossfade(
+            |c| c.on_skip = on,
+            Some(serde_json::json!({ "crossfadeOnSkip": on })),
+        )
+    });
+    s.on_set_crossfade_albums(|on| {
+        set_crossfade(
+            |c| c.albums = on,
+            Some(serde_json::json!({ "crossfadeAlbums": on })),
+        )
+    });
     s.on_set_accent(|key| super::appearance::update(serde_json::json!({ "accent": key.as_str() })));
     s.on_set_cover_background(|on| {
         super::appearance::update(serde_json::json!({ "coverBackground": on }))
@@ -134,6 +154,30 @@ pub fn show_preferences(app: &App, ui: &AppWindow) {
     s.set_quality(super::mode_name(app.mode).into());
     s.set_replaygain(app.rg_mode.name().into());
     s.set_preamp(app.rg_preamp);
+    s.set_crossfade(app.crossfade.seconds as i32);
+    s.set_crossfade_on_skip(app.crossfade.on_skip);
+    s.set_crossfade_albums(app.crossfade.albums);
+}
+
+/// Changes the crossfade settings, and saves `change` to the account's preferences.
+fn set_crossfade(
+    f: impl FnOnce(&mut super::playback::Crossfade),
+    change: Option<serde_json::Value>,
+) {
+    let api = with_app(|app| {
+        f(&mut app.crossfade);
+        if let Some(ui) = app.ui.upgrade() {
+            show_preferences(app, &ui);
+        }
+        app.api.clone()
+    });
+    if let Some(change) = change {
+        std::thread::spawn(move || {
+            if let Err(e) = api.update_preferences(change) {
+                eprintln!("saving preference: {e:#}");
+            }
+        });
+    }
 }
 
 fn state(f: impl FnOnce(SettingsState)) {

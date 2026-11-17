@@ -82,8 +82,11 @@ struct State {
     /// The open device, while playing.
     device: Option<MixerDeviceSink>,
     current: Option<Player>,
-    /// The following track, already in the mixer but held back until `current` ends.
+    /// The following track, already in the mixer but held back until `current` ends
+    /// (or until the crossfade into it starts).
     next: Option<Player>,
+    /// The track before `current`, still fading out (a crossfade).
+    fading: Option<Player>,
     /// A following track at another rate: it can't share the mixer, so it starts on
     /// a reopened device once `current` ends.
     pending: Option<BufferedSource>,
@@ -145,7 +148,10 @@ impl Audio {
 
     /// Stops all players, keeping the mixer.
     fn clear(s: &mut State) {
-        for old in [s.current.take(), s.next.take()].into_iter().flatten() {
+        for old in [s.current.take(), s.next.take(), s.fading.take()]
+            .into_iter()
+            .flatten()
+        {
             old.stop();
         }
         s.pending = None;
@@ -197,13 +203,15 @@ impl Audio {
         s.pending = None;
     }
 
-    /// The current source has ended and the queued one takes over: at the same rate
-    /// it already has, otherwise it starts now on the device reopened at its rate.
+    /// The queued source takes over: at the same rate it already has (and the one it
+    /// replaces plays on until it ends, for a crossfade); otherwise it starts now, on the
+    /// device reopened at its rate.
     pub fn promote_next(&self) -> Result<()> {
         let mut s = self.state();
         if let Some(next) = s.next.take() {
-            if let Some(old) = s.current.replace(next) {
-                old.stop();
+            let old = s.current.replace(next);
+            if let Some(gone) = std::mem::replace(&mut s.fading, old) {
+                gone.stop();
             }
             return Ok(());
         }
@@ -212,6 +220,32 @@ impl Audio {
         };
         drop(s);
         self.play(pending)
+    }
+
+    /// Replaces the current source with `source`, the current one fading out (its
+    /// pipeline set to) while `source` fades in. Only at the same rate; otherwise it's `play`.
+    pub fn crossfade_to(&self, source: BufferedSource) -> Result<()> {
+        let mut s = self.state();
+        let same_rate = s.mixing.as_ref().map(|m| m.rate) == Some(source.sample_rate());
+        if !same_rate || s.device.is_none() || s.current.is_none() {
+            drop(s);
+            return self.play(source);
+        }
+        for old in [s.next.take(), s.fading.take()].into_iter().flatten() {
+            old.stop();
+        }
+        s.pending = None;
+        let mixing = s.mixing.as_ref().expect("checked above");
+        let player = self.player_for(&mixing.mixer, source, false);
+        s.fading = s.current.replace(player);
+        Ok(())
+    }
+
+    /// The sample rate the current source plays at.
+    pub fn rate(&self) -> Option<u32> {
+        let s = self.state();
+        s.current.as_ref()?;
+        s.mixing.as_ref().map(|m| m.rate.get())
     }
 
     /// Stops playback and closes the device.
@@ -230,11 +264,11 @@ impl Audio {
         if current.is_paused() {
             let rate = s.mixing.as_ref().expect("a player has a mixer").rate;
             Self::ensure_device(&mut s, rate)?;
-            for player in [&s.current, &s.next].into_iter().flatten() {
+            for player in [&s.current, &s.next, &s.fading].into_iter().flatten() {
                 player.play();
             }
         } else {
-            for player in [&s.current, &s.next].into_iter().flatten() {
+            for player in [&s.current, &s.next, &s.fading].into_iter().flatten() {
                 player.pause();
             }
             s.device = None;
@@ -249,7 +283,7 @@ impl Audio {
     pub fn set_volume(&self, v: f32) {
         *self.volume.lock().unwrap_or_else(|e| e.into_inner()) = v;
         let s = self.state();
-        for player in [&s.current, &s.next].into_iter().flatten() {
+        for player in [&s.current, &s.next, &s.fading].into_iter().flatten() {
             player.set_volume(v);
         }
     }

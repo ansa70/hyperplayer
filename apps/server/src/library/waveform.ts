@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import type { Waveform } from "@hyperplayer/schemas";
+import type { Silence, Waveform } from "@hyperplayer/schemas";
 import type { Db } from "../db.ts";
 
 type Row = Record<string, unknown>;
@@ -24,6 +24,20 @@ export function envelope(pcm: Int16Array, points = POINTS): number[] {
   }
   const max = Math.max(...peaks, 1);
   return Array.from(peaks, (p) => Math.round(Math.pow(p / max, 0.7) * 100));
+}
+
+/** Quieter than this (-60 dBFS) counts as silence: digital silence, or close to it. */
+const SILENT = Math.round(32768 * Math.pow(10, -60 / 20));
+
+/** How long the audio is silent at its start and at its end (all of it when it's all silent). */
+export function silence(pcm: Int16Array, rate = RATE): Silence {
+  const ms = (samples: number) => Math.round((samples * 1000) / rate);
+  let first = 0;
+  while (first < pcm.length && Math.abs(pcm[first]!) <= SILENT) first++;
+  if (first === pcm.length) return { leadingMs: ms(pcm.length), trailingMs: ms(pcm.length) };
+  let last = pcm.length - 1;
+  while (Math.abs(pcm[last]!) <= SILENT) last--;
+  return { leadingMs: ms(first), trailingMs: ms(pcm.length - 1 - last) };
 }
 
 /** Decodes a file to mono 8 kHz PCM with ffmpeg. */
@@ -71,11 +85,15 @@ export class Waveforms {
   readonly #db: Db;
   readonly #ffmpeg: string;
   /** Waveforms of tracks on a server (a standalone player's sources) come from the server. */
-  readonly #remote: (trackId: string) => Promise<number[]> | null;
+  readonly #remote: (trackId: string) => Promise<Omit<Waveform, "trackId">> | null;
   readonly #inFlight = new Map<string, Promise<Waveform>>();
   #queue: Promise<unknown> = Promise.resolve();
 
-  constructor(db: Db, ffmpeg: string, remote: (trackId: string) => Promise<number[]> | null = () => null) {
+  constructor(
+    db: Db,
+    ffmpeg: string,
+    remote: (trackId: string) => Promise<Omit<Waveform, "trackId">> | null = () => null,
+  ) {
     this.#db = db;
     this.#ffmpeg = ffmpeg;
     this.#remote = remote;
@@ -83,26 +101,49 @@ export class Waveforms {
 
   /** Null when the track doesn't exist. */
   get(trackId: string): Promise<Waveform> | null {
-    const track = this.#db.prepare("SELECT path, mtime_ms FROM tracks WHERE id = ?").get(trackId) as
-      | Row
-      | undefined;
+    const track = this.#db
+      .prepare("SELECT path, mtime_ms, source_id FROM tracks WHERE id = ?")
+      .get(trackId) as Row | undefined;
     if (!track) return null;
     const mtime = Number(track.mtime_ms);
     const cached = this.#db
-      .prepare("SELECT track_mtime, points FROM waveforms WHERE track_id = ?")
+      .prepare(
+        "SELECT track_mtime, points, leading_silence_ms, trailing_silence_ms FROM waveforms WHERE track_id = ?",
+      )
       .get(trackId) as Row | undefined;
-    if (cached && Number(cached.track_mtime) === mtime) {
-      return Promise.resolve({ trackId, points: JSON.parse(String(cached.points)) as number[] });
+    const known = cached?.leading_silence_ms != null;
+    // Waveforms cached before silence was looked for are worked out again; a server's
+    // track keeps what its server said (it may be too old to say).
+    if (cached && Number(cached.track_mtime) === mtime && (known || track.source_id != null)) {
+      return Promise.resolve({
+        trackId,
+        points: JSON.parse(String(cached.points)) as number[],
+        silence: known
+          ? { leadingMs: Number(cached.leading_silence_ms), trailingMs: Number(cached.trailing_silence_ms) }
+          : null,
+      });
     }
     let pending = this.#inFlight.get(trackId);
     if (!pending) {
-      const run = async () => {
-        const points =
-          (await this.#remote(trackId)) ?? envelope(await decode(this.#ffmpeg, String(track.path)));
+      const run = async (): Promise<Waveform> => {
+        let found = await this.#remote(trackId);
+        if (!found) {
+          const pcm = await decode(this.#ffmpeg, String(track.path));
+          found = { points: envelope(pcm), silence: silence(pcm) };
+        }
         this.#db
-          .prepare("INSERT OR REPLACE INTO waveforms (track_id, track_mtime, points) VALUES (?, ?, ?)")
-          .run(trackId, mtime, JSON.stringify(points));
-        return { trackId, points };
+          .prepare(
+            `INSERT OR REPLACE INTO waveforms (track_id, track_mtime, points, leading_silence_ms, trailing_silence_ms)
+             VALUES (?, ?, ?, ?, ?)`,
+          )
+          .run(
+            trackId,
+            mtime,
+            JSON.stringify(found.points),
+            found.silence?.leadingMs ?? null,
+            found.silence?.trailingMs ?? null,
+          );
+        return { trackId, ...found };
       };
       pending = this.#queue.then(run, run).finally(() => this.#inFlight.delete(trackId));
       this.#queue = pending.catch(() => undefined);

@@ -8,7 +8,7 @@ use std::{
 use hyperplayer::{
     adaptive::{self, Mode, Quality},
     api::{Api, types},
-    pipeline::PipelineHandle,
+    pipeline::{BufferedSource, PipelineHandle},
     playback, replaygain,
     stream::StreamHandle,
 };
@@ -33,11 +33,75 @@ pub struct Session {
     pub offset: Duration,
     /// The ReplayGain currently applied.
     pub gain: replaygain::Applied,
+    /// Where playback stops: the trimmed end, or the track's length.
+    pub end: Duration,
 }
 
 impl Session {
+    fn new(
+        track: types::Track,
+        opened: playback::Opened,
+        from: Duration,
+    ) -> (Self, BufferedSource) {
+        let mut s = Session {
+            end: Duration::ZERO,
+            track,
+            quality: opened.quality,
+            pipeline: opened.pipeline,
+            stream: opened.stream,
+            offset: opened.offset,
+            gain: replaygain::Applied::UNITY,
+        };
+        s.bound(from);
+        (s, opened.source)
+    }
+
     pub fn position(&self) -> Duration {
         self.offset + self.pipeline.position()
+    }
+
+    fn length(&self) -> Duration {
+        Duration::from_millis(self.track.duration_ms.max(0) as u64)
+    }
+
+    /// Ends playback at the track's trimmed end, unless playing from beyond it (`from`:
+    /// someone sought there, so they want to hear it).
+    pub fn bound(&mut self, from: Duration) {
+        let length = self.length();
+        self.pipeline
+            .set_expected_end(length.saturating_sub(self.offset));
+        let end = trim_end(&self.track).filter(|&e| e > from);
+        self.pipeline
+            .set_end(end.map(|e| e.saturating_sub(self.offset)));
+        self.end = end.unwrap_or(length);
+    }
+}
+
+/// Where `track` starts playing: after any silence trimmed off its start.
+pub fn trim_start(track: &types::Track) -> Duration {
+    let ms = track.trim.as_ref().and_then(|t| t.start_ms).unwrap_or(0);
+    Duration::from_millis(ms.max(0) as u64)
+}
+
+/// Where `track` stops playing, if its end is trimmed.
+pub fn trim_end(track: &types::Track) -> Option<Duration> {
+    let ms = track.trim.as_ref()?.end_ms?;
+    Some(Duration::from_millis(ms.get()))
+}
+
+/// Crossfade settings, from the user's preferences.
+#[derive(Clone, Copy, Default)]
+pub struct Crossfade {
+    pub seconds: u32,
+    /// Also when skipping, not only when a track ends.
+    pub on_skip: bool,
+    /// Also between tracks of an album playing in order.
+    pub albums: bool,
+}
+
+impl Crossfade {
+    fn length(&self) -> Duration {
+        Duration::from_secs(self.seconds.into())
     }
 }
 
@@ -117,6 +181,12 @@ pub fn play_current(start: Duration) {
         stop();
         return;
     };
+    // From the top: after any silence trimmed off.
+    let start = if start.is_zero() {
+        trim_start(&track)
+    } else {
+        start
+    };
     refresh_playing_marks();
     let quality = with_app(|app| {
         app.resume_at = Duration::ZERO;
@@ -136,6 +206,7 @@ pub fn stop() {
     with_app(|app| {
         cancel_preload(app);
         app.session = None;
+        app.fading = None;
         if let Some(a) = &app.audio {
             a.stop();
         }
@@ -285,23 +356,66 @@ pub fn start_stream(track: types::Track, quality: Quality, start: Duration, foll
                 // The output's queued track was gated on the stream being replaced.
                 app.preload = None;
                 app.preload_tried = None;
-                if let Err(e) = audio.play(opened.source) {
+                let fade = skip_crossfade(app, &track, opened.pipeline.sample_rate(), follow);
+                let (session, source) = Session::new(track, opened, start);
+                let played = match fade {
+                    Some(fade) => {
+                        if let Some(old) = &app.session {
+                            old.pipeline.fade_out_now(fade);
+                        }
+                        session.pipeline.set_fade_in(fade);
+                        audio.crossfade_to(source)
+                    }
+                    None => audio.play(source),
+                };
+                // With a crossfade the old stream plays on while it fades out, then it's
+                // dropped; without, it's dropped now (and any older one fading with it).
+                let old = app.session.take();
+                app.fading = if fade.is_some() { old } else { None };
+                if let Err(e) = played {
                     app.session = None;
                     return set_status(app, &format!("Cannot play {title}: {e:#}"));
                 }
                 app.monitor.reset();
-                app.session = Some(Session {
-                    track,
-                    quality: opened.quality,
-                    pipeline: opened.pipeline,
-                    stream: opened.stream,
-                    offset: opened.offset,
-                    gain: replaygain::Applied::UNITY,
-                });
+                app.session = Some(session);
                 apply_replaygain(app);
             })
         });
     });
+}
+
+/// How long to crossfade from the playing track into `track` (a skip, not a track
+/// ending), if at all: only when that's wanted, it's another track at the same sample
+/// rate, and the playing one is audible.
+fn skip_crossfade(app: &App, track: &types::Track, rate: u32, follow: bool) -> Option<Duration> {
+    let c = app.crossfade;
+    let old = app.session.as_ref()?;
+    let playing = app.audio.as_ref().is_some_and(|a| !a.is_paused());
+    (c.on_skip
+        && c.seconds > 0
+        && !follow
+        && playing
+        && old.track.id != track.id
+        && old.pipeline.sample_rate() == rate
+        && !old.pipeline.finished())
+    .then(|| c.length())
+}
+
+/// How long the playing track (`current`) and the next one (`next`, at `rate`)
+/// overlap when one follows the other: no longer than half of either, and not at
+/// all at different sample rates or, unless wanted, within an album playing in order.
+fn auto_crossfade(app: &App, current: &Session, next: &types::Track, rate: u32) -> Duration {
+    let c = app.crossfade;
+    let shuffled = app.queue.as_ref().is_some_and(|q| q.shuffle);
+    let album_in_order = !shuffled && current.track.album_id == next.album_id;
+    if c.seconds == 0 || current.pipeline.sample_rate() != rate || (album_in_order && !c.albums) {
+        return Duration::ZERO;
+    }
+    let next_length = trim_end(next)
+        .unwrap_or(Duration::from_millis(next.duration_ms.max(0) as u64))
+        .saturating_sub(trim_start(next));
+    let current_length = current.end.saturating_sub(trim_start(&current.track));
+    c.length().min(next_length / 2).min(current_length / 2)
 }
 
 pub fn fmt_kbps(kbps: f64) -> String {
@@ -353,6 +467,10 @@ fn up_next(app: &App) -> Option<&types::QueueEntry> {
 fn cancel_preload(app: &mut App) {
     app.preload = None;
     app.preload_tried = None;
+    // Nothing to crossfade into any more.
+    if let Some(s) = &app.session {
+        s.pipeline.set_fade_out(Duration::ZERO);
+    }
     if let Some(a) = &app.audio {
         a.cancel_next();
     }
@@ -378,8 +496,8 @@ pub fn revalidate_preload(app: &mut App) {
 /// output behind the current stream, so it starts on the very sample this one ends.
 fn maybe_preload(app: &mut App) {
     let Some(s) = &app.session else { return };
-    let length = Duration::from_millis(s.track.duration_ms.max(0) as u64);
-    if app.loading || length.saturating_sub(s.position()) > PRELOAD_BEFORE {
+    let before = PRELOAD_BEFORE + app.crossfade.length();
+    if app.loading || s.end.saturating_sub(s.position()) > before {
         return;
     }
     let Some(entry) = up_next(app) else { return };
@@ -392,32 +510,33 @@ fn maybe_preload(app: &mut App) {
     let quality = adaptive::choose(&track, app.mode, app.bandwidth.get());
     let (api, mode) = (app.api.clone(), app.mode);
     app.preload_tried = Some(key.clone());
+    let start = trim_start(&track);
     thread::spawn(move || {
-        let opened = playback::open(&api, &track, mode, quality, Duration::ZERO);
+        let opened = playback::open(&api, &track, mode, quality, start);
         let _ = slint::invoke_from_event_loop(move || {
             with_app(|app| {
                 // Superseded: another stream started, or the queue changed meanwhile.
                 if app.preload_tried.as_ref() != Some(&key) {
                     return;
                 }
-                let mut opened = match opened {
+                let opened = match opened {
                     Ok(o) => o,
                     Err(e) => return eprintln!("preloading {}: {e:#}", track.title),
                 };
                 let (Some(audio), Some(current)) = (&app.audio, &app.session) else {
                     return;
                 };
-                opened.source.play_after(&current.pipeline);
-                let session = Session {
-                    gain: gain_for(app, &track),
-                    track,
-                    quality: opened.quality,
-                    pipeline: opened.pipeline,
-                    stream: opened.stream,
-                    offset: opened.offset,
-                };
-                session.pipeline.set_gain(session.gain.linear);
-                audio.queue_next(opened.source);
+                let overlap = auto_crossfade(app, current, &track, opened.pipeline.sample_rate());
+                let gain = gain_for(app, &track);
+                let (mut session, mut source) = Session::new(track, opened, start);
+                source.play_after(&current.pipeline, overlap);
+                if !overlap.is_zero() {
+                    current.pipeline.set_fade_out(overlap);
+                    session.pipeline.set_fade_in(overlap);
+                }
+                session.gain = gain;
+                session.pipeline.set_gain(gain.linear);
+                audio.queue_next(source);
                 app.preload = Some(Preload {
                     entry_id: key.1,
                     session,
@@ -439,7 +558,8 @@ fn promote_preload() -> bool {
         }
         let id = p.session.track.id.to_string();
         super::history::begin(app, &p.session.track);
-        app.session = Some(p.session);
+        // Plays on while it fades out (a crossfade), then it's dropped.
+        app.fading = app.session.replace(p.session);
         app.generation += 1;
         app.preload_tried = None;
         app.monitor.reset();
@@ -500,6 +620,13 @@ pub fn seek_to(target: Duration) {
     });
     match action {
         Some(Err((pipeline, generation))) => {
+            // Past the trimmed end: play on to the file's end.
+            with_app(|app| {
+                super::trim::note_seek(app, target);
+                if let Some(s) = app.session.as_mut() {
+                    s.bound(target);
+                }
+            });
             // May wait for the network: never on the UI thread.
             thread::spawn(move || {
                 if pipeline.seek(target, Duration::from_secs(15)) {
@@ -595,8 +722,12 @@ pub fn tick() {
         let Some(ui) = app.ui.upgrade() else {
             return (false, None);
         };
+        if app.fading.as_ref().is_some_and(|f| f.pipeline.finished()) {
+            app.fading = None;
+        }
         let paused = app.audio.as_ref().is_none_or(|a| a.is_paused());
         super::window::sync(&ui);
+        super::trim::show(app);
         ui.set_playing((app.session.is_some() && !paused) || app.loading);
         super::desktop::sync(app);
         let Some(s) = &app.session else {
@@ -605,7 +736,12 @@ pub fn tick() {
         let pos = s.position();
         ui.set_position(pos.as_secs_f32());
         ui.set_position_text(fmt_duration(pos.as_millis() as i64).into());
-        let finished = !app.loading && s.pipeline.finished();
+        // The next track has started (crossfading in, or on the sample this one ended).
+        let next_started = app
+            .preload
+            .as_ref()
+            .is_some_and(|p| p.session.pipeline.started());
+        let finished = !app.loading && (s.pipeline.finished() || next_started);
         super::lyrics::follow(app, pos);
         super::history::follow(app, pos, !paused);
         update_stream_info(app);

@@ -259,6 +259,13 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   // A playlist copied from a server, and its id there. It stays when the server is removed.
   ["playlists", "source_id", "TEXT REFERENCES sources(id) ON DELETE SET NULL"],
   ["playlists", "remote_id", "TEXT"],
+  // The part of the track to play (see `TrackTrim`); `trim_set` once someone decided.
+  ["tracks", "trim_start_ms", "INTEGER"],
+  ["tracks", "trim_end_ms", "INTEGER"],
+  ["tracks", "trim_set", "INTEGER NOT NULL DEFAULT 0"],
+  // Silence at the ends of the audio, found with the waveform; null before it was looked for.
+  ["waveforms", "leading_silence_ms", "INTEGER"],
+  ["waveforms", "trailing_silence_ms", "INTEGER"],
 ];
 
 /** The table tracks are stored in: `all_tracks` once `separateCopies` has run. */

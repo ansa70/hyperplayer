@@ -321,6 +321,12 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     return catalog.trackCredits(params.id) ?? Promise.reject(notFound("Track"));
   });
   route.json(api.waveform, ({ params }) => waveforms.get(params.id) ?? Promise.reject(notFound("Track")));
+  route.json(api.setTrackTrim, ({ params, body }) => {
+    const { startMs, endMs } = body;
+    if (startMs !== null && endMs !== null && endMs <= startMs)
+      throw new HttpError(400, "invalid_trim", "The end must come after the start");
+    return catalog.setTrim(params.id, body) ?? Promise.reject(notFound("Track"));
+  });
   route.json(api.lyrics, ({ params }) => {
     const remote = sources.remote(params.id);
     if (remote) return sources.lyrics(remote, params.id);

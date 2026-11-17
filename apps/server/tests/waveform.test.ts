@@ -2,10 +2,10 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { TrackPage, Waveform } from "@hyperplayer/schemas";
+import { Track, TrackPage, Waveform } from "@hyperplayer/schemas";
 import { afterAll, beforeAll, expect, test } from "vite-plus/test";
 import { buildApp } from "../src/app.ts";
-import { envelope, POINTS } from "../src/library/waveform.ts";
+import { envelope, POINTS, silence } from "../src/library/waveform.ts";
 import { authed, setupAdmin, testConfig, wav } from "./helpers.ts";
 
 const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
@@ -60,4 +60,42 @@ test.skipIf(!hasFfmpeg)("tracks get a waveform, computed once", async () => {
   expect(Waveform.parse((await inject(`/api/tracks/${id}/waveform`)).json())).toEqual(first);
   expect(Date.now() - t).toBeLessThanOrEqual(Math.max(computing, 50));
   expect((await inject("/api/tracks/nope/waveform")).statusCode).toBe(404);
+});
+
+test("silence is measured at both ends, near-silence included", () => {
+  const pcm = new Int16Array(8000 * 3);
+  pcm.fill(20, 0, 8000); // -64 dBFS: as good as silent
+  pcm.fill(5000, 8000, 12000);
+  expect(silence(pcm)).toEqual({ leadingMs: 1000, trailingMs: 1500 });
+  expect(silence(new Int16Array(4000))).toEqual({ leadingMs: 500, trailingMs: 500 });
+});
+
+test.skipIf(!hasFfmpeg)("the waveform tells the silence at the start", async () => {
+  const id = TrackPage.parse((await inject("/api/tracks")).json()).items[0]!.id;
+  const w = Waveform.parse((await inject(`/api/tracks/${id}/waveform`)).json());
+  expect(Math.abs(w.silence!.leadingMs - 2000)).toBeLessThan(20);
+  expect(w.silence!.trailingMs).toBeLessThan(20);
+});
+
+test("admins set the part of a track to play", async () => {
+  const track = async () => TrackPage.parse((await inject("/api/tracks")).json()).items[0]!;
+  const { id } = await track();
+  expect((await track()).trim).toBeNull();
+  const put = (payload: object) => inject({ method: "PUT", url: `/api/tracks/${id}/trim`, payload });
+  const set = await put({ startMs: 500, endMs: 3000 });
+  expect(set.statusCode).toBe(200);
+  expect(Track.parse(set.json()).trim).toEqual({ startMs: 500, endMs: 3000 });
+  expect((await track()).trim).toEqual({ startMs: 500, endMs: 3000 });
+  expect((await put({ startMs: 3000, endMs: 3000 })).statusCode).toBe(400);
+  // Play it all, and don't offer to trim it again.
+  expect(Track.parse((await put({ startMs: null, endMs: null })).json()).trim).toEqual({
+    startMs: null,
+    endMs: null,
+  });
+  const missing = await inject({
+    method: "PUT",
+    url: "/api/tracks/nope/trim",
+    payload: { startMs: 1, endMs: 2 },
+  });
+  expect(missing.statusCode).toBe(404);
 });

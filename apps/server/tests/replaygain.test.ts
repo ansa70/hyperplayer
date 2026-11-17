@@ -75,7 +75,15 @@ test("ReplayGain preferences have defaults and are validated", async () => {
     coverBackground: true,
     visualizer: true,
     shuffleScope: "library",
+    crossfade: 0,
+    crossfadeOnSkip: false,
+    crossfadeAlbums: false,
   });
+  // Crossfade is whole seconds, up to 12.
+  for (const crossfade of [13, 1.5, -1]) {
+    const r = await inject({ method: "PATCH", url: "/api/me/preferences", payload: { crossfade } });
+    expect(r.statusCode).toBe(400);
+  }
   // Appearance preferences validate too: an accent is "cover" or a #rrggbb colour.
   const accent = await inject({
     method: "PATCH",

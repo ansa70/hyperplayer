@@ -19,7 +19,7 @@ use types::{
     HistoryStats, Jump, LastfmAuthorization, LibraryStatus, ListenPage, Lyrics, Me, MoveEntry,
     NowPlaying, Ok as OkResponse, PlayingNow, Playlist, PlaylistList, Preferences, QueueState,
     RecordListen, RepeatMode, ScrobbleSettings, SearchResults, Session, SetQueue, ShuffleScope,
-    TrackSource, UpdatePlaylist, UpdateQueue, User, UserList, Waveform,
+    Track, TrackSource, TrackTrim, UpdatePlaylist, UpdateQueue, User, UserList, Waveform,
 };
 
 use crate::{adaptive::Quality, trust};
@@ -426,6 +426,15 @@ impl Api {
 
     pub fn waveform(&self, track_id: &str) -> Result<Waveform> {
         self.get(&format!("/api/tracks/{track_id}/waveform"))
+    }
+
+    /// Sets the part of a track to play, for everyone (admins only).
+    pub fn set_track_trim(&self, track_id: &str, trim: &TrackTrim) -> Result<Track> {
+        self.send(
+            Method::PUT,
+            &format!("/api/tracks/{track_id}/trim"),
+            Some(trim),
+        )
     }
 
     pub fn lyrics(&self, track_id: &str) -> Result<Lyrics> {

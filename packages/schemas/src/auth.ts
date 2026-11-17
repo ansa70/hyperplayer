@@ -161,6 +161,12 @@ export const Preferences = named(
     visualizer: z.boolean().default(true),
     /** What the shuffle button draws from (the library when the track gives none to go by: no genre, not from a playlist). */
     shuffleScope: ShuffleScope.default("library"),
+    /** Seconds the end of a track overlaps the start of the next; 0 plays them back to back. */
+    crossfade: z.int().min(0).max(12).default(0),
+    /** Also crossfade when skipping to another track, not only when one ends. */
+    crossfadeOnSkip: z.boolean().default(false),
+    /** Also crossfade between tracks of an album playing in order (gapless otherwise). */
+    crossfadeAlbums: z.boolean().default(false),
   }),
   "Per-user settings that follow the account to every device.",
 );
@@ -175,6 +181,9 @@ export const UpdatePreferences = named(
     coverBackground: z.boolean().optional(),
     visualizer: z.boolean().optional(),
     shuffleScope: ShuffleScope.optional(),
+    crossfade: z.int().min(0).max(12).optional(),
+    crossfadeOnSkip: z.boolean().optional(),
+    crossfadeAlbums: z.boolean().optional(),
   }),
 );
 

@@ -456,3 +456,25 @@ the gain in its audio pipeline (instantly, not after the buffer), capped by the 
 Modes, a per-user preference cycled by the **RG** chip: _Auto_ (album gain while an album plays in order, track
 gain when shuffling or mixing), _Track_, _Album_, _Off_; plus a pre-amp (`replayGainPreamp`, ±15 dB). Untagged
 files play unchanged.
+
+## Crossfade and gapless
+
+Tracks play back to back without a gap: the next one is opened before the current one ends and starts on the
+sample it ends. The output opens at each track's own sample rate (a 192 kHz file reaches the DAC at 192 kHz)
+and closes while paused or stopped, so other applications can use the device at their rate.
+
+**Settings → Playback → Crossfade** overlaps the end of a track with the start of the next, for up to 12 seconds
+with an equal-power fade (`crossfade`, a per-user preference; off by default). Options: also when skipping to
+another track (`crossfadeOnSkip`), and also within an album playing in order (`crossfadeAlbums`; off by default,
+so albums stay gapless). Tracks at different sample rates change without a fade, each at its own rate.
+
+## Trimming silence
+
+Some CD tracks end (or start) with minutes of silence, usually before a hidden track. An admin can set the part
+of a track to play: right-click its waveform in the player for **Start the track here**, **End the track here**
+or **Play the whole track**. Trims are stored in the library database, not in the files, and apply for everyone;
+the parts trimmed off are faded on the waveform. Seeking past a trimmed end plays on to the file's end.
+
+The server measures the silence at both ends of a track while computing its waveform. When a track that plays
+has 10 seconds or more of it, the player offers admins to skip it (**Skip it**, **Not now**, **Never for this
+track**). API: the waveform's `silence`, the track's `trim`, and `PUT /api/tracks/{id}/trim`.

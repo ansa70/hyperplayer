@@ -1273,6 +1273,63 @@
         }
       }
     },
+    "/api/tracks/{id}/trim": {
+      "put": {
+        "operationId": "setTrackTrim",
+        "summary": "Set the part of a track to play (both null: all of it, and don't offer to trim it again); for every user",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackTrim"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Set the part of a track to play (both null: all of it, and don't offer to trim it again); for every user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Track"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tracks/{id}/lyrics": {
       "get": {
         "operationId": "lyrics",
@@ -3461,6 +3518,49 @@
         ],
         "additionalProperties": false
       },
+      "TrackTrim": {
+        "type": "object",
+        "properties": {
+          "startMs": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "endMs": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "startMs",
+          "endMs"
+        ],
+        "additionalProperties": false
+      },
+      "Silence": {
+        "type": "object",
+        "properties": {
+          "leadingMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "trailingMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "leadingMs",
+          "trailingMs"
+        ],
+        "additionalProperties": false
+      },
       "Track": {
         "type": "object",
         "properties": {
@@ -3531,6 +3631,15 @@
                 "$ref": "#/components/schemas/Artwork"
               }
             ]
+          },
+          "trim": {
+            "default": null,
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TrackTrim"
+              }
+            ]
           }
         },
         "required": [
@@ -3548,7 +3657,8 @@
           "format",
           "replayGain",
           "fileSize",
-          "cover"
+          "cover",
+          "trim"
         ],
         "additionalProperties": false
       },
@@ -3717,11 +3827,21 @@
               "minimum": 0,
               "maximum": 100
             }
+          },
+          "silence": {
+            "default": null,
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Silence"
+              }
+            ]
           }
         },
         "required": [
           "trackId",
-          "points"
+          "points",
+          "silence"
         ],
         "additionalProperties": false
       },
@@ -4529,6 +4649,20 @@
                 "$ref": "#/components/schemas/ShuffleScope"
               }
             ]
+          },
+          "crossfade": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 12
+          },
+          "crossfadeOnSkip": {
+            "default": false,
+            "type": "boolean"
+          },
+          "crossfadeAlbums": {
+            "default": false,
+            "type": "boolean"
           }
         },
         "required": [
@@ -4538,7 +4672,10 @@
           "accent",
           "coverBackground",
           "visualizer",
-          "shuffleScope"
+          "shuffleScope",
+          "crossfade",
+          "crossfadeOnSkip",
+          "crossfadeAlbums"
         ],
         "additionalProperties": false
       },
@@ -4583,6 +4720,17 @@
                 "$ref": "#/components/schemas/ShuffleScope"
               }
             ]
+          },
+          "crossfade": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 12
+          },
+          "crossfadeOnSkip": {
+            "type": "boolean"
+          },
+          "crossfadeAlbums": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false

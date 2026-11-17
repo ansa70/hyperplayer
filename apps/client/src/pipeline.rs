@@ -54,7 +54,20 @@ struct Shared {
     tap: Box<[AtomicU32]>,
     tap_pos: AtomicUsize,
     tap_on: AtomicBool,
+    /// Where playback stops (a trimmed end), in frames from the pipeline's start; `NONE` for the end.
+    end_frame: AtomicU64,
+    /// Where the audio ends, as far as known: the track's duration until the decoder
+    /// reaches the end, then exactly. Fades and the next track's start go by it.
+    expected_end: AtomicU64,
+    /// Frames over which the end fades out, and the start fades in (0: none).
+    fade_out: AtomicU64,
+    fade_in: AtomicU64,
+    /// The first sample has played.
+    started: AtomicBool,
 }
+
+/// No frame: no trimmed end, or an end not known yet.
+const NONE: u64 = u64::MAX;
 
 /// Frames kept for the visualizer (a power of two, at least `spectrum::WINDOW`).
 const TAP: usize = 4096;
@@ -72,6 +85,28 @@ impl Shared {
     fn frames_to_duration(&self, frames: u64) -> Duration {
         Duration::from_secs_f64(frames as f64 / self.sample_rate.get() as f64)
     }
+
+    fn duration_to_frames(&self, d: Duration) -> u64 {
+        (d.as_secs_f64() * self.sample_rate.get() as f64) as u64
+    }
+
+    /// The frame the audio is expected to end at (the trimmed end, if sooner).
+    fn end(&self) -> u64 {
+        self.end_frame
+            .load(Ordering::Relaxed)
+            .min(self.expected_end.load(Ordering::Relaxed))
+    }
+
+    /// Frames left to play, if the end is known.
+    fn remaining(&self) -> Option<u64> {
+        let end = self.end();
+        (end != NONE).then(|| end.saturating_sub(self.frames_played.load(Ordering::Relaxed)))
+    }
+}
+
+/// Equal-power fade: the level at `t` (0..=1) of the way in, so a crossfade keeps the loudness.
+fn fade_curve(t: f32) -> f32 {
+    (t.clamp(0.0, 1.0) * std::f32::consts::FRAC_PI_2).sin()
 }
 
 /// Control and statistics side of a pipeline.
@@ -146,6 +181,46 @@ impl PipelineHandle {
         self.0.control().stopped = true;
         self.0.cond.notify_all();
     }
+
+    /// Stops playback at `at` (from the pipeline's start) rather than the audio's end.
+    pub fn set_end(&self, at: Option<Duration>) {
+        let frames = at.map_or(NONE, |d| self.0.duration_to_frames(d));
+        self.0.end_frame.store(frames, Ordering::Relaxed);
+    }
+
+    /// Where the audio should end (the track's length), until the decoder knows exactly.
+    pub fn set_expected_end(&self, at: Duration) {
+        let frames = self.0.duration_to_frames(at);
+        // Never over the exact end, once the decoder has found it.
+        if !self.0.decoded_all.load(Ordering::Relaxed) {
+            self.0.expected_end.store(frames, Ordering::Relaxed);
+        }
+    }
+
+    /// Fades the start in over `over`.
+    pub fn set_fade_in(&self, over: Duration) {
+        let frames = self.0.duration_to_frames(over);
+        self.0.fade_in.store(frames, Ordering::Relaxed);
+    }
+
+    /// Fades out over the last `over` before the end.
+    pub fn set_fade_out(&self, over: Duration) {
+        let frames = self.0.duration_to_frames(over);
+        self.0.fade_out.store(frames, Ordering::Relaxed);
+    }
+
+    /// Fades out from where it is now, over `over`, then ends (a crossfade on a skip).
+    pub fn fade_out_now(&self, over: Duration) {
+        let frames = self.0.duration_to_frames(over);
+        let now = self.0.frames_played.load(Ordering::Relaxed);
+        self.0.fade_out.store(frames, Ordering::Relaxed);
+        self.0.end_frame.store(now + frames, Ordering::Relaxed);
+    }
+
+    /// Something has played (a queued track that started, or is crossfading in).
+    pub fn started(&self) -> bool {
+        self.0.started.load(Ordering::Relaxed)
+    }
 }
 
 /// The rodio-facing end. Never blocks.
@@ -155,8 +230,11 @@ pub struct BufferedSource {
     /// Sample index within the current frame, to count frames.
     channel: u16,
     started: bool,
-    /// Plays silence (not counted as played or underrun) until this pipeline has ended.
-    after: Option<Arc<Shared>>,
+    /// Plays silence (not counted as played or underrun) until this pipeline has this
+    /// many frames left (0: until it has ended).
+    after: Option<(Arc<Shared>, u64)>,
+    /// Frames played since the start, for the fade-in.
+    since_start: u64,
     /// The current frame's samples so far, summed for the visualizer tap.
     frame_sum: f32,
 }
@@ -182,6 +260,11 @@ where
         tap: (0..TAP).map(|_| AtomicU32::new(0)).collect(),
         tap_pos: AtomicUsize::new(0),
         tap_on: AtomicBool::new(false),
+        end_frame: AtomicU64::new(NONE),
+        expected_end: AtomicU64::new(NONE),
+        fade_out: AtomicU64::new(0),
+        fade_in: AtomicU64::new(0),
+        started: AtomicBool::new(false),
     });
     let (producer, consumer) = RingBuffer::new(shared.capacity());
     let worker = shared.clone();
@@ -195,6 +278,7 @@ where
         channel: 0,
         started: false,
         after: None,
+        since_start: 0,
         frame_sum: 0.0,
     };
     (source, PipelineHandle(shared))
@@ -202,6 +286,9 @@ where
 
 fn decode<S: Source>(shared: &Shared, mut source: S, mut ring: Producer<Sample>) {
     let mut pending: Option<Sample> = None;
+    let channels = u64::from(shared.channels.get());
+    // Samples decoded, from the pipeline's start (or the frame last sought to).
+    let mut decoded = 0u64;
     loop {
         {
             let c = shared.control();
@@ -220,8 +307,9 @@ fn decode<S: Source>(shared: &Shared, mut source: S, mut ring: Producer<Sample>)
                     shared.replace.store(true, Ordering::Release);
                     shared.decoded_all.store(false, Ordering::Relaxed);
                     shared.ended.store(false, Ordering::Relaxed);
-                    let frames = (to.as_secs_f64() * shared.sample_rate.get() as f64) as u64;
+                    let frames = shared.duration_to_frames(to);
                     shared.frames_played.store(frames, Ordering::Relaxed);
+                    decoded = frames * channels;
                 }
                 let mut c = shared.control();
                 c.seek_to = None;
@@ -239,6 +327,10 @@ fn decode<S: Source>(shared: &Shared, mut source: S, mut ring: Producer<Sample>)
         // Fill the ring; decoding may block on the network, which is fine on this thread.
         for _ in 0..4096 {
             let Some(sample) = pending.take().or_else(|| source.next()) else {
+                // Now the end is known exactly.
+                shared
+                    .expected_end
+                    .store(decoded / channels, Ordering::Relaxed);
                 shared.decoded_all.store(true, Ordering::Relaxed);
                 break;
             };
@@ -247,6 +339,7 @@ fn decode<S: Source>(shared: &Shared, mut source: S, mut ring: Producer<Sample>)
                 thread::sleep(FULL_BACKOFF);
                 break;
             }
+            decoded += 1;
         }
     }
 }
@@ -255,8 +348,10 @@ impl Iterator for BufferedSource {
     type Item = Sample;
 
     fn next(&mut self) -> Option<Sample> {
-        if let Some(previous) = &self.after {
-            if !previous.ended.load(Ordering::Acquire) {
+        if let Some((previous, overlap)) = &self.after {
+            let due = previous.ended.load(Ordering::Acquire)
+                || (*overlap > 0 && previous.remaining().is_some_and(|left| left < *overlap));
+            if !due {
                 return Some(0.0);
             }
             self.after = None;
@@ -270,6 +365,12 @@ impl Iterator for BufferedSource {
             self.shared.replace.store(false, Ordering::Release);
         }
         let skipping = self.skip();
+        let played = self.shared.frames_played.load(Ordering::Relaxed);
+        // The trimmed end (or the end of a fade-out on a skip), at a frame boundary.
+        if self.channel == 0 && played >= self.shared.end_frame.load(Ordering::Relaxed) {
+            self.shared.ended.store(true, Ordering::Release);
+            return None;
+        }
         let popped = self.ring.pop().ok();
         if popped.is_none()
             && self.shared.decoded_all.load(Ordering::Relaxed)
@@ -282,12 +383,16 @@ impl Iterator for BufferedSource {
         self.channel = if last_in_frame { 0 } else { self.channel + 1 };
         match popped {
             Some(sample) => {
-                self.started = true;
-                let sample = sample * f32::from_bits(self.shared.gain.load(Ordering::Relaxed));
+                if !self.started {
+                    self.started = true;
+                    self.shared.started.store(true, Ordering::Relaxed);
+                }
+                let sample = sample * self.level(played);
                 if self.shared.tap_on.load(Ordering::Relaxed) {
                     self.frame_sum += sample;
                 }
                 if last_in_frame {
+                    self.since_start += 1;
                     self.shared.frames_played.fetch_add(1, Ordering::Relaxed);
                     if self.shared.tap_on.load(Ordering::Relaxed) {
                         let mono = self.frame_sum / self.shared.channels.get() as f32;
@@ -313,8 +418,32 @@ impl Iterator for BufferedSource {
 impl BufferedSource {
     /// Holds this source back until `previous` has played its last sample, so the two
     /// play back to back (gapless) even though they're separate sources in the mixer.
-    pub fn play_after(&mut self, previous: &PipelineHandle) {
-        self.after = Some(previous.0.clone());
+    ///
+    /// With an `overlap`, it starts that long before `previous` ends instead, for a
+    /// crossfade (both must have the same sample rate).
+    pub fn play_after(&mut self, previous: &PipelineHandle, overlap: Duration) {
+        let frames = previous.0.duration_to_frames(overlap);
+        self.after = Some((previous.0.clone(), frames));
+    }
+
+    /// The gain for a sample of frame `played`: ReplayGain, and any fade in or out.
+    fn level(&self, played: u64) -> f32 {
+        let mut level = f32::from_bits(self.shared.gain.load(Ordering::Relaxed));
+        let fade_in = self.shared.fade_in.load(Ordering::Relaxed);
+        if fade_in > 0 && self.since_start < fade_in {
+            level *= fade_curve(self.since_start as f32 / fade_in as f32);
+        }
+        let fade_out = self.shared.fade_out.load(Ordering::Relaxed);
+        if fade_out > 0 {
+            let end = self.shared.end();
+            if end != NONE {
+                let left = end.saturating_sub(played);
+                if left < fade_out {
+                    level *= fade_curve(left as f32 / fade_out as f32);
+                }
+            }
+        }
+        level
     }
 
     /// Discards whole frames of a pending skip that are already decoded; returns
@@ -475,7 +604,7 @@ mod tests {
     fn a_source_played_after_another_starts_on_the_sample_it_ends() {
         let (mut first, first_handle) = spawn(Ramp { pos: 0, len: 3 });
         let (mut second, second_handle) = spawn(Ramp { pos: 100, len: 103 });
-        second.play_after(&first_handle);
+        second.play_after(&first_handle, Duration::ZERO);
         settle();
         // Pulled together, like the mixer does: the second stays silent until the first ends.
         let mut out = Vec::new();
@@ -495,6 +624,74 @@ mod tests {
         );
         assert_eq!(second_handle.take_underrun(), Duration::ZERO);
         assert_eq!(second_handle.position(), Duration::from_secs(3) / RAMP_RATE);
+    }
+
+    #[test]
+    fn a_trimmed_end_stops_playback_there() {
+        let (src, handle) = spawn(Ramp {
+            pos: 0,
+            len: RAMP_RATE * 2,
+        });
+        handle.set_end(Some(Duration::from_millis(500)));
+        settle();
+        let samples: Vec<Sample> = src.collect();
+        assert_eq!(samples.len() as u32, RAMP_RATE / 2);
+        assert_eq!(samples.last(), Some(&((RAMP_RATE / 2 - 1) as Sample)));
+        assert!(handle.finished());
+    }
+
+    #[test]
+    fn a_crossfade_overlaps_the_end_with_the_next_start() {
+        let (mut first, first_handle) = spawn(Ramp {
+            pos: 1,
+            len: 1 + RAMP_RATE * 2,
+        });
+        let (mut second, second_handle) = spawn(Ramp {
+            pos: 1,
+            len: 1 + RAMP_RATE * 2,
+        });
+        first_handle.set_expected_end(Duration::from_secs(2));
+        first_handle.set_fade_out(SECOND);
+        second.play_after(&first_handle, SECOND);
+        second_handle.set_fade_in(SECOND);
+        settle();
+        // The first second: only the first source, at full level.
+        for i in 0..RAMP_RATE {
+            assert_eq!(first.next(), Some((i + 1) as Sample));
+            assert_eq!(second.next(), Some(0.0));
+        }
+        assert!(!second_handle.started());
+        // The second second: both, one fading out as the other fades in.
+        let (mut out, mut inn) = (Vec::new(), Vec::new());
+        for _ in 0..RAMP_RATE {
+            out.push(first.next().unwrap());
+            inn.push(second.next().unwrap());
+        }
+        assert!(second_handle.started());
+        assert_eq!(inn[0], 0.0); // silent at the very start of the fade in
+        let level = |v: &[Sample], i: usize, sample: u32| v[i] / sample as Sample;
+        // Halfway: both at the equal-power level, sin(45°).
+        let half = (RAMP_RATE / 2) as usize;
+        let mid = std::f32::consts::FRAC_1_SQRT_2;
+        assert!((level(&out, half, RAMP_RATE + RAMP_RATE / 2 + 1) - mid).abs() < 0.01);
+        assert!((level(&inn, half, RAMP_RATE / 2 + 1) - mid).abs() < 0.01);
+        // The first has ended; the second plays on at full level.
+        assert_eq!(first.next(), None);
+        assert_eq!(second.next(), Some((RAMP_RATE + 1) as Sample));
+    }
+
+    #[test]
+    fn fading_out_now_ends_after_the_fade() {
+        let (mut src, handle) = spawn(Ramp {
+            pos: 1,
+            len: 1 + RAMP_RATE * 5,
+        });
+        settle();
+        src.by_ref().take(100).for_each(drop);
+        handle.fade_out_now(Duration::from_millis(100));
+        let rest: Vec<Sample> = src.collect();
+        assert_eq!(rest.len() as u32, RAMP_RATE / 10);
+        assert!(rest[0] > 100.0 * 0.99 && rest[rest.len() - 1] < 200.0 * 0.02);
     }
 
     #[test]

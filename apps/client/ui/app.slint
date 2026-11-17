@@ -1985,14 +1985,58 @@ component LyricsPage inherits Rectangle {
     }
 }
 
+/// Where to trim a track, at a time picked on its waveform (right-click).
+component TrimMenu inherits PopupWindow {
+    /// The time picked, in seconds, and as shown.
+    in property <float> at;
+    in property <string> at-text;
+    in property <bool> trimmed;
+    callback pick(string, float);
+    width: 230px;
+    height: 6px + 24px + (root.trimmed ? 3 : 2) * 31px + 6px;
+    Rectangle {
+        background: Theme.surface-hi;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: Theme.surface.brighter(0.8);
+        drop-shadow-blur: 18px;
+        drop-shadow-color: #000000b0;
+        VerticalLayout {
+            padding: 6px;
+            spacing: 1px;
+            Text {
+                height: 24px;
+                x: 10px;
+                text: "TRIM, FOR EVERYONE · " + root.at-text;
+                color: Theme.faint;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 1.2px;
+                vertical-alignment: center;
+            }
+            MenuItem { text: "Start the track here"; clicked => { root.pick("start", root.at); } }
+            MenuItem { text: "End the track here"; clicked => { root.pick("end", root.at); } }
+            if root.trimmed: MenuItem { text: "Play the whole track"; clicked => { root.pick("clear", 0); } }
+        }
+    }
+}
+
 /// The seek bar drawn as the track's waveform: the played part in the accent colour.
-/// Click or drag anywhere to seek.
+/// Click or drag anywhere to seek. Parts trimmed off are faded, and admins trim with a right-click.
 component WaveformBar inherits Rectangle {
     in property <[float]> points;
     in property <float> position;
     in property <float> duration;
+    /// Where playback starts and ends, in seconds; negative for none.
+    in property <float> trim-start: -1;
+    in property <float> trim-end: -1;
+    in property <bool> can-trim;
     callback seek(float);
+    callback trim(string, float);
     height: 30px;
+    property <float> start-at: root.duration > 0 && root.trim-start > 0 ? root.trim-start / root.duration : 0;
+    property <float> end-at: root.duration > 0 && root.trim-end > 0 ? root.trim-end / root.duration : 1;
+    property <float> menu-at;
     property <float> progress: root.duration > 0 ? root.position / root.duration : 0;
     property <float> hover-at: clamp(ta.mouse-x / max(1px, root.width), 0, 1);
     property <float> shown: ta.pressed ? root.hover-at : root.progress;
@@ -2003,9 +2047,22 @@ component WaveformBar inherits Rectangle {
         height: max(2px, p * root.height);
         y: (root.height - self.height) / 2;
         border-radius: 1px;
-        background: (i + 0.5) / root.points.length <= root.shown ? Theme.accent
-            : ta.has-hover && (i + 0.5) / root.points.length <= root.hover-at ? Theme.muted
+        property <float> at: (i + 0.5) / root.points.length;
+        opacity: self.at < root.start-at || self.at > root.end-at ? 0.3 : 1;
+        background: self.at <= root.shown ? Theme.accent
+            : ta.has-hover && self.at <= root.hover-at ? Theme.muted
             : Theme.faint.with-alpha(0.8);
+    }
+    // The trim points.
+    if root.start-at > 0: Rectangle {
+        x: root.start-at * root.width - 1px;
+        width: 2px;
+        background: Theme.text;
+    }
+    if root.end-at < 1: Rectangle {
+        x: root.end-at * root.width - 1px;
+        width: 2px;
+        background: Theme.text;
     }
     ta := TouchArea {
         mouse-cursor: pointer;
@@ -2013,6 +2070,47 @@ component WaveformBar inherits Rectangle {
             if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
                 root.seek(root.hover-at * root.duration);
             }
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right && root.can-trim {
+                root.menu-at = root.hover-at * root.duration;
+                menu.show();
+            }
+        }
+    }
+    menu := TrimMenu {
+        x: clamp(ta.mouse-x - self.width / 2, 0, root.width - self.width);
+        y: -self.height - 8px;
+        at: root.menu-at;
+        at-text: floor(root.menu-at / 60) + ":" + (mod(floor(root.menu-at), 60) < 10 ? "0" : "") + mod(floor(root.menu-at), 60);
+        trimmed: root.trim-start >= 0 || root.trim-end >= 0;
+        pick(kind, at) => { root.trim(kind, at); }
+    }
+}
+
+/// Offers to trim the silence found in the track playing.
+component TrimOffer inherits Rectangle {
+    in property <string> text;
+    callback answer(string);
+    width: 360px;
+    height: layout.preferred-height;
+    background: Theme.surface-hi;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: Theme.surface.brighter(0.8);
+    drop-shadow-blur: 18px;
+    drop-shadow-color: #000000b0;
+    // Clicks stay on the card.
+    TouchArea { }
+    layout := VerticalLayout {
+        padding: 14px;
+        spacing: 10px;
+        Text { text: "Skip the silence?"; color: Theme.text; font-size: 13px; font-weight: 600; }
+        Text { text: root.text; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: end;
+            OutlineButton { text: "Never for this track"; clicked => { root.answer("never"); } }
+            OutlineButton { text: "Not now"; clicked => { root.answer("later"); } }
+            OutlineButton { text: "Skip it"; clicked => { root.answer("accept"); } }
         }
     }
 }
@@ -2020,6 +2118,10 @@ component WaveformBar inherits Rectangle {
 component TransportBar inherits Rectangle {
     in property <[float]> waveform;
     in property <bool> waveform-ready;
+    in property <float> trim-start: -1;
+    in property <float> trim-end: -1;
+    in property <bool> can-trim;
+    callback trim(string, float);
     in property <NowPlayingView> np;
     in property <bool> playing;
     in property <float> position;
@@ -2128,7 +2230,11 @@ component TransportBar inherits Rectangle {
                     points: root.waveform;
                     position: root.position;
                     duration: root.duration;
+                    trim-start: root.trim-start;
+                    trim-end: root.trim-end;
+                    can-trim: root.can-trim;
                     seek(v) => { root.seek(v); }
+                    trim(kind, at) => { root.trim(kind, at); }
                 }
                 // The plain bar until the waveform has arrived (it's computed on first play).
                 seek-bar := Slider {
@@ -2630,6 +2736,14 @@ export global SettingsState {
     callback set-replaygain(string);
     callback preamp-changed(float);
     callback preamp-released(float);
+    /// Seconds of overlap between tracks (0: off), and where it applies.
+    in property <int> crossfade;
+    in property <bool> crossfade-on-skip;
+    in property <bool> crossfade-albums;
+    callback crossfade-changed(int);
+    callback crossfade-released(int);
+    callback set-crossfade-on-skip(bool);
+    callback set-crossfade-albums(bool);
 
     // Account.
     in-out property <string> full-name;
@@ -2803,6 +2917,42 @@ component SettingsPage inherits Rectangle {
                         }
                     }
                     Note { text: "Added to every ReplayGain adjustment; boosts are still limited so peaks never clip."; }
+                }
+                if SettingsState.tab == "playback": Card {
+                    title: "Crossfade";
+                    Note { text: "Fades each track into the next instead of playing them back to back. Tracks at different sample rates still change without a fade, so each plays at its own rate."; }
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Text { text: "Length"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+                        Slider {
+                            minimum: 0;
+                            maximum: 12;
+                            step: 1;
+                            value: SettingsState.crossfade;
+                            changed(v) => { SettingsState.crossfade-changed(round(v)); }
+                            released(v) => { SettingsState.crossfade-released(round(v)); }
+                        }
+                        Text {
+                            width: 60px;
+                            text: SettingsState.crossfade == 0 ? "Off" : SettingsState.crossfade + " s";
+                            color: Theme.text;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                            horizontal-alignment: right;
+                        }
+                    }
+                    CheckBox {
+                        text: "Also when skipping to another track";
+                        enabled: SettingsState.crossfade > 0;
+                        checked: SettingsState.crossfade-on-skip;
+                        toggled => { SettingsState.set-crossfade-on-skip(self.checked); }
+                    }
+                    CheckBox {
+                        text: "Also between tracks of an album playing in order (gapless otherwise, as live albums need)";
+                        enabled: SettingsState.crossfade > 0;
+                        checked: SettingsState.crossfade-albums;
+                        toggled => { SettingsState.set-crossfade-albums(self.checked); }
+                    }
                 }
 
                 // ---------------------------------------------------------- appearance
@@ -3400,6 +3550,15 @@ export component AppWindow inherits Window {
     in property <bool> custom-title-bar: true;
     in property <[float]> waveform;
     in property <bool> waveform-ready;
+    /// The playing track's trimmed start and end, in seconds; negative for none.
+    in property <float> trim-start: -1;
+    in property <float> trim-end: -1;
+    /// Admins may trim tracks (for everyone).
+    in property <bool> can-trim;
+    callback trim(string, float);
+    /// An offer to trim the silence found in the playing track; empty when there's none.
+    in property <string> trim-offer;
+    callback trim-offer-answer(string);
     in property <[float]> spectrum;
     in property <bool> visualizer;
     no-frame: root.custom-title-bar;
@@ -3797,6 +3956,10 @@ export component AppWindow inherits Window {
                 np: root.np;
                 waveform: root.waveform;
                 waveform-ready: root.waveform-ready;
+                trim-start: root.trim-start;
+                trim-end: root.trim-end;
+                can-trim: root.can-trim;
+                trim(kind, at) => { root.trim(kind, at); }
                 playing: root.playing;
                 position: root.position;
                 duration: root.duration;
@@ -3826,6 +3989,12 @@ export component AppWindow inherits Window {
                 show-lyrics => { root.show-lyrics(); }
             }
         }
+        }
+        if root.trim-offer != "": TrimOffer {
+            x: root.width - self.width - 16px;
+            y: root.height - 98px - self.height - 12px;
+            text: root.trim-offer;
+            answer(a) => { root.trim-offer-answer(a); }
         }
         if root.show-help: ShortcutHelp {
             close => { root.show-help = false; keys.focus(); }

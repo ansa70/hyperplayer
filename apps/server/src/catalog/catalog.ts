@@ -16,6 +16,7 @@ import type {
   GenreSummary,
   SearchResults,
   Track,
+  TrackTrim,
   TrackCredits,
   TrackPage,
 } from "@hyperplayer/schemas";
@@ -188,6 +189,7 @@ export class Catalog {
     },
     fileSize: Number(r.file_size),
     cover: artwork(r, "c_"),
+    trim: Number(r.trim_set) ? { startMs: num(r.trim_start_ms), endMs: num(r.trim_end_ms) } : null,
   });
 
   #count(table: string): number {
@@ -335,6 +337,14 @@ export class Catalog {
   getTrack(id: string): Track | null {
     const r = this.#db.prepare(`${TRACK_SELECT} WHERE t.id = ?`).get(id) as Row | undefined;
     return r ? this.#track(r) : null;
+  }
+
+  /** Sets the part of a track to play; null when there's no such track. */
+  setTrim(id: string, trim: TrackTrim): Track | null {
+    const changed = this.#db
+      .prepare("UPDATE all_tracks SET trim_start_ms = ?, trim_end_ms = ?, trim_set = 1 WHERE id = ?")
+      .run(trim.startMs, trim.endMs, id).changes;
+    return changed ? this.getTrack(id) : null;
   }
 
   /**

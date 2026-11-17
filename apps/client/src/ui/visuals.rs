@@ -98,6 +98,7 @@ pub fn show_waveform(track_id: String) {
                 touch(app, &track_id);
                 ui.set_waveform(ModelRc::from(model));
                 ui.set_waveform_ready(true);
+                super::trim::consider(app, &track_id);
                 Some(true)
             }
             None => {
@@ -130,6 +131,7 @@ fn fetch(api: Api, track_id: String, show: bool) {
                     .waveforms
                     .insert(track_id.clone(), model.clone());
                 touch(app, &track_id);
+                super::trim::found(app, &track_id, w.silence.clone());
                 // Still the track playing?
                 if show
                     && current_track(app).is_some_and(|t| t.id.as_str() == track_id)

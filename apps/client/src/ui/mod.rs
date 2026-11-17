@@ -14,6 +14,7 @@ mod models;
 mod playback;
 mod settings;
 mod smart;
+mod trim;
 mod visuals;
 mod window;
 
@@ -106,6 +107,12 @@ pub struct App {
     /// ReplayGain mode and pre-amplification (dB), from the user's preferences.
     rg_mode: hyperplayer::replaygain::Mode,
     rg_preamp: f32,
+    /// The track before the current one, still fading out (a crossfade).
+    fading: Option<playback::Session>,
+    crossfade: playback::Crossfade,
+    /// The signed-in user is an admin: they may change the library (e.g. trim tracks).
+    admin: bool,
+    trim: trim::Trimming,
 }
 
 thread_local! {
@@ -325,6 +332,10 @@ pub fn run() -> anyhow::Result<()> {
             desktop: None,
             rg_mode: hyperplayer::replaygain::Mode::Auto,
             rg_preamp: 0.0,
+            fading: None,
+            crossfade: playback::Crossfade::default(),
+            admin: false,
+            trim: trim::Trimming::default(),
         })
     });
     ui.set_status(format!("Connecting to {server}…").into());
@@ -405,6 +416,8 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_set_shuffle_scope(playback::set_shuffle_scope);
     ui.on_cycle_repeat(playback::cycle_repeat);
     ui.on_seek(|secs| playback::seek_to(Duration::from_secs_f32(secs.max(0.0))));
+    ui.on_trim(|kind, at| trim::pick(&kind, at));
+    ui.on_trim_offer_answer(|choice| trim::answer(&choice));
     ui.on_cycle_quality_mode(|| set_quality_mode(with_app(|app| app.mode.next())));
     ui.on_cycle_replaygain(|| set_replaygain_mode(with_app(|app| app.rg_mode.next())));
     ui.on_volume_changed(|v| {

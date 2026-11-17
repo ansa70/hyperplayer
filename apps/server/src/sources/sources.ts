@@ -429,11 +429,12 @@ export class Sources {
   }
 
   /** A server's track's waveform (cached by `Waveforms` like any other). */
-  async waveform(remote: RemoteTrack): Promise<number[]> {
+  async waveform(remote: RemoteTrack): Promise<Omit<Waveform, "trackId">> {
     const w = await remote.client.json<Waveform>(
       `/api/tracks/${encodeURIComponent(remote.remoteId)}/waveform`,
     );
-    return w.points;
+    // A server older than 0.4.0 doesn't look for silence.
+    return { points: w.points, silence: w.silence ?? null };
   }
 
   /** A server's track's lyrics, as the server finds them. */
