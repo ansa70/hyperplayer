@@ -1,5 +1,6 @@
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { Outlet } from "react-router";
+import { FollowPlaying } from "./FollowPlaying.tsx";
 import { useLibrary } from "../stores/library.ts";
 import { MiniPlayer, NowPlayingSheet, TabBar } from "./Mobile.tsx";
 import { NowPlayingPanel } from "./NowPlayingPanel.tsx";
@@ -35,6 +36,7 @@ export function Shell() {
   if (phone) {
     return (
       <div className="phone">
+        <FollowPlaying />
         <main className="content">
           <Outlet />
         </main>
@@ -48,6 +50,7 @@ export function Shell() {
   }
   return (
     <div className="desktop">
+      <FollowPlaying />
       <Sidebar />
       <main className="content">
         <Outlet />

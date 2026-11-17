@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { api } from "../api.ts";
+import { BackButton } from "../components/BackButton.tsx";
 import { usePlayer } from "../stores/player.ts";
 import { useApi } from "../useApi.ts";
 import "./pages.css";
@@ -28,7 +29,10 @@ function TrackLyrics({ trackId, title, artist }: { trackId: string; title: strin
 
   return (
     <div className="page lyrics">
-      <div className="caps">Lyrics</div>
+      <div className="page-head">
+        <div className="caps">Lyrics</div>
+        <BackButton title="Close lyrics" />
+      </div>
       <h1>{title}</h1>
       <div className="muted lyrics-artist">{artist}</div>
       {loading ? (

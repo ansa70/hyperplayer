@@ -1,4 +1,6 @@
-import { Link } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
+import type { IconName } from "../components/icons.ts";
+import { useBack } from "./useBack.ts";
 import { Cover } from "../components/Cover.tsx";
 import { Icon } from "../components/Icon.tsx";
 import { usePlayer } from "../stores/player.ts";
@@ -42,14 +44,26 @@ export function TransportBar() {
         <Chips />
         <div className={`ellipsis transport-info ${error ? "error" : "faint"}`}>{error || info}</div>
         <div className="transport-pages">
-          <Link to="/lyrics" className="icon-button" title="Lyrics">
-            <Icon name="lyrics" size={18} />
-          </Link>
-          <Link to="/queue" className="icon-button" title="Queue">
-            <Icon name="queue" size={18} />
-          </Link>
+          <PageToggle path="/lyrics" icon="lyrics" title="Lyrics" />
+          <PageToggle path="/queue" icon="queue" title="Queue" />
         </div>
       </div>
     </footer>
+  );
+}
+
+/** Opens a page (lyrics, the queue), or closes it when it's open, as in the Rust player. */
+function PageToggle({ path, icon, title }: { path: string; icon: IconName; title: string }) {
+  const open = useLocation().pathname === path;
+  const navigate = useNavigate();
+  const back = useBack();
+  return (
+    <button
+      className={`icon-button ${open ? "active" : ""}`}
+      title={open ? `Close ${title.toLowerCase()}` : title}
+      onClick={() => (open ? back() : void navigate(path))}
+    >
+      <Icon name={icon} size={18} />
+    </button>
   );
 }

@@ -16,6 +16,14 @@
   gap: 12px;
   margin-bottom: 20px;
 }
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lyrics .page-head {
+  margin-bottom: 4px;
+}
 .section {
   margin: 24px 0 12px;
 }

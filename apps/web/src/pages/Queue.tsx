@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { api, call, errorMessage } from "../api.ts";
+import { BackButton } from "../components/BackButton.tsx";
 import { Cover } from "../components/Cover.tsx";
 import { MenuButton } from "../components/Menu.tsx";
 import { duration } from "../format.ts";
@@ -19,11 +20,14 @@ export function Queue() {
     <div className="page">
       <div className="page-head">
         <h1>Queue</h1>
-        {entries.length > 0 && (
-          <button className="outline-button" onClick={() => void update(call(api.clearQueue))}>
-            Clear
-          </button>
-        )}
+        <div className="row-actions">
+          {entries.length > 0 && (
+            <button className="outline-button" onClick={() => void update(call(api.clearQueue))}>
+              Clear
+            </button>
+          )}
+          <BackButton title="Close the queue" />
+        </div>
       </div>
       {queue?.origin?.name && <div className="muted section">Playing from {queue.origin.name}</div>}
       {entries.length === 0 && <p className="muted">The queue is empty. Play an album to start.</p>}
