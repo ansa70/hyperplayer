@@ -3,6 +3,8 @@ import { api } from "../api.ts";
 import { AlbumGrid } from "../components/AlbumGrid.tsx";
 import { Cover } from "../components/Cover.tsx";
 import { Icon } from "../components/Icon.tsx";
+import { MenuButton } from "../components/Menu.tsx";
+import { queueAndPlaylistItems } from "../components/trackActions.ts";
 import { plural } from "../format.ts";
 import { usePlayer } from "../stores/player.ts";
 import { useApi } from "../useApi.ts";
@@ -37,6 +39,7 @@ export function Artist() {
             <button className="outline-button" onClick={() => void play({ kind: "artist", id }, 0, true)}>
               Shuffle
             </button>
+            {a && <MenuButton items={() => queueAndPlaylistItems({ kind: "artist", id }, a.name)} />}
           </div>
         </div>
       </header>

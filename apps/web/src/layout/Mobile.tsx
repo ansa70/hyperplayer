@@ -13,9 +13,13 @@ export function TabBar() {
         <Icon name="library" size={22} />
         Library
       </NavLink>
-      <NavLink to="/albums" className="tab">
-        <Icon name="albums" size={22} />
-        Albums
+      <NavLink to="/search" className="tab">
+        <Icon name="search" size={22} />
+        Search
+      </NavLink>
+      <NavLink to="/playlists" className="tab">
+        <Icon name="playlists" size={22} />
+        Playlists
       </NavLink>
       <NavLink to="/queue" className="tab">
         <Icon name="queue" size={22} />

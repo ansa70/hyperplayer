@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { ArtistRow, useArtists } from "../layout/Sidebar.tsx";
 import { usePhone } from "../layout/Shell.tsx";
 import { useSession } from "../stores/session.ts";
@@ -25,6 +26,9 @@ export function Home() {
           <Icon name="signOut" size={20} />
         </button>
       </div>
+      <Link to="/albums" className="nav-row">
+        <Icon name="albums" size={18} /> All albums
+      </Link>
       <div className="caps section">Artists</div>
       {artists.map((a) => (
         <ArtistRow key={a.id} artist={a} />

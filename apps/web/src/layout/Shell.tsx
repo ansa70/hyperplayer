@@ -1,5 +1,6 @@
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { Outlet } from "react-router";
+import { useLibrary } from "../stores/library.ts";
 import { MiniPlayer, NowPlayingSheet, TabBar } from "./Mobile.tsx";
 import { NowPlayingPanel } from "./NowPlayingPanel.tsx";
 import { Sidebar } from "./Sidebar.tsx";
@@ -21,6 +22,11 @@ export function usePhone(): boolean {
 }
 
 /** The window: three columns and a player bar on desktops, tabs and a mini-player on phones. */
+function Notice() {
+  const notice = useLibrary((s) => s.notice);
+  return notice ? <div className="notice">{notice}</div> : null;
+}
+
 export function Shell() {
   const phone = usePhone();
   const [sheet, setSheet] = useState(false);
@@ -33,6 +39,7 @@ export function Shell() {
         </main>
         <MiniPlayer onOpen={() => setSheet(true)} />
         <TabBar />
+        <Notice />
         {sheet && <NowPlayingSheet onClose={closeSheet} />}
       </div>
     );
@@ -45,6 +52,7 @@ export function Shell() {
       </main>
       <NowPlayingPanel />
       <TransportBar />
+      <Notice />
     </div>
   );
 }

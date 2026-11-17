@@ -1,47 +1,101 @@
 import type { Track } from "@hyperplayer/schemas";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { duration } from "../format.ts";
 import { usePlayer } from "../stores/player.ts";
+import { MenuButton, type MenuItem } from "./Menu.tsx";
+import { queueAndPlaylistItems, trackSource } from "./trackActions.ts";
 import "./components.css";
+
+export interface Row {
+  /** Null for a playlist entry whose file is missing from the library. */
+  track: Track | null;
+  title: string;
+  artistName: string;
+  albumTitle: string;
+  durationMs: number;
+  key: string;
+}
+
+export const rowOf = (t: Track): Row => ({
+  track: t,
+  title: t.title,
+  artistName: t.artistName,
+  albumTitle: t.albumTitle,
+  durationMs: t.durationMs,
+  key: t.id,
+});
 
 /** Tracks of an album (numbered) or a mixed list (with their artist and album). */
 export function TrackList({
   tracks,
+  rows,
   onPlay,
   numbered,
+  extraItems,
 }: {
-  tracks: Track[];
+  tracks?: Track[];
+  rows?: Row[];
   onPlay: (index: number) => void;
   numbered?: boolean;
+  /** More actions for a row's menu (e.g. removing it from a playlist). */
+  extraItems?: (index: number) => MenuItem[];
 }) {
+  const list = rows ?? (tracks ?? []).map(rowOf);
   const playingId = usePlayer((s) => s.track?.id);
-  const discs = new Set(tracks.map((t) => t.discNumber ?? 1)).size > 1;
+  const navigate = useNavigate();
+  // Disc headings only on an album's own list.
+  const discs = numbered === true && new Set(list.map((r) => r.track?.discNumber ?? 1)).size > 1;
   return (
     <div className="tracklist">
-      {tracks.map((t, i) => {
-        const playing = t.id === playingId;
-        const newDisc = discs && (i === 0 || tracks[i - 1]!.discNumber !== t.discNumber);
+      {list.map((r, i) => {
+        const t = r.track;
+        const playing = t !== null && t.id === playingId;
+        const newDisc = discs && (i === 0 || list[i - 1]!.track?.discNumber !== t?.discNumber);
         return (
-          <div key={t.id}>
-            {newDisc && <div className="caps disc">Disc {t.discNumber ?? 1}</div>}
-            <button className={`track ${playing ? "playing" : ""}`} onClick={() => onPlay(i)}>
-              <span className="track-number">{numbered ? (t.trackNumber ?? i + 1) : i + 1}</span>
+          <div key={r.key}>
+            {newDisc && <div className="caps disc">Disc {t?.discNumber ?? 1}</div>}
+            <div
+              className={`track ${playing ? "playing" : ""} ${t ? "" : "missing"}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => t && onPlay(i)}
+              onKeyDown={(e) => e.key === "Enter" && t && onPlay(i)}
+            >
+              <span className="track-number">{numbered ? (t?.trackNumber ?? i + 1) : i + 1}</span>
               <span className="track-title">
-                <span className="ellipsis">{t.title}</span>
+                <span className="ellipsis">{r.title}</span>
                 {!numbered && (
                   <span className="muted ellipsis track-sub">
-                    <Link to={`/artist/${t.artistId}`} onClick={(e) => e.stopPropagation()}>
-                      {t.artistName}
-                    </Link>
-                    {" · "}
-                    <Link to={`/album/${t.albumId}`} onClick={(e) => e.stopPropagation()}>
-                      {t.albumTitle}
-                    </Link>
+                    {t ? (
+                      <>
+                        <Link to={`/artist/${t.artistId}`} onClick={(e) => e.stopPropagation()}>
+                          {r.artistName}
+                        </Link>
+                        {" · "}
+                        <Link to={`/album/${t.albumId}`} onClick={(e) => e.stopPropagation()}>
+                          {r.albumTitle}
+                        </Link>
+                      </>
+                    ) : (
+                      `${r.artistName} · ${r.albumTitle} · not in the library`
+                    )}
                   </span>
                 )}
               </span>
-              <span className="muted track-duration">{duration(t.durationMs)}</span>
-            </button>
+              <span className="muted track-duration">{duration(r.durationMs)}</span>
+              <MenuButton
+                items={() => [
+                  ...(t ? queueAndPlaylistItems(trackSource(t), t.title) : []),
+                  ...(t && !numbered
+                    ? [{ label: "Go to album", onSelect: () => void navigate(`/album/${t.albumId}`) }]
+                    : []),
+                  ...(t
+                    ? [{ label: "Go to artist", onSelect: () => void navigate(`/artist/${t.artistId}`) }]
+                    : []),
+                  ...(extraItems?.(i) ?? []),
+                ]}
+              />
+            </div>
           </div>
         );
       })}

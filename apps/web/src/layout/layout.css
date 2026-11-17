@@ -64,8 +64,45 @@
   color: var(--text);
   background: var(--surface-hi);
 }
+.sidebar-top input {
+  margin-bottom: 8px;
+}
 .sidebar-heading {
-  margin: 16px 0 4px;
+  margin: 16px 8px 4px;
+}
+.sidebar-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px 8px 4px;
+}
+.plus-button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--bg);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.plus-button:hover {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--transport) + 16px);
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--surface-hi);
+  box-shadow: 0 8px 28px #000b;
+}
+.phone .notice {
+  bottom: calc(var(--tabbar) + var(--miniplayer) + var(--safe-bottom) + 12px);
 }
 .sidebar-artists {
   flex: 1;

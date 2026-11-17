@@ -30,7 +30,7 @@
 .track {
   width: 100%;
   display: grid;
-  grid-template-columns: 36px 1fr auto;
+  grid-template-columns: 36px 1fr auto 32px;
   align-items: center;
   gap: 12px;
   min-height: 44px;
@@ -40,6 +40,23 @@
 }
 .track:hover {
   background: var(--surface-hi);
+  cursor: pointer;
+}
+.track.missing {
+  opacity: 0.45;
+  cursor: default;
+}
+.track .menu-button {
+  opacity: 0;
+}
+.track:hover .menu-button,
+.track:focus-within .menu-button {
+  opacity: 1;
+}
+@media (hover: none) {
+  .track .menu-button {
+    opacity: 1;
+  }
 }
 .track-number {
   color: var(--faint);
@@ -103,4 +120,9 @@
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 16px 12px;
   }
+}
+
+.cover.mosaic {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
 }

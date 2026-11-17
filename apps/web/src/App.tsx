@@ -6,7 +6,11 @@ import { Albums } from "./pages/Albums.tsx";
 import { Artist } from "./pages/Artist.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Login } from "./pages/Login.tsx";
+import { Playlist } from "./pages/Playlist.tsx";
+import { Playlists } from "./pages/Playlists.tsx";
 import { Queue } from "./pages/Queue.tsx";
+import { Search } from "./pages/Search.tsx";
+import { useLibrary } from "./stores/library.ts";
 import { usePlayer } from "./stores/player.ts";
 import { useSession } from "./stores/session.ts";
 
@@ -20,8 +24,10 @@ export function App() {
   }, [restore]);
 
   useEffect(() => {
-    if (status === "signed-in") void usePlayer.getState().loadQueue();
-    else if (status === "signed-out") usePlayer.getState().stop();
+    if (status === "signed-in") {
+      void usePlayer.getState().loadQueue();
+      void useLibrary.getState().loadPlaylists();
+    } else if (status === "signed-out") usePlayer.getState().stop();
   }, [status]);
 
   useEffect(() => {
@@ -39,6 +45,9 @@ export function App() {
           <Route path="artist/:id" element={<Artist />} />
           <Route path="album/:id" element={<Album />} />
           <Route path="queue" element={<Queue />} />
+          <Route path="search" element={<Search />} />
+          <Route path="playlists" element={<Playlists />} />
+          <Route path="playlist/:id" element={<Playlist />} />
           <Route path="*" element={<Home />} />
         </Route>
       </Routes>

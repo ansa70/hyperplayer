@@ -2,6 +2,8 @@ import { Link, useParams } from "react-router";
 import { api } from "../api.ts";
 import { Cover } from "../components/Cover.tsx";
 import { Icon } from "../components/Icon.tsx";
+import { MenuButton } from "../components/Menu.tsx";
+import { queueAndPlaylistItems } from "../components/trackActions.ts";
 import { TrackList } from "../components/TrackList.tsx";
 import { duration, plural } from "../format.ts";
 import { usePlayer } from "../stores/player.ts";
@@ -38,6 +40,7 @@ export function Album() {
             <button className="outline-button" onClick={() => void play(source, 0, true)}>
               Shuffle
             </button>
+            <MenuButton items={() => queueAndPlaylistItems(source, album.title)} />
           </div>
         </div>
       </header>

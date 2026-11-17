@@ -88,10 +88,11 @@
 }
 .queue-row {
   display: grid;
-  grid-template-columns: 40px 1fr auto;
+  grid-template-columns: 40px 1fr auto 32px;
   gap: 12px;
   align-items: center;
   padding: 6px 10px;
+  cursor: pointer;
   border-radius: 6px;
   text-align: left;
 }
@@ -131,4 +132,38 @@
   .hero-text h1 {
     font-size: 24px;
   }
+}
+
+.search-input {
+  width: 100%;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.search-artists {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 2px 12px;
+}
+.genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.genre {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 4px 4px 14px;
+  border-radius: 18px;
+  background: var(--surface-hi);
+}
+.genre button:first-child {
+  display: inline-flex;
+  gap: 8px;
+}
+.search-more {
+  margin-top: 32px;
+}
+.search-more a {
+  text-decoration: underline;
 }

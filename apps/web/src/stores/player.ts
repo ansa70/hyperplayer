@@ -2,7 +2,7 @@
 // this plays the current track and reports back. Two audio elements take turns: while
 // one plays, the next track loads in the other, so it starts the moment this one ends.
 
-import type { QueueState, Track, TrackSource } from "@hyperplayer/schemas";
+import type { QueueState, ShuffleScope, Track, TrackSource } from "@hyperplayer/schemas";
 import { create } from "zustand";
 import { api, artworkUrl, call, errorMessage } from "../api.ts";
 import { begin, follow } from "../player/listening.ts";
@@ -26,7 +26,12 @@ interface PlayerState {
   mode: Mode;
 
   loadQueue: () => Promise<void>;
-  play: (source: TrackSource, start?: number, shuffle?: boolean) => Promise<void>;
+  play: (
+    source: TrackSource,
+    start?: number,
+    shuffle?: boolean,
+    shuffleScope?: ShuffleScope,
+  ) => Promise<void>;
   toggle: () => void;
   next: () => Promise<void>;
   previous: () => Promise<void>;
@@ -100,8 +105,8 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     }
   },
 
-  async play(source, start = 0, shuffle) {
-    await queueOp(() => call(api.setQueue, { body: { source, start, shuffle } }));
+  async play(source, start = 0, shuffle, shuffleScope) {
+    await queueOp(() => call(api.setQueue, { body: { source, start, shuffle, shuffleScope } }));
     playCurrent(0);
   },
 
