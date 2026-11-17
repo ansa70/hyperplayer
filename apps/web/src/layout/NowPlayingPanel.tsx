@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api, call } from "../api.ts";
 import { Cover } from "../components/Cover.tsx";
+import { Spectrum } from "../components/Spectrum.tsx";
 import { usePlayer } from "../stores/player.ts";
 
 /** How often, and how many times, to ask again while the server is still looking details up. */
@@ -61,6 +62,7 @@ export function NowPlayingPanel() {
     <aside className="now-playing">
       <div className="caps">Now playing</div>
       <Cover art={track.cover} size={312} className="now-playing-cover" />
+      <Spectrum />
       <div className="now-playing-title">{track.title}</div>
       <Link to={`/artist/${track.artistId}`} className="now-playing-artist">
         {track.artistName}

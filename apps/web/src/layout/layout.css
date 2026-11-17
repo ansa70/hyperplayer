@@ -159,6 +159,11 @@
   aspect-ratio: 1;
   margin: 10px 0 12px;
 }
+.spectrum {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+}
 .now-playing-title {
   font-size: 20px;
   font-weight: 700;

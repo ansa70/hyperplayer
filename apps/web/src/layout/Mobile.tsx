@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link, NavLink } from "react-router";
 import { Cover } from "../components/Cover.tsx";
+import { Spectrum } from "../components/Spectrum.tsx";
 import { Icon } from "../components/Icon.tsx";
 import { usePlayer } from "../stores/player.ts";
 import { Chips, useStreamInfo } from "./Chips.tsx";
@@ -86,6 +87,7 @@ export function NowPlayingSheet({ onClose }: { onClose: () => void }) {
         </span>
       </div>
       <Cover art={track.cover} size={600} className="sheet-cover" />
+      <Spectrum height={36} />
       <div className="sheet-text">
         <div className="sheet-title ellipsis">{track.title}</div>
         <Link to={`/artist/${track.artistId}`} className="muted ellipsis" onClick={close}>
