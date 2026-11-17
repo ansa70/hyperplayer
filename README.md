@@ -106,6 +106,12 @@ Get the player from the [Microsoft Store](https://apps.microsoft.com/detail/9MZB
 It plays the music on this PC by itself: you only need a server below to share your music with other
 devices.
 
+If you listen on this PC only, the player is all you need: choose **Standalone player** at its first
+start. Its library runs inside the player, so there's no service for an antivirus to stop (Bitdefender,
+for one, has stopped the server's Windows service). A server, in Docker or as a service, is for one
+library shared by several devices or the household; a standalone player can still bring a server's music
+in later.
+
 #### The server in Docker
 
 The easiest way to run the server on Windows is in a Docker container: nothing is installed in Windows
@@ -136,7 +142,8 @@ To update, in the same folder: `docker compose pull`, then `docker compose up -d
 > [!WARNING]
 > The script is new and hasn't been tested yet. Until it has, use Docker or the installer below.
 
-Without Docker, the server runs as the "HyperPlayer server" service, which starts with Windows. A
+Without Docker, the server runs as the "HyperPlayer server" service, which starts with Windows. Some
+antivirus programs stop it; if yours does, use Docker or a standalone player instead. A
 PowerShell script installs it; open an administrator PowerShell (right-click **Start**, **Terminal
 (Admin)**) and run:
 
