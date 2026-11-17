@@ -2,7 +2,7 @@
 
 A music player for your own music: native players for Linux, Windows and macOS that play the music on
 your computer, and a self-hosted server that keeps your library and streams it to them, at home or
-anywhere.
+anywhere, and to any browser, phones included.
 
 ![The player switching to John Coltrane's Impressions: its colours follow the new cover](docs/demo.gif)
 
@@ -19,6 +19,9 @@ anywhere.
   and the desktop's media keys and controls.
 - **Listening history** with your most played tracks and artists, and scrobbling to ListenBrainz and
   Last.fm (including "now playing").
+- **In the browser too:** the server serves a web player at its address, laid out like the desktop
+  player on computers and made for phones on phones, installable as an app (Android, iPhone, Chrome, Edge).
+- **Your own uploads:** everyone can upload music of their own, which only they see and play.
 - **For the household:** an account for everyone, with their own playlists, history and preferences. HTTPS
   built in, or behind your reverse proxy.
 
@@ -204,6 +207,9 @@ With a server (a standalone player has nothing to sign in to):
 4. Create your own account for everyday listening (the admin account stays for managing the server), and
    accounts for everyone else in **Settings → Server**.
 
+The web player needs nothing installed: open the server's address in a browser (e.g.
+`https://music.example.com`) and sign in with the same account.
+
 ### Behind a reverse proxy
 
 Choose HTTPS **off** in the installer, and point the proxy's rule for your domain at the whole server
@@ -258,11 +264,13 @@ vp install
 vp run dev             # generate types, then run server + client together
 vp run server          # server only (HP_LIBRARY=~/Music by default)
 vp run client          # client only (HP_SERVER=http://127.0.0.1:4533 by default)
+vp run web             # web player dev server (proxies /api to http://127.0.0.1:4533; HP_DEV_SERVER overrides)
 vp run ready           # fmt + lint + typecheck + all tests + clippy + release build
 ```
 
 Server environment: `HP_LIBRARY`, `HP_DATA_DIR` (default `apps/server/.data`), `HP_HOST`, `HP_PORT` (4533),
-`HP_FFMPEG`, `HP_VALIDATE_RESPONSES`. The OpenAPI document is served at `/openapi.json`.
+`HP_FFMPEG`, `HP_VALIDATE_RESPONSES`, `HP_WEB_DIR` and the `HP_UPLOAD_*` settings below. The OpenAPI document
+is served at `/openapi.json`.
 
 ## Building releases
 
@@ -434,9 +442,11 @@ the bitrate or audio underruns. The mode chip in the player cycles Auto → Orig
   stores only its SHA-256; passwords are Argon2id. Devices can be listed and revoked; changing the password signs
   out all other devices. Failed sign-ins are rate-limited per IP and per username.
 - **Client:** the token is kept in the OS keyring (Secret Service on Linux), falling back to a `0600` file.
-- **Browsers (future web client):** sign-in can set an `HttpOnly; SameSite=Strict; Secure` cookie instead;
-  cookie-authenticated writes must carry a same-origin `Origin` (CSRF protection). Cross-origin access is off
-  unless listed in `HP_CORS_ORIGINS`.
+- **Browsers (the web player):** sign-in sets an `HttpOnly; SameSite=Strict; Secure` cookie instead of handing
+  the page a token; cookie-authenticated writes must carry a same-origin `Origin` (CSRF protection). Cross-origin
+  access is off unless listed in `HP_CORS_ORIGINS`. The web player's page has a strict Content Security Policy:
+  scripts, media and data from the server only.
+- **No sign-up:** accounts are created by an admin; signing in is the only thing open to anyone.
 - **TLS:** tokens are only as safe as the connection. Keep the server on a trusted LAN, or put it behind an HTTPS
   reverse proxy (set `HP_TRUST_PROXY=true` there, so rate limits see real client IPs). `HP_SECURE_COOKIES=false`
   is for plain-HTTP development only.
@@ -478,3 +488,38 @@ the parts trimmed off are faded on the waveform. Seeking past a trimmed end play
 The server measures the silence at both ends of a track while computing its waveform. When a track that plays
 has 10 seconds or more of it, the player offers admins to skip it (**Skip it**, **Not now**, **Never for this
 track**). API: the waveform's `silence`, the track's `trim`, and `PUT /api/tracks/{id}/trim`.
+
+## Web player
+
+The server serves a web player at `/` (the API stays under `/api`): open the server's address in any browser
+and sign in. On computers it's laid out like the desktop player (sidebar, now-playing panel, player bar with
+the waveform); on phones it has tabs, a mini player and a full-screen player. It plays through the same
+queue, playlists, history and preferences as the native players: a phone is just another device.
+
+- **Install it as an app:** in Chrome or Edge, **Settings → Install app** (or the browser's own install
+  button); on Android, **Add to home screen**; on an iPhone, Safari's **Share → Add to Home Screen**. Playback
+  goes on with the screen locked, with the lock screen's and notification's controls. Installing needs HTTPS
+  (a reverse proxy, or the server's own).
+- **Sound:** the original file where the browser plays it (FLAC included), otherwise a transcode it plays
+  (Opus, AAC for Safari, MP3); **Auto** steps down on a slow or metered connection. Browsers resample to
+  the system's output rate, so for bit-perfect hi-res use a native player. ReplayGain, crossfade and the
+  spectrum use Web Audio; iPhones and iPads, which pause Web Audio when locked, play without them
+  (ReplayGain there only turns tracks down).
+- The build ships in the server bundle (`web/` beside `dist/`); `HP_WEB_DIR` points elsewhere. A player's
+  own library engine doesn't serve it.
+
+## Uploads
+
+Everyone can upload music of their own from the web player (**Uploads**): it's private to them, nobody else
+sees it in any list, search, page or stream, and it plays wherever they sign in, native players included.
+Uploads are off until the server has a writable folder for them:
+
+- `HP_UPLOAD_DIR`: where uploads are kept, as `<folder>/<user id>/<Artist>/<Album>/<NN - Title>` from the
+  files' tags. In Docker, a folder in the data volume (e.g. `/data/uploads`) or a writable share.
+- `HP_UPLOAD_MAX_MB`: the largest file accepted (2048 by default).
+- `HP_UPLOAD_QUOTA_MB`: how much each user may upload in all (no limit by default).
+
+Only audio the library reads is accepted. An upload of a track already in the shared library is shown as
+the shared one, and two people's uploads never hide each other. Users delete their own uploads (admins can
+delete anyone's); deleting a user deletes theirs. A file put in the uploads folder by hand outside a user's
+own folder is ignored, never added to the shared library.
