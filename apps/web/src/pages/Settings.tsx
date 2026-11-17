@@ -2,6 +2,7 @@ import type { Device } from "@hyperplayer/schemas";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, call, errorMessage } from "../api.ts";
 import { Segmented } from "../components/Segmented.tsx";
+import { install, useInstall } from "../install.ts";
 import { Library, Users } from "./settings/Admin.tsx";
 import { Appearance } from "./settings/Appearance.tsx";
 import { Card } from "./settings/Card.tsx";
@@ -18,10 +19,16 @@ type Tab = "playback" | "appearance" | "account" | "scrobbling" | "library" | "u
 export function Settings() {
   const [tab, setTab] = useState<Tab>("playback");
   const { serverVersion, user } = useSession();
+  const canInstall = useInstall((s) => s.prompt !== null);
   return (
     <div className="page settings">
       <div className="page-head">
         <h1>Settings</h1>
+        {canInstall && (
+          <button className="outline-button" onClick={() => void install()}>
+            Install app
+          </button>
+        )}
       </div>
       <Segmented
         value={tab}
