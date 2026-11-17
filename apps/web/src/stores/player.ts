@@ -2,7 +2,14 @@
 // this plays the current track and reports back. Two audio elements take turns: while
 // one plays, the next track loads in the other, so it starts the moment this one ends.
 
-import type { Preferences, QueueState, ShuffleScope, Track, TrackSource } from "@hyperplayer/schemas";
+import type {
+  Preferences,
+  QueueState,
+  ShuffleScope,
+  Silence,
+  Track,
+  TrackSource,
+} from "@hyperplayer/schemas";
 import { create } from "zustand";
 import { api, artworkUrl, call, errorMessage } from "../api.ts";
 import { begin, follow } from "../player/listening.ts";
@@ -22,6 +29,8 @@ interface PlayerState {
   /** What's streaming, e.g. "FLAC 24/96". */
   streamLabel: string;
   waveform: number[] | null;
+  /** Silence found at the ends of the current track (with its waveform). */
+  silence: Silence | null;
   volume: number;
   error: string;
   /** Streaming quality for this session (from the account's preference). */
@@ -49,6 +58,8 @@ interface PlayerState {
   setMode: (m: Mode) => void;
   /** Takes in the account's playback preferences. */
   setPreferences: (p: Preferences) => void;
+  /** Takes in a track changed on the server (its trim), wherever it's held. */
+  replaceTrack: (track: Track) => void;
   stop: () => void;
 }
 
@@ -112,6 +123,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   position: 0,
   streamLabel: "",
   waveform: null,
+  silence: null,
   volume: readVolume(),
   error: "",
   mode: "auto",
@@ -220,6 +232,18 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     set({ mode });
   },
 
+  replaceTrack(track) {
+    for (const l of loaded) if (l?.track.id === track.id) l.track = track;
+    const { queue, track: current } = get();
+    set({
+      track: current?.id === track.id ? track : current,
+      queue: queue && {
+        ...queue,
+        entries: queue.entries.map((e) => (e.track.id === track.id ? { ...e, track } : e)),
+      },
+    });
+  },
+
   setPreferences(p) {
     set({ mode: p.quality, rgMode: p.replayGain, preamp: p.replayGainPreamp });
     applyLevels();
@@ -320,10 +344,12 @@ let waveformFor = "";
 function loadWaveform(track: Track) {
   if (waveformFor === track.id) return;
   waveformFor = track.id;
-  usePlayer.setState({ waveform: null });
+  usePlayer.setState({ waveform: null, silence: null });
   call(api.waveform, { params: { id: track.id } })
     .then((w) => {
-      if (waveformFor === track.id) usePlayer.setState({ waveform: w.points.map((p) => p / 100) });
+      if (waveformFor === track.id) {
+        usePlayer.setState({ waveform: w.points.map((p) => p / 100), silence: w.silence ?? null });
+      }
     })
     .catch(() => {});
 }

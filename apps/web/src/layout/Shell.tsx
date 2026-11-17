@@ -5,6 +5,7 @@ import { MiniPlayer, NowPlayingSheet, TabBar } from "./Mobile.tsx";
 import { NowPlayingPanel } from "./NowPlayingPanel.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 import { TransportBar } from "./TransportBar.tsx";
+import { TrimOffer } from "./TrimOffer.tsx";
 import "./layout.css";
 
 const PHONE = "(max-width: 760px)";
@@ -40,6 +41,7 @@ export function Shell() {
         <MiniPlayer onOpen={() => setSheet(true)} />
         <TabBar />
         <Notice />
+        <TrimOffer />
         {sheet && <NowPlayingSheet onClose={closeSheet} />}
       </div>
     );
@@ -53,6 +55,7 @@ export function Shell() {
       <NowPlayingPanel />
       <TransportBar />
       <Notice />
+      <TrimOffer />
     </div>
   );
 }

@@ -166,6 +166,68 @@
 .now-playing a:hover {
   text-decoration: underline;
 }
+.now-playing-artist {
+  font-size: 15px;
+  font-weight: 600;
+}
+.now-playing h3 {
+  margin: 18px 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.np-small {
+  font-size: 12px;
+}
+.np-chips {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 2px;
+}
+.chip.static {
+  display: inline-flex;
+  align-items: center;
+  cursor: default;
+}
+.credits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.credit {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+.credit .faint {
+  font-size: 11px;
+}
+.np-bio {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 10;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.more-from {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.more-from-album {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 11px;
+}
+.more-from-album .cover {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1;
+}
 .now-playing-empty {
   margin: auto;
 }
@@ -293,6 +355,45 @@
   align-items: center;
   gap: 10px;
   width: 100%;
+}
+.seek-bar {
+  position: relative;
+  min-width: 0;
+}
+.trim-menu {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 8px);
+  width: 230px;
+}
+.trim-offer {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--transport) + 12px);
+  z-index: 25;
+  width: min(360px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--surface-hi);
+  border: 1px solid #2e323b;
+  box-shadow: 0 8px 28px #000b;
+}
+.trim-offer p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.trim-offer-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.phone .trim-offer {
+  bottom: calc(var(--tabbar) + var(--miniplayer) + var(--safe-bottom) + 12px);
 }
 .seek-time {
   font-size: 11px;

@@ -12,6 +12,7 @@ export function Waveform({
   trimStart,
   trimEnd,
   onSeek,
+  onMenu,
 }: {
   points: number[] | null;
   position: number;
@@ -19,7 +20,10 @@ export function Waveform({
   trimStart: number;
   trimEnd: number | null;
   onSeek: (seconds: number) => void;
+  /** A right-click, or a long press on a touch screen, at `seconds` (`x` across the bar). */
+  onMenu?: (seconds: number, x: number) => void;
 }) {
+  const press = useRef<{ timer: ReturnType<typeof setTimeout>; x: number } | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [drag, setDrag] = useState<number | null>(null);
@@ -66,25 +70,54 @@ export function Waveform({
     const r = canvas.current!.getBoundingClientRect();
     return Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * duration;
   };
+  const xAt = (clientX: number) => clientX - canvas.current!.getBoundingClientRect().left;
+  const cancelPress = () => {
+    if (press.current) clearTimeout(press.current.timer);
+    press.current = null;
+  };
 
   return (
     <canvas
       ref={canvas}
       className="waveform"
+      onContextMenu={(e) => {
+        if (!onMenu) return;
+        e.preventDefault();
+        setDrag(null);
+        onMenu(timeAt(e.clientX), xAt(e.clientX));
+      }}
       onPointerMove={(e) => {
         setHover(timeAt(e.clientX));
         if (drag !== null) setDrag(timeAt(e.clientX));
+        if (press.current && Math.abs(e.clientX - press.current.x) > 8) cancelPress();
       }}
       onPointerLeave={() => setHover(null)}
       onPointerDown={(e) => {
+        if (e.button !== 0) return;
         e.currentTarget.setPointerCapture(e.pointerId);
         setDrag(timeAt(e.clientX));
+        // A long press on a touch screen is its right-click.
+        if (onMenu && e.pointerType === "touch") {
+          const x = e.clientX;
+          press.current = {
+            x,
+            timer: setTimeout(() => {
+              press.current = null;
+              setDrag(null);
+              onMenu(timeAt(x), xAt(x));
+            }, 550),
+          };
+        }
       }}
       onPointerUp={(e) => {
+        cancelPress();
         if (drag !== null) onSeek(timeAt(e.clientX));
         setDrag(null);
       }}
-      onPointerCancel={() => setDrag(null)}
+      onPointerCancel={() => {
+        cancelPress();
+        setDrag(null);
+      }}
     />
   );
 }
