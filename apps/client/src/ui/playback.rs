@@ -675,9 +675,13 @@ enum Source {
 }
 
 /// The playlist the queue was started from, otherwise the current track's album;
-/// `None` when it's on screen already.
+/// `None` when it's on screen already, or the lyrics or the queue are (they follow
+/// the playing track themselves).
 fn playing_source(app: &App) -> Option<Source> {
     let ui = app.ui.upgrade()?;
+    if matches!(ui.get_page(), Page::Lyrics | Page::Queue) {
+        return None;
+    }
     let playlist = app
         .queue
         .as_ref()
