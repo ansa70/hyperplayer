@@ -10,6 +10,7 @@ import { Playlist } from "./pages/Playlist.tsx";
 import { Playlists } from "./pages/Playlists.tsx";
 import { Queue } from "./pages/Queue.tsx";
 import { Search } from "./pages/Search.tsx";
+import { Settings } from "./pages/Settings.tsx";
 import { useLibrary } from "./stores/library.ts";
 import { usePlayer } from "./stores/player.ts";
 import { useSession } from "./stores/session.ts";
@@ -17,7 +18,7 @@ import { useSession } from "./stores/session.ts";
 export function App() {
   const status = useSession((s) => s.status);
   const restore = useSession((s) => s.restore);
-  const quality = useSession((s) => s.preferences?.quality);
+  const preferences = useSession((s) => s.preferences);
 
   useEffect(() => {
     void restore();
@@ -31,8 +32,8 @@ export function App() {
   }, [status]);
 
   useEffect(() => {
-    if (quality) usePlayer.getState().setMode(quality);
-  }, [quality]);
+    if (preferences) usePlayer.getState().setPreferences(preferences);
+  }, [preferences]);
 
   if (status === "checking") return null;
   if (status !== "signed-in") return <Login />;
@@ -48,6 +49,7 @@ export function App() {
           <Route path="search" element={<Search />} />
           <Route path="playlists" element={<Playlists />} />
           <Route path="playlist/:id" element={<Playlist />} />
+          <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Home />} />
         </Route>
       </Routes>

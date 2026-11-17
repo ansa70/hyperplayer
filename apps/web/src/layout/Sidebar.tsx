@@ -122,6 +122,9 @@ export function Sidebar() {
       <div className="sidebar-account">
         <Icon name="user" size={18} className="muted" />
         <span className="ellipsis">{user?.fullName || user?.username}</span>
+        <NavLink to="/settings" className="icon-button" title="Settings">
+          <Icon name="settings" size={16} />
+        </NavLink>
         <button className="icon-button" title="Sign out" onClick={() => void signOut()}>
           <Icon name="signOut" size={16} />
         </button>

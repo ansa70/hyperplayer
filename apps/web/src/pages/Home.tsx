@@ -8,7 +8,7 @@ import "./pages.css";
 /** The desktop's welcome page; on phones, the library (the sidebar's artists). */
 export function Home() {
   const phone = usePhone();
-  const { user, signOut } = useSession();
+  const user = useSession((s) => s.user);
   const artists = useArtists();
   if (!phone) {
     return (
@@ -22,9 +22,9 @@ export function Home() {
     <div className="page">
       <div className="page-head">
         <h1>Library</h1>
-        <button className="icon-button" title="Sign out" onClick={() => void signOut()}>
-          <Icon name="signOut" size={20} />
-        </button>
+        <Link to="/settings" className="icon-button" title="Settings">
+          <Icon name="settings" size={20} />
+        </Link>
       </div>
       <Link to="/albums" className="nav-row">
         <Icon name="albums" size={18} /> All albums

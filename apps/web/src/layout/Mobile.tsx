@@ -3,6 +3,7 @@ import { Link, NavLink } from "react-router";
 import { Cover } from "../components/Cover.tsx";
 import { Icon } from "../components/Icon.tsx";
 import { usePlayer } from "../stores/player.ts";
+import { Chips, useStreamInfo } from "./Chips.tsx";
 import { Controls } from "./Controls.tsx";
 import { Seek } from "./Seek.tsx";
 
@@ -57,7 +58,8 @@ export function MiniPlayer({ onOpen }: { onOpen: () => void }) {
 
 /** The full-screen player on phones. */
 export function NowPlayingSheet({ onClose }: { onClose: () => void }) {
-  const { track, streamLabel, error } = usePlayer();
+  const { track, error } = usePlayer();
+  const info = useStreamInfo();
   // The phone's back button closes it.
   useEffect(() => {
     history.pushState({ sheet: true }, "");
@@ -87,7 +89,8 @@ export function NowPlayingSheet({ onClose }: { onClose: () => void }) {
       </div>
       <Seek />
       <Controls large />
-      <div className={`sheet-info ${error ? "error" : "faint"}`}>{error || streamLabel}</div>
+      <Chips />
+      <div className={`sheet-info ${error ? "error" : "faint"}`}>{error || info}</div>
     </div>
   );
 }

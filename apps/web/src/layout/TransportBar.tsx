@@ -2,12 +2,14 @@ import { Link } from "react-router";
 import { Cover } from "../components/Cover.tsx";
 import { Icon } from "../components/Icon.tsx";
 import { usePlayer } from "../stores/player.ts";
+import { Chips, useStreamInfo } from "./Chips.tsx";
 import { Controls } from "./Controls.tsx";
 import { Seek } from "./Seek.tsx";
 
 /** The desktop player bar along the bottom of the window. */
 export function TransportBar() {
-  const { track, volume, setVolume, streamLabel, error } = usePlayer();
+  const { track, volume, setVolume, error } = usePlayer();
+  const info = useStreamInfo();
   return (
     <footer className="transport">
       <div className="transport-track">
@@ -37,7 +39,8 @@ export function TransportBar() {
             onChange={(e) => setVolume(Number(e.target.value))}
           />
         </div>
-        <div className={`ellipsis transport-info ${error ? "error" : "faint"}`}>{error || streamLabel}</div>
+        <Chips />
+        <div className={`ellipsis transport-info ${error ? "error" : "faint"}`}>{error || info}</div>
         <Link to="/queue" className="icon-button" title="Queue">
           <Icon name="queue" size={18} />
         </Link>

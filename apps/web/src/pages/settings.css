@@ -1,0 +1,98 @@
+.settings {
+  max-width: 760px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.card h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+.note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.segmented {
+  display: inline-flex;
+  align-self: flex-start;
+  flex-wrap: wrap;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 8px;
+  background: var(--surface-hi);
+}
+.segmented button {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.segmented button.on {
+  background: var(--bg);
+  color: var(--text);
+}
+.slider-row {
+  display: grid;
+  grid-template-columns: auto 1fr 60px;
+  align-items: center;
+  gap: 12px;
+}
+.slider-row input {
+  accent-color: var(--accent);
+  padding: 0;
+  background: none;
+}
+.slider-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  line-height: 1.4;
+}
+.check input {
+  accent-color: var(--accent);
+  margin-top: 2px;
+}
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.row input {
+  flex: 1;
+  min-width: 160px;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.device {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--surface-hi);
+}
+.sign-out {
+  margin-top: 20px;
+}
+.versions {
+  margin-top: 24px;
+  font-size: 11px;
+}

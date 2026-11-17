@@ -215,12 +215,38 @@
   gap: 4px 8px;
 }
 .transport-info {
-  grid-column: 1;
+  grid-column: 1 / span 2;
   font-size: 11px;
+  text-align: right;
 }
 .transport-right .icon-button {
-  grid-row: 1 / span 2;
+  grid-row: 1;
   grid-column: 2;
+}
+.transport-right .chips {
+  grid-column: 1 / span 2;
+  justify-content: flex-end;
+}
+.chips {
+  display: flex;
+  gap: 6px;
+}
+.sheet .chips {
+  justify-content: center;
+}
+.chip {
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: color-mix(in srgb, var(--accent) 70%, white);
+  font-size: 10px;
+  font-weight: 700;
+}
+.chip:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 .volume {
   display: flex;

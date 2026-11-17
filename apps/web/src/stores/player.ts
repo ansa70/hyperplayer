@@ -2,11 +2,13 @@
 // this plays the current track and reports back. Two audio elements take turns: while
 // one plays, the next track loads in the other, so it starts the moment this one ends.
 
-import type { QueueState, ShuffleScope, Track, TrackSource } from "@hyperplayer/schemas";
+import type { Preferences, QueueState, ShuffleScope, Track, TrackSource } from "@hyperplayer/schemas";
 import { create } from "zustand";
 import { api, artworkUrl, call, errorMessage } from "../api.ts";
 import { begin, follow } from "../player/listening.ts";
+import { prepareOutput, setLevel } from "../player/output.ts";
 import { chooseStream, type Mode } from "../player/quality.ts";
+import { compute, label, UNITY, type Applied, type RgMode } from "../player/replaygain.ts";
 
 interface PlayerState {
   queue: QueueState | null;
@@ -24,6 +26,10 @@ interface PlayerState {
   error: string;
   /** Streaming quality for this session (from the account's preference). */
   mode: Mode;
+  rgMode: RgMode;
+  preamp: number;
+  /** The ReplayGain applied to the current track, e.g. "RG −6.4 dB track". */
+  rgLabel: string;
 
   loadQueue: () => Promise<void>;
   play: (
@@ -41,6 +47,8 @@ interface PlayerState {
   cycleRepeat: () => Promise<void>;
   setVolume: (v: number) => void;
   setMode: (m: Mode) => void;
+  /** Takes in the account's playback preferences. */
+  setPreferences: (p: Preferences) => void;
   stop: () => void;
 }
 
@@ -63,6 +71,25 @@ const elements = typeof Audio === "undefined" ? [] : [new Audio(), new Audio()];
 let active = 0;
 /** What each element holds. */
 const loaded: (Loaded | null)[] = [null, null];
+/** The ReplayGain each element plays at. */
+const gains: Applied[] = [UNITY, UNITY];
+
+/** "Album in order": the queue was started from an album and isn't shuffled. */
+function inAlbumOrder(): boolean {
+  const q = usePlayer.getState().queue;
+  return !!q && !q.shuffle && q.origin?.kind === "album";
+}
+
+/** Sets each element's loudness from the volume and its track's ReplayGain. */
+function applyLevels() {
+  const { volume, rgMode, preamp } = usePlayer.getState();
+  elements.forEach((e, slot) => {
+    const l = loaded[slot];
+    gains[slot] = l ? compute(l.track.replayGain, rgMode, inAlbumOrder(), preamp) : UNITY;
+    setLevel(e, volume, gains[slot]!.linear);
+  });
+  usePlayer.setState({ rgLabel: label(gains[active]!) });
+}
 let lastSaved = 0;
 /** The track playing ended: moving on is in progress (once per ending). */
 let advancing = false;
@@ -88,6 +115,9 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   volume: readVolume(),
   error: "",
   mode: "auto",
+  rgMode: "auto",
+  preamp: 0,
+  rgLabel: "",
 
   async loadQueue() {
     try {
@@ -177,8 +207,8 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   },
 
   setVolume(v) {
-    for (const e of elements) e.volume = v;
     set({ volume: v });
+    applyLevels();
     try {
       localStorage.setItem("hp-volume", String(v));
     } catch {
@@ -188,6 +218,11 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
 
   setMode(mode) {
     set({ mode });
+  },
+
+  setPreferences(p) {
+    set({ mode: p.quality, rgMode: p.replayGain, preamp: p.replayGainPreamp });
+    applyLevels();
   },
 
   stop() {
@@ -249,6 +284,7 @@ function load(slot: number, entryId: string, track: Track, start: number, autopl
   };
   e.preload = "auto";
   e.src = stream.url;
+  applyLevels();
   if (stream.seekable && start > 0) {
     e.addEventListener("loadedmetadata", () => (e.currentTime = start), { once: true });
   }
@@ -328,6 +364,7 @@ async function ended() {
       track: preloaded.track,
       position: positionOf(active),
       streamLabel: preloaded.label,
+      rgLabel: label(gains[active]!),
     });
     loadWaveform(preloaded.track);
     mediaMetadata(preloaded.track);
@@ -356,7 +393,7 @@ const SILENCE = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfA
 // The elements' events: only the active element's count (the spare one is preloading),
 // and only while it holds a track.
 elements.forEach((e, slot) => {
-  e.volume = readVolume();
+  setLevel(e, readVolume(), 1);
   const isActive = () => slot === active && loaded[slot] !== null && e.src !== SILENCE;
   e.addEventListener("playing", () => isActive() && usePlayer.setState({ playing: true, loading: false }));
   e.addEventListener("pause", () => isActive() && usePlayer.setState({ playing: false }));
@@ -388,6 +425,8 @@ elements.forEach((e, slot) => {
 // element. The first tap or key unlocks both, so later starts (after a request) play.
 if (typeof document !== "undefined") {
   const unlock = () => {
+    prepareOutput(elements);
+    applyLevels();
     for (const e of elements) {
       if (e.src) continue;
       e.src = SILENCE;
