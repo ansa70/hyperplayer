@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link, NavLink } from "react-router";
+import { Link, NavLink, useNavigate } from "react-router";
 import { Cover } from "../components/Cover.tsx";
 import { Spectrum } from "../components/Spectrum.tsx";
 import { Icon } from "../components/Icon.tsx";
@@ -61,6 +61,7 @@ export function MiniPlayer({ onOpen }: { onOpen: () => void }) {
 export function NowPlayingSheet({ onClose }: { onClose: () => void }) {
   const { track, error } = usePlayer();
   const info = useStreamInfo();
+  const navigate = useNavigate();
   // The phone's back button closes it.
   useEffect(() => {
     history.pushState({ sheet: true }, "");
@@ -70,6 +71,13 @@ export function NowPlayingSheet({ onClose }: { onClose: () => void }) {
   }, [onClose]);
   if (!track) return null;
   const close = () => history.back();
+  // Opening a page closes the player and takes the place of its history entry: going
+  // back first (as closing does) would undo the page just opened.
+  const goTo = (path: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    onClose();
+    void navigate(path, { replace: true });
+  };
   return (
     <div className="sheet">
       <div className="sheet-top">
@@ -78,10 +86,10 @@ export function NowPlayingSheet({ onClose }: { onClose: () => void }) {
         </button>
         <span className="caps">Now playing</span>
         <span>
-          <Link to="/lyrics" className="icon-button" onClick={close} title="Lyrics">
+          <Link to="/lyrics" className="icon-button" onClick={goTo("/lyrics")} title="Lyrics">
             <Icon name="lyrics" size={22} />
           </Link>
-          <Link to="/queue" className="icon-button" onClick={close} title="Queue">
+          <Link to="/queue" className="icon-button" onClick={goTo("/queue")} title="Queue">
             <Icon name="queue" size={22} />
           </Link>
         </span>
@@ -90,7 +98,11 @@ export function NowPlayingSheet({ onClose }: { onClose: () => void }) {
       <Spectrum height={36} />
       <div className="sheet-text">
         <div className="sheet-title ellipsis">{track.title}</div>
-        <Link to={`/artist/${track.artistId}`} className="muted ellipsis" onClick={close}>
+        <Link
+          to={`/artist/${track.artistId}`}
+          className="muted ellipsis"
+          onClick={goTo(`/artist/${track.artistId}`)}
+        >
           {track.artistName}
         </Link>
       </div>
