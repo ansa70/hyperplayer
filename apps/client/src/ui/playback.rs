@@ -124,7 +124,11 @@ pub fn play_current(start: Duration) {
         adaptive::choose(&track, app.mode, app.bandwidth.get())
     });
     start_stream(track.clone(), quality, start, false);
-    with_app(|app| app.np_polls = 0);
+    let source = with_app(|app| {
+        app.np_polls = 0;
+        playing_source(app)
+    });
+    show(source);
     fetch_now_playing(track.id.to_string());
 }
 
@@ -199,8 +203,8 @@ pub fn cycle_repeat() {
 pub fn toggle_play() {
     enum Do {
         Toggled,
-        /// From the saved position, and the album to show if nothing is shown yet.
-        Resume(Duration, Option<String>),
+        /// From the saved position.
+        Resume(Duration),
         PlayAlbum(String),
         Nothing,
     }
@@ -214,23 +218,11 @@ pub fn toggle_play() {
             }
             Do::Toggled
         }
-        _ if let Some(t) = current_track(app) => {
-            // Resuming last session's track on a fresh start: show its album, as if picked.
-            let blank = app
-                .ui
-                .upgrade()
-                .is_some_and(|ui| ui.get_page() == Page::Welcome);
-            Do::Resume(app.resume_at, blank.then(|| t.album_id.to_string()))
-        }
+        _ if current_track(app).is_some() => Do::Resume(app.resume_at),
         _ => app.album_id.clone().map_or(Do::Nothing, Do::PlayAlbum),
     });
     match what {
-        Do::Resume(at, album) => {
-            play_current(at);
-            if let Some(id) = album {
-                super::browse::select_album(id.into());
-            }
-        }
+        Do::Resume(at) => play_current(at),
         Do::PlayAlbum(id) => play_from(
             types::TrackSource::Album {
                 id: id.as_str().try_into().expect("album id"),
@@ -461,9 +453,12 @@ fn promote_preload() -> bool {
             q.position_ms = 0;
         }
         sync_queue_ui(app);
-        Some(id)
+        Some((id, playing_source(app)))
     });
-    let Some(id) = promoted else { return false };
+    let Some((id, source)) = promoted else {
+        return false;
+    };
+    show(source);
     refresh_playing_marks();
     fetch_now_playing(id);
     queue_op(Then::Continue, |api| api.advance_queue(true));
@@ -544,6 +539,41 @@ pub fn adapt(app: &mut App) -> Option<(types::Track, Quality, Duration)> {
         app.bandwidth.update(k);
     }
     Some((s.track.clone(), target, s.position()))
+}
+
+/// Where the current track plays from, to show in the panel.
+enum Source {
+    Playlist(String),
+    Album(String),
+}
+
+/// The playlist the queue was started from, otherwise the current track's album;
+/// `None` when it's on screen already.
+fn playing_source(app: &App) -> Option<Source> {
+    let ui = app.ui.upgrade()?;
+    let playlist = app
+        .queue
+        .as_ref()
+        .and_then(|q| q.origin.as_ref())
+        .filter(|o| o.kind == types::QueueOriginKind::Playlist)
+        .and_then(|o| o.id.as_ref())
+        .map(|id| id.to_string());
+    if let Some(id) = playlist {
+        let shown = ui.get_page() == Page::Playlist && ui.get_selected_playlist_id() == id.as_str();
+        return (!shown).then_some(Source::Playlist(id));
+    }
+    let album = current_track(app)?.album_id.to_string();
+    let shown = ui.get_page() == Page::Album && app.album_id.as_deref() == Some(album.as_str());
+    (!shown).then_some(Source::Album(album))
+}
+
+/// Switches the panel to `source` (outside `with_app`: loading it borrows the app).
+fn show(source: Option<Source>) {
+    match source {
+        Some(Source::Playlist(id)) => super::library::select_playlist(id.into()),
+        Some(Source::Album(id)) => super::browse::select_album(id.into()),
+        None => {}
+    }
 }
 
 pub fn refresh_playing_marks() {
