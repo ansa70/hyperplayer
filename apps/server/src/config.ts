@@ -55,6 +55,8 @@ const Env = z.object({
   HP_LASTFM_SECRET: z.string().trim().min(1).optional(),
   /** Development only: cap every audio stream at this many kbit/s. */
   HP_DEBUG_THROTTLE_KBPS: z.coerce.number().int().positive().optional(),
+  /** The web player's build (`index.html` and its assets); found beside the server when unset. */
+  HP_WEB_DIR: z.string().trim().min(1).optional(),
   /** Browser origins allowed to call the API cross-origin (comma-separated); none by default. */
   HP_CORS_ORIGINS: z.string().default(""),
   /** Set when behind a reverse proxy, so client IPs (for sign-in rate limits) come from X-Forwarded-For. */
@@ -101,6 +103,8 @@ export type Config = {
   defaultAdminPassword: string;
   /** Running as a player's library engine, or null for a server. */
   embedded?: EmbeddedConfig | null;
+  /** Where the web player's build is, if set (see `findWebDir`). */
+  webDir?: string;
 };
 
 /** The system user's name, as a HyperPlayer username. */
@@ -169,6 +173,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         ? { apiKey: e.HP_LASTFM_API_KEY, secret: e.HP_LASTFM_SECRET }
         : null,
     debugThrottleKbps: e.HP_DEBUG_THROTTLE_KBPS ?? null,
+    webDir: e.HP_WEB_DIR ? resolve(e.HP_WEB_DIR) : undefined,
     corsOrigins: e.HP_CORS_ORIGINS.split(",")
       .map((o) => o.trim())
       .filter(Boolean),

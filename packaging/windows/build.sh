@@ -50,7 +50,10 @@ stage() {
   echo "==> Server"
   vp run @hyperplayer/schemas#generate
   (cd apps/server && vp pack)
+  (cd apps/web && vp build)
   cp -a apps/server/dist "$STAGE/server/dist"
+  # The web player, served at / (the server finds it beside dist/).
+  cp -a apps/web/dist "$STAGE/server/web"
   fetch "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-win-x64.zip" "node-v$NODE_VERSION-win-x64.zip"
   unzip -q -j -o "$CACHE/node-v$NODE_VERSION-win-x64.zip" "node-v$NODE_VERSION-win-x64/node.exe" -d "$STAGE/server"
   fetch "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/$FFMPEG_ZIP" "$FFMPEG_ZIP"

@@ -30,9 +30,12 @@ fetch() { # url file: downloads into the cache once
 
 vp run @hyperplayer/schemas#generate
 (cd apps/server && vp pack)
+(cd apps/web && vp build)
 rm -rf "$DEST"
 mkdir -p "$DEST"
 cp -a apps/server/dist "$DEST/dist"
+# The web player, served at / (the server finds it beside dist/).
+cp -a apps/web/dist "$DEST/web"
 # Node.js from nodejs.org (built for old glibc versions, so it runs on most systems and
 # in the Flatpak's runtime), the version this build uses.
 NODE_TAR=node-v$NODE_VERSION-linux-x64.tar.xz

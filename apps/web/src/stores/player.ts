@@ -1,0 +1,452 @@
+// Playback. As in the Rust player, the server keeps the queue and decides what's next;
+// this plays the current track and reports back. Two audio elements take turns: while
+// one plays, the next track loads in the other, so it starts the moment this one ends.
+
+import type { QueueState, Track, TrackSource } from "@hyperplayer/schemas";
+import { create } from "zustand";
+import { api, artworkUrl, call, errorMessage } from "../api.ts";
+import { begin, follow } from "../player/listening.ts";
+import { chooseStream, type Mode } from "../player/quality.ts";
+
+interface PlayerState {
+  queue: QueueState | null;
+  /** The track loaded in the player (playing or paused). */
+  track: Track | null;
+  playing: boolean;
+  /** Opening a stream. */
+  loading: boolean;
+  /** Seconds into the track. */
+  position: number;
+  /** What's streaming, e.g. "FLAC 24/96". */
+  streamLabel: string;
+  waveform: number[] | null;
+  volume: number;
+  error: string;
+  /** Streaming quality for this session (from the account's preference). */
+  mode: Mode;
+
+  loadQueue: () => Promise<void>;
+  play: (source: TrackSource, start?: number, shuffle?: boolean) => Promise<void>;
+  toggle: () => void;
+  next: () => Promise<void>;
+  previous: () => Promise<void>;
+  seek: (seconds: number) => void;
+  jump: (entryId: string) => Promise<void>;
+  toggleShuffle: () => Promise<void>;
+  cycleRepeat: () => Promise<void>;
+  setVolume: (v: number) => void;
+  setMode: (m: Mode) => void;
+  stop: () => void;
+}
+
+/** Saving more often than this while playing would only add load; pausing saves at once. */
+const SAVE_EVERY = 10_000;
+/** How long before the end the next track starts loading. */
+const PRELOAD_BEFORE = 20;
+
+/** A track loaded in one of the two audio elements. */
+interface Loaded {
+  entryId: string;
+  track: Track;
+  /** Transcodes started at `start` count their time from there. */
+  offset: number;
+  seekable: boolean;
+  label: string;
+}
+
+const elements = typeof Audio === "undefined" ? [] : [new Audio(), new Audio()];
+let active = 0;
+/** What each element holds. */
+const loaded: (Loaded | null)[] = [null, null];
+let lastSaved = 0;
+/** The track playing ended: moving on is in progress (once per ending). */
+let advancing = false;
+
+const el = () => elements[active]!;
+const spare = () => elements[1 - active]!;
+const trimStart = (t: Track) => (t.trim?.startMs ?? 0) / 1000;
+const trimEnd = (t: Track) => (t.trim?.endMs ? t.trim.endMs / 1000 : null);
+const length = (t: Track) => t.durationMs / 1000;
+
+function currentEntry(q: QueueState | null) {
+  return q && q.index !== null ? (q.entries[q.index] ?? null) : null;
+}
+
+export const usePlayer = create<PlayerState>()((set, get) => ({
+  queue: null,
+  track: null,
+  playing: false,
+  loading: false,
+  position: 0,
+  streamLabel: "",
+  waveform: null,
+  volume: readVolume(),
+  error: "",
+  mode: "auto",
+
+  async loadQueue() {
+    try {
+      const queue = await call(api.getQueue);
+      set({ queue });
+      // Show the saved track, ready to resume where it stopped.
+      const entry = currentEntry(queue);
+      if (entry && !get().track) {
+        set({ track: entry.track, position: queue.positionMs / 1000 });
+        loadWaveform(entry.track);
+        mediaMetadata(entry.track);
+      }
+    } catch (e) {
+      set({ error: errorMessage(e) });
+    }
+  },
+
+  async play(source, start = 0, shuffle) {
+    await queueOp(() => call(api.setQueue, { body: { source, start, shuffle } }));
+    playCurrent(0);
+  },
+
+  toggle() {
+    const s = get();
+    if (!loaded[active]) {
+      // Nothing loaded yet: resume the queue's current track where it was left.
+      const entry = currentEntry(s.queue);
+      if (entry) playCurrent(s.queue!.positionMs / 1000);
+      return;
+    }
+    if (el().paused) {
+      void el()
+        .play()
+        .catch((e: unknown) => set({ error: errorMessage(e) }));
+    } else {
+      el().pause();
+      savePosition();
+    }
+  },
+
+  async next() {
+    await queueOp(() => call(api.advanceQueue, { body: { auto: false } }));
+    playCurrent(0);
+  },
+
+  async previous() {
+    // Like most players: restart the track unless we're at its very beginning.
+    const t = get().track;
+    if (t && get().position - trimStart(t) > 3) {
+      get().seek(trimStart(t));
+      return;
+    }
+    await queueOp(() => call(api.rewindQueue));
+    playCurrent(0);
+  },
+
+  seek(seconds) {
+    const l = loaded[active];
+    if (!l) return;
+    const target = Math.max(0, Math.min(seconds, length(l.track) - 0.5));
+    if (l.seekable) {
+      el().currentTime = target;
+    } else {
+      // A transcode restarts at the target.
+      load(active, l.entryId, l.track, target, !el().paused);
+    }
+    set({ position: target });
+  },
+
+  async jump(entryId) {
+    await queueOp(() => call(api.jumpInQueue, { body: { entryId } }));
+    playCurrent(0);
+  },
+
+  async toggleShuffle() {
+    const before = currentEntry(get().queue)?.entryId;
+    const on = !get().queue?.shuffle;
+    await queueOp(() => call(api.updateQueue, { body: { shuffle: on } }));
+    // Nothing playing: the server picked a track to start.
+    if (currentEntry(get().queue)?.entryId !== before) playCurrent(0);
+  },
+
+  async cycleRepeat() {
+    const next = { off: "all", all: "one", one: "off" } as const;
+    const repeat = next[get().queue?.repeat ?? "off"];
+    await queueOp(() => call(api.updateQueue, { body: { repeat } }));
+  },
+
+  setVolume(v) {
+    for (const e of elements) e.volume = v;
+    set({ volume: v });
+    try {
+      localStorage.setItem("hp-volume", String(v));
+    } catch {
+      // Not kept, then.
+    }
+  },
+
+  setMode(mode) {
+    set({ mode });
+  },
+
+  stop() {
+    for (const e of elements) {
+      e.pause();
+      e.removeAttribute("src");
+      e.load();
+    }
+    loaded[0] = loaded[1] = null;
+    set({ playing: false, loading: false });
+  },
+}));
+
+function readVolume(): number {
+  try {
+    const v = Number(localStorage.getItem("hp-volume"));
+    return Number.isFinite(v) && v > 0 && v <= 1 ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/** Runs a queue request and takes in the queue it returns. */
+async function queueOp(op: () => Promise<QueueState>) {
+  try {
+    const queue = await op();
+    usePlayer.setState({ queue, error: "" });
+  } catch (e) {
+    usePlayer.setState({ error: errorMessage(e) });
+    throw e;
+  }
+}
+
+/** Plays the queue's current track from `start` seconds (0: from its trimmed start), or stops. */
+function playCurrent(start: number) {
+  const entry = currentEntry(usePlayer.getState().queue);
+  if (!entry) {
+    usePlayer.getState().stop();
+    return;
+  }
+  const from = start > 0 ? start : trimStart(entry.track);
+  // The spare element is the other one; whatever it preloaded is no longer next.
+  loaded[1 - active] = null;
+  spare().removeAttribute("src");
+  load(active, entry.entryId, entry.track, from, true);
+}
+
+/** Loads `track` into element `slot` from `start` seconds, and plays it if `autoplay`. */
+function load(slot: number, entryId: string, track: Track, start: number, autoplay: boolean) {
+  const e = elements[slot]!;
+  const mode = usePlayer.getState().mode;
+  const stream = chooseStream(track, mode, start);
+  loaded[slot] = {
+    entryId,
+    track,
+    offset: stream.seekable ? 0 : start,
+    seekable: stream.seekable,
+    label: stream.label,
+  };
+  e.preload = "auto";
+  e.src = stream.url;
+  if (stream.seekable && start > 0) {
+    e.addEventListener("loadedmetadata", () => (e.currentTime = start), { once: true });
+  }
+  if (slot === active) {
+    advancing = false;
+    begin(track.id, track.durationMs);
+    usePlayer.setState({
+      track,
+      position: start,
+      streamLabel: stream.label,
+      loading: autoplay,
+      error: "",
+    });
+    loadWaveform(track);
+    mediaMetadata(track);
+    if (autoplay) {
+      e.play().catch((err: unknown) => {
+        // Replaced by another load before it started: not a failure.
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        usePlayer.setState({ loading: false, error: errorMessage(err) });
+      });
+    }
+  }
+}
+
+/** Position of element `slot` in its track, in seconds. */
+function positionOf(slot: number): number {
+  const l = loaded[slot];
+  return l ? l.offset + elements[slot]!.currentTime : 0;
+}
+
+let waveformFor = "";
+function loadWaveform(track: Track) {
+  if (waveformFor === track.id) return;
+  waveformFor = track.id;
+  usePlayer.setState({ waveform: null });
+  call(api.waveform, { params: { id: track.id } })
+    .then((w) => {
+      if (waveformFor === track.id) usePlayer.setState({ waveform: w.points.map((p) => p / 100) });
+    })
+    .catch(() => {});
+}
+
+function savePosition() {
+  const ms = Math.round(positionOf(active) * 1000);
+  lastSaved = Date.now();
+  call(api.updateQueue, { body: { positionMs: ms } }).catch(() => {});
+}
+
+/** Once the current track nears its end, loads the next one in the spare element. */
+function maybePreload() {
+  const { queue } = usePlayer.getState();
+  const l = loaded[active];
+  if (!queue || !l || queue.upNext === null) return;
+  const next = queue.entries[queue.upNext];
+  if (!next || loaded[1 - active]?.entryId === next.entryId) return;
+  const end = trimEnd(l.track) ?? length(l.track);
+  if (end - positionOf(active) > PRELOAD_BEFORE) return;
+  load(1 - active, next.entryId, next.track, trimStart(next.track), false);
+}
+
+/** The current track has ended (or reached its trimmed end): on to the next. */
+async function ended() {
+  if (advancing) return;
+  advancing = true;
+  const { queue } = usePlayer.getState();
+  const next = queue && queue.upNext !== null ? queue.entries[queue.upNext] : undefined;
+  const preloaded = loaded[1 - active];
+  if (next && preloaded?.entryId === next.entryId) {
+    // The next track is ready in the spare element: start it now, then tell the server.
+    el().pause();
+    loaded[active] = null;
+    active = 1 - active;
+    advancing = false;
+    begin(preloaded.track.id, preloaded.track.durationMs);
+    usePlayer.setState({
+      track: preloaded.track,
+      position: positionOf(active),
+      streamLabel: preloaded.label,
+    });
+    loadWaveform(preloaded.track);
+    mediaMetadata(preloaded.track);
+    void el().play();
+    try {
+      await queueOp(() => call(api.advanceQueue, { body: { auto: true } }));
+    } catch {
+      return;
+    }
+    // The server disagrees about what's next (the queue changed meanwhile).
+    if (currentEntry(usePlayer.getState().queue)?.entryId !== preloaded.entryId) playCurrent(0);
+    return;
+  }
+  try {
+    await queueOp(() => call(api.advanceQueue, { body: { auto: true } }));
+  } catch {
+    advancing = false;
+    return;
+  }
+  playCurrent(0);
+}
+
+/** The silent clip that unlocks an element (see below): its events aren't playback. */
+const SILENCE = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+
+// The elements' events: only the active element's count (the spare one is preloading),
+// and only while it holds a track.
+elements.forEach((e, slot) => {
+  e.volume = readVolume();
+  const isActive = () => slot === active && loaded[slot] !== null && e.src !== SILENCE;
+  e.addEventListener("playing", () => isActive() && usePlayer.setState({ playing: true, loading: false }));
+  e.addEventListener("pause", () => isActive() && usePlayer.setState({ playing: false }));
+  e.addEventListener("waiting", () => isActive() && usePlayer.setState({ loading: true }));
+  e.addEventListener("ended", () => isActive() && void ended());
+  e.addEventListener("error", () => {
+    if (!isActive() || !loaded[slot]) return;
+    usePlayer.setState({ loading: false, playing: false, error: `Cannot play ${loaded[slot].track.title}` });
+  });
+  e.addEventListener("timeupdate", () => {
+    if (!isActive()) return;
+    const l = loaded[slot];
+    if (!l) return;
+    const position = positionOf(slot);
+    usePlayer.setState({ position });
+    follow(l.track.id, position, !e.paused);
+    const end = trimEnd(l.track);
+    if (end !== null && position >= end && !e.paused) {
+      void ended();
+      return;
+    }
+    maybePreload();
+    if (!e.paused && Date.now() - lastSaved > SAVE_EVERY) savePosition();
+    mediaPosition(position, l.track);
+  });
+});
+
+// Browsers only let audio start from a user's gesture; Safari requires it of each
+// element. The first tap or key unlocks both, so later starts (after a request) play.
+if (typeof document !== "undefined") {
+  const unlock = () => {
+    for (const e of elements) {
+      if (e.src) continue;
+      e.src = SILENCE;
+      e.play()
+        .then(() => e.pause())
+        .catch(() => {})
+        .finally(() => {
+          if (e.src === SILENCE) e.removeAttribute("src");
+        });
+    }
+    document.removeEventListener("pointerdown", unlock, true);
+    document.removeEventListener("keydown", unlock, true);
+  };
+  document.addEventListener("pointerdown", unlock, true);
+  document.addEventListener("keydown", unlock, true);
+}
+
+// ------------------------------------------------------------- media session
+
+function mediaMetadata(track: Track) {
+  if (!("mediaSession" in navigator)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: track.title,
+    artist: track.artistName,
+    album: track.albumTitle,
+    artwork: track.cover
+      ? [256, 512].map((size) => ({
+          src: artworkUrl(track.cover!.id, size),
+          sizes: `${size}x${size}`,
+          type: "image/jpeg",
+        }))
+      : [],
+  });
+}
+
+function mediaPosition(position: number, track: Track) {
+  if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
+  const duration = length(track);
+  if (!(duration > 0)) return;
+  try {
+    navigator.mediaSession.setPositionState({
+      duration,
+      position: Math.min(position, duration),
+      playbackRate: 1,
+    });
+  } catch {
+    // Some browsers reject states while metadata loads.
+  }
+}
+
+if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+  const p = () => usePlayer.getState();
+  const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
+    ["play", () => p().toggle()],
+    ["pause", () => p().toggle()],
+    ["nexttrack", () => void p().next()],
+    ["previoustrack", () => void p().previous()],
+    ["seekto", (d) => d.seekTime !== undefined && p().seek(d.seekTime)],
+  ];
+  for (const [action, handler] of handlers) {
+    try {
+      navigator.mediaSession.setActionHandler(action, handler);
+    } catch {
+      // Not supported here.
+    }
+  }
+}

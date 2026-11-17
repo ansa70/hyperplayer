@@ -1,0 +1,40 @@
+.login {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at 50% 0%, #1b2a22 0%, var(--bg) 60%);
+}
+
+.login-card {
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+  text-align: center;
+}
+
+.login-card img {
+  align-self: center;
+}
+
+.login-card h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.login-card p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.login-error {
+  color: #ff8a80;
+}
+
+.login-version {
+  margin-top: 8px !important;
+}

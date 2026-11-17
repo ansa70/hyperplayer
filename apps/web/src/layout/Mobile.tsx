@@ -1,0 +1,89 @@
+import { useEffect } from "react";
+import { Link, NavLink } from "react-router";
+import { Cover } from "../components/Cover.tsx";
+import { Icon } from "../components/Icon.tsx";
+import { usePlayer } from "../stores/player.ts";
+import { Controls } from "./Controls.tsx";
+import { Seek } from "./Seek.tsx";
+
+export function TabBar() {
+  return (
+    <nav className="tabbar">
+      <NavLink to="/" end className="tab">
+        <Icon name="library" size={22} />
+        Library
+      </NavLink>
+      <NavLink to="/albums" className="tab">
+        <Icon name="albums" size={22} />
+        Albums
+      </NavLink>
+      <NavLink to="/queue" className="tab">
+        <Icon name="queue" size={22} />
+        Queue
+      </NavLink>
+    </nav>
+  );
+}
+
+/** The bar above the tabs while something is loaded; tapping it opens the full player. */
+export function MiniPlayer({ onOpen }: { onOpen: () => void }) {
+  const { track, playing, position, toggle } = usePlayer();
+  if (!track) return null;
+  const progress = track.durationMs > 0 ? (position * 1000) / track.durationMs : 0;
+  return (
+    <div className="miniplayer" onClick={onOpen}>
+      <Cover art={track.cover} size={44} />
+      <div className="miniplayer-text">
+        <div className="ellipsis">{track.title}</div>
+        <div className="ellipsis muted">{track.artistName}</div>
+      </div>
+      <button
+        className="icon-button"
+        onClick={(e) => {
+          e.stopPropagation();
+          toggle();
+        }}
+      >
+        <Icon name={playing ? "pause" : "play"} size={24} />
+      </button>
+      <div className="miniplayer-progress" style={{ width: `${Math.min(1, progress) * 100}%` }} />
+    </div>
+  );
+}
+
+/** The full-screen player on phones. */
+export function NowPlayingSheet({ onClose }: { onClose: () => void }) {
+  const { track, streamLabel, error } = usePlayer();
+  // The phone's back button closes it.
+  useEffect(() => {
+    history.pushState({ sheet: true }, "");
+    const back = () => onClose();
+    window.addEventListener("popstate", back);
+    return () => window.removeEventListener("popstate", back);
+  }, [onClose]);
+  if (!track) return null;
+  const close = () => history.back();
+  return (
+    <div className="sheet">
+      <div className="sheet-top">
+        <button className="icon-button" onClick={close} title="Close">
+          <Icon name="chevronDown" size={26} />
+        </button>
+        <span className="caps">Now playing</span>
+        <Link to="/queue" className="icon-button" onClick={close} title="Queue">
+          <Icon name="queue" size={22} />
+        </Link>
+      </div>
+      <Cover art={track.cover} size={600} className="sheet-cover" />
+      <div className="sheet-text">
+        <div className="sheet-title ellipsis">{track.title}</div>
+        <Link to={`/artist/${track.artistId}`} className="muted ellipsis" onClick={close}>
+          {track.artistName}
+        </Link>
+      </div>
+      <Seek />
+      <Controls large />
+      <div className={`sheet-info ${error ? "error" : "faint"}`}>{error || streamLabel}</div>
+    </div>
+  );
+}

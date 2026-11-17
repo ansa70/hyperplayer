@@ -139,6 +139,7 @@ Section "-Engine" SecEngine
   SetOutPath "$INSTDIR\server"
   ; The bundle's chunk names change between versions: start from a clean folder.
   RMDir /r "$INSTDIR\server\dist"
+  RMDir /r "$INSTDIR\server\web"
   !ifndef UNINSTALLER
     File /r "${STAGE}/server/*"
   !endif

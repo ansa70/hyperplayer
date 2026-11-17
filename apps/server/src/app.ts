@@ -19,6 +19,7 @@ import type { Config } from "./config.ts";
 import { openDb } from "./db.ts";
 import { Auth, type AuthContext } from "./auth/auth.ts";
 import { HttpError, notFound, Router, SESSION_COOKIE } from "./http/contract.ts";
+import { findWebDir, serveWebApp } from "./http/web.ts";
 import { loadTls, stampOf } from "./http/tls.ts";
 import { ArtworkStore } from "./library/artwork.ts";
 import { Scanner } from "./library/scanner.ts";
@@ -467,6 +468,10 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   });
 
   app.get("/openapi.json", () => openApiDocument());
+  // The web player, at `/`. Not in a player's library engine: only its own player calls it.
+  const webDir = config.embedded ? null : findWebDir(config.webDir);
+  if (webDir) serveWebApp(app, webDir);
+
   app.addHook("onClose", () => {
     enricher.stop();
     db.close();

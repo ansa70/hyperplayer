@@ -1,0 +1,134 @@
+.page {
+  padding: 24px 32px 40px;
+  max-width: 1400px;
+}
+.page h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.section {
+  margin: 24px 0 12px;
+}
+.welcome {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 15vh;
+  align-items: center;
+  text-align: center;
+  max-width: none;
+}
+.select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-hi);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.sentinel {
+  height: 1px;
+}
+
+.hero {
+  display: flex;
+  gap: 24px;
+  align-items: flex-end;
+  margin-bottom: 24px;
+}
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.hero-text h1 {
+  font-size: 34px;
+}
+.hero-artist {
+  font-weight: 600;
+  font-size: 15px;
+}
+.hero-artist:hover {
+  text-decoration: underline;
+}
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+.hero-actions .primary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.bio {
+  max-width: 760px;
+  line-height: 1.55;
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.queue {
+  display: flex;
+  flex-direction: column;
+}
+.queue-row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  text-align: left;
+}
+.queue-row:hover {
+  background: var(--surface-hi);
+}
+.queue-row.playing .queue-text > span:first-child {
+  color: var(--accent);
+}
+.queue-row.past {
+  opacity: 0.5;
+}
+.queue-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.queue-text .muted {
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 16px 16px 24px;
+  }
+  .page h1 {
+    font-size: 24px;
+  }
+  .hero {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .hero-text {
+    align-items: center;
+  }
+  .hero-text h1 {
+    font-size: 24px;
+  }
+}
