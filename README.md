@@ -22,15 +22,15 @@ anywhere.
 - **For the household:** an account for everyone, with their own playlists, history and preferences. HTTPS
   built in, or behind your reverse proxy.
 
-HyperPlayer is in beta (0.3.3).
+HyperPlayer is in beta (0.3.4).
 
 ## Download
 
 | Platform                                        | Download                                                                                                                                                                                                                                          |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Linux (x86-64)                                  | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.3.3/hyperplayer-0.3.3-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.3.3/hyperplayer-0.3.3-x86_64.flatpak) |
-| Windows 10 and 11 (x64)                         | [Player (Microsoft Store)](https://apps.microsoft.com/detail/9MZB5KGB92RD) · [Server](#windows) · [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.3.3/hyperplayer-0.3.3-windows-x64-setup.exe)                             |
-| macOS 11 or newer (player only, not tested yet) | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.3.3/hyperplayer-0.3.3-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.3.3/hyperplayer-0.3.3-macos-x64.dmg)                       |
+| Linux (x86-64)                                  | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.3.4/hyperplayer-0.3.4-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.3.4/hyperplayer-0.3.4-x86_64.flatpak) |
+| Windows 10 and 11 (x64)                         | [Player (Microsoft Store)](https://apps.microsoft.com/detail/9MZB5KGB92RD) · [Server](#windows) · [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.3.4/hyperplayer-0.3.4-windows-x64-setup.exe)                             |
+| macOS 11 or newer (player only, not tested yet) | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.3.4/hyperplayer-0.3.4-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.3.4/hyperplayer-0.3.4-macos-x64.dmg)                       |
 
 Checksums and earlier versions are on the [releases page](https://github.com/ansa70/hyperplayer/releases).
 
@@ -115,7 +115,7 @@ itself (no service, nothing for an antivirus to stop), and updating is one comma
    **Start Docker Desktop when you sign in to your computer**: the server runs while Docker Desktop does,
    so after a restart it starts once you sign in.
 2. Make a folder for it, e.g. `C:\HyperPlayer`, and save
-   [compose.yaml](https://github.com/ansa70/hyperplayer/releases/download/v0.3.3/compose.yaml) in it.
+   [compose.yaml](https://github.com/ansa70/hyperplayer/releases/download/v0.3.4/compose.yaml) in it.
 3. Open `compose.yaml` in Notepad and change `C:\Users\Me\Music` to your music folder. The comments in it
    show how to add more folders, a share on a NAS, Last.fm and a reverse proxy.
 4. Open a terminal in that folder (right-click it, **Open in Terminal**) and run:
@@ -141,7 +141,7 @@ PowerShell script installs it; open an administrator PowerShell (right-click **S
 (Admin)**) and run:
 
 ```powershell
-irm https://github.com/ansa70/hyperplayer/releases/download/v0.3.3/install-server.ps1 | iex
+irm https://github.com/ansa70/hyperplayer/releases/download/v0.3.4/install-server.ps1 | iex
 ```
 
 It downloads the server, checks it against the release's checksums and asks for the music folders
@@ -153,7 +153,7 @@ Without questions, pass the settings (`-Library 'D:\Music;\\nas\Music'`, `-Port`
 `-KeepSettings` for an update; the list is at the top of the script):
 
 ```powershell
-& ([scriptblock]::Create((irm https://github.com/ansa70/hyperplayer/releases/download/v0.3.3/install-server.ps1))) -KeepSettings
+& ([scriptblock]::Create((irm https://github.com/ansa70/hyperplayer/releases/download/v0.3.4/install-server.ps1))) -KeepSettings
 ```
 
 Other computers reach the server when the PC's network is set to **Private** in Windows (the firewall is
