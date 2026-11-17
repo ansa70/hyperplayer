@@ -37,15 +37,49 @@ export function prepareOutput(elements: HTMLAudioElement[]) {
   }
 }
 
+/** Elements fading in or out, until when (ms): their level follows the fade meanwhile. */
+const fading = new Map<HTMLAudioElement, number>();
+
 /** Sets an element's loudness: the user's volume times the ReplayGain factor. */
 export function setLevel(e: HTMLAudioElement, volume: number, gain: number) {
   const stage = stages.get(e);
+  if (stage && (fading.get(e) ?? 0) > Date.now()) return;
   if (stage) {
+    stage.gain.cancelScheduledValues(0);
     e.volume = 1;
     stage.gain.value = volume * gain;
   } else {
     e.volume = Math.min(1, volume * gain);
   }
+}
+
+/** Whether elements can be faded (they play through gain stages). */
+export function canFade(): boolean {
+  return stages.size > 0;
+}
+
+/**
+ * Fades an element in (or out) over `seconds` from now, on an equal-power curve so a
+ * crossfade keeps the loudness, at `level` (its volume and ReplayGain) when fully in.
+ */
+export function fade(e: HTMLAudioElement, level: number, direction: "in" | "out", seconds: number) {
+  const stage = stages.get(e);
+  if (!stage || !context || seconds <= 0) return;
+  const points = 64;
+  const curve = new Float32Array(points);
+  for (let i = 0; i < points; i++) {
+    const t = i / (points - 1);
+    curve[i] = level * Math.sin(((direction === "in" ? t : 1 - t) * Math.PI) / 2);
+  }
+  stage.gain.cancelScheduledValues(0);
+  stage.gain.setValueCurveAtTime(curve, context.currentTime, seconds);
+  fading.set(e, Date.now() + seconds * 1000);
+}
+
+/** Ends any fade on an element (its level is set again afterwards). */
+export function stopFade(e: HTMLAudioElement) {
+  fading.delete(e);
+  stages.get(e)?.gain.cancelScheduledValues(0);
 }
 
 /** The analyser of what's played, once the gain stages exist. */

@@ -13,7 +13,7 @@ import type {
 import { create } from "zustand";
 import { api, artworkUrl, call, errorMessage } from "../api.ts";
 import { begin, follow } from "../player/listening.ts";
-import { prepareOutput, setLevel } from "../player/output.ts";
+import { canFade, fade, prepareOutput, setLevel, stopFade } from "../player/output.ts";
 import { chooseStream, type Mode } from "../player/quality.ts";
 import { compute, label, UNITY, type Applied, type RgMode } from "../player/replaygain.ts";
 
@@ -37,6 +37,8 @@ interface PlayerState {
   mode: Mode;
   rgMode: RgMode;
   preamp: number;
+  /** Crossfade, from the account's preferences. */
+  crossfade: { seconds: number; onSkip: boolean; albums: boolean };
   /** The ReplayGain applied to the current track, e.g. "RG −6.4 dB track". */
   rgLabel: string;
 
@@ -130,6 +132,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   rgMode: "auto",
   preamp: 0,
   rgLabel: "",
+  crossfade: { seconds: 0, onSkip: false, albums: false },
 
   async loadQueue() {
     try {
@@ -149,7 +152,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
 
   async play(source, start = 0, shuffle, shuffleScope) {
     await queueOp(() => call(api.setQueue, { body: { source, start, shuffle, shuffleScope } }));
-    playCurrent(0);
+    playCurrent(0, true);
   },
 
   toggle() {
@@ -165,6 +168,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
         .play()
         .catch((e: unknown) => set({ error: errorMessage(e) }));
     } else {
+      endFade();
       el().pause();
       savePosition();
     }
@@ -172,7 +176,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
 
   async next() {
     await queueOp(() => call(api.advanceQueue, { body: { auto: false } }));
-    playCurrent(0);
+    playCurrent(0, true);
   },
 
   async previous() {
@@ -183,7 +187,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
       return;
     }
     await queueOp(() => call(api.rewindQueue));
-    playCurrent(0);
+    playCurrent(0, true);
   },
 
   seek(seconds) {
@@ -201,7 +205,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
 
   async jump(entryId) {
     await queueOp(() => call(api.jumpInQueue, { body: { entryId } }));
-    playCurrent(0);
+    playCurrent(0, true);
   },
 
   async toggleShuffle() {
@@ -245,11 +249,17 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   },
 
   setPreferences(p) {
-    set({ mode: p.quality, rgMode: p.replayGain, preamp: p.replayGainPreamp });
+    set({
+      mode: p.quality,
+      rgMode: p.replayGain,
+      preamp: p.replayGainPreamp,
+      crossfade: { seconds: p.crossfade, onSkip: p.crossfadeOnSkip, albums: p.crossfadeAlbums },
+    });
     applyLevels();
   },
 
   stop() {
+    endFade();
     for (const e of elements) {
       e.pause();
       e.removeAttribute("src");
@@ -280,18 +290,74 @@ async function queueOp(op: () => Promise<QueueState>) {
   }
 }
 
-/** Plays the queue's current track from `start` seconds (0: from its trimmed start), or stops. */
-function playCurrent(start: number) {
+/**
+ * Plays the queue's current track from `start` seconds (0: from its trimmed start), or
+ * stops. A `skip` (another track picked, next, previous) crossfades into it when that's
+ * wanted and something is playing; otherwise the track replaces the one playing.
+ */
+function playCurrent(start: number, skip = false) {
   const entry = currentEntry(usePlayer.getState().queue);
   if (!entry) {
     usePlayer.getState().stop();
     return;
   }
   const from = start > 0 ? start : trimStart(entry.track);
+  const { crossfade } = usePlayer.getState();
+  const playing = loaded[active] !== null && !el().paused;
+  if (skip && crossfade.onSkip && crossfade.seconds > 0 && playing && canFade()) {
+    // The one playing fades out in its element while the new one fades in in the other.
+    endFade();
+    const old = active;
+    active = 1 - active;
+    load(active, entry.entryId, entry.track, from, true);
+    startFade(old, crossfade.seconds);
+    return;
+  }
+  endFade();
   // The spare element is the other one; whatever it preloaded is no longer next.
   loaded[1 - active] = null;
   spare().removeAttribute("src");
   load(active, entry.entryId, entry.track, from, true);
+}
+
+/** The element fading out (a crossfade), and when it's done. */
+let fadingSlot: number | null = null;
+let fadeTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Fades element `old` out and the active one in, over `seconds`. */
+function startFade(old: number, seconds: number) {
+  const { volume } = usePlayer.getState();
+  fade(elements[old]!, volume * gains[old]!.linear, "out", seconds);
+  fade(el(), volume * gains[active]!.linear, "in", seconds);
+  fadingSlot = old;
+  fadeTimer = setTimeout(endFade, seconds * 1000);
+}
+
+/** Ends a crossfade: the old track stops, and both elements are at their own level. */
+function endFade() {
+  clearTimeout(fadeTimer);
+  if (fadingSlot === null) return;
+  const old = elements[fadingSlot]!;
+  old.pause();
+  old.removeAttribute("src");
+  loaded[fadingSlot] = null;
+  fadingSlot = null;
+  for (const e of elements) stopFade(e);
+  applyLevels();
+}
+
+/**
+ * How long the playing track and the next one overlap when one follows the other, as in
+ * the Rust player: no longer than half of either, not within an album playing in order
+ * unless that's wanted, and not at all where elements can't be faded (iPhones).
+ */
+function autoCrossfade(current: Track, next: Track): number {
+  const { crossfade, queue } = usePlayer.getState();
+  if (crossfade.seconds === 0 || !canFade()) return 0;
+  const albumInOrder = !queue?.shuffle && current.albumId === next.albumId;
+  if (albumInOrder && !crossfade.albums) return 0;
+  const playable = (t: Track) => (trimEnd(t) ?? length(t)) - trimStart(t);
+  return Math.min(crossfade.seconds, playable(current) / 2, playable(next) / 2);
 }
 
 /** Loads `track` into element `slot` from `start` seconds, and plays it if `autoplay`. */
@@ -364,6 +430,8 @@ function savePosition() {
 function maybePreload() {
   const { queue } = usePlayer.getState();
   const l = loaded[active];
+  // The spare element is still playing the end of the last track.
+  if (fadingSlot !== null) return;
   if (!queue || !l || queue.upNext === null) return;
   const next = queue.entries[queue.upNext];
   if (!next || loaded[1 - active]?.entryId === next.entryId) return;
@@ -372,8 +440,11 @@ function maybePreload() {
   load(1 - active, next.entryId, next.track, trimStart(next.track), false);
 }
 
-/** The current track has ended (or reached its trimmed end): on to the next. */
-async function ended() {
+/**
+ * The current track has ended (or reached its trimmed end), or is about to and the next
+ * fades in over its last `overlap` seconds: on to the next.
+ */
+async function ended(overlap = 0) {
   if (advancing) return;
   advancing = true;
   const { queue } = usePlayer.getState();
@@ -381,9 +452,14 @@ async function ended() {
   const preloaded = loaded[1 - active];
   if (next && preloaded?.entryId === next.entryId) {
     // The next track is ready in the spare element: start it now, then tell the server.
-    el().pause();
-    loaded[active] = null;
+    const old = active;
     active = 1 - active;
+    if (overlap > 0) {
+      startFade(old, overlap);
+    } else {
+      elements[old]!.pause();
+      loaded[old] = null;
+    }
     advancing = false;
     begin(preloaded.track.id, preloaded.track.durationMs);
     usePlayer.setState({
@@ -442,6 +518,16 @@ elements.forEach((e, slot) => {
       return;
     }
     maybePreload();
+    // Crossfading into the next track: it starts that long before this one ends.
+    const next = loaded[1 - active];
+    if (next && fadingSlot === null && !e.paused) {
+      const overlap = autoCrossfade(l.track, next.track);
+      const left = (end ?? length(l.track)) - position;
+      if (overlap > 0 && left <= overlap) {
+        void ended(left);
+        return;
+      }
+    }
     if (!e.paused && Date.now() - lastSaved > SAVE_EVERY) savePosition();
     mediaPosition(position, l.track);
   });
