@@ -76,6 +76,9 @@ function decode(ffmpeg: string, path: string): Promise<Int16Array> {
   });
 }
 
+/** A track's waveform from a server, or null to work it out from the file. */
+type RemoteWaveform = (trackId: string, path: string) => Promise<Omit<Waveform, "trackId"> | null> | null;
+
 /**
  * Waveforms for seek bars, computed on first request and cached until the file
  * changes. One decode runs at a time, so a burst of requests can't swamp the
@@ -84,16 +87,15 @@ function decode(ffmpeg: string, path: string): Promise<Int16Array> {
 export class Waveforms {
   readonly #db: Db;
   readonly #ffmpeg: string;
-  /** Waveforms of tracks on a server (a standalone player's sources) come from the server. */
-  readonly #remote: (trackId: string) => Promise<Omit<Waveform, "trackId">> | null;
+  /**
+   * Waveforms of tracks on a server (a standalone player's sources) come from the server,
+   * as do those of this computer's files that can't be read but have a server's copy.
+   */
+  readonly #remote: RemoteWaveform;
   readonly #inFlight = new Map<string, Promise<Waveform>>();
   #queue: Promise<unknown> = Promise.resolve();
 
-  constructor(
-    db: Db,
-    ffmpeg: string,
-    remote: (trackId: string) => Promise<Omit<Waveform, "trackId">> | null = () => null,
-  ) {
+  constructor(db: Db, ffmpeg: string, remote: RemoteWaveform = () => null) {
     this.#db = db;
     this.#ffmpeg = ffmpeg;
     this.#remote = remote;
@@ -126,7 +128,7 @@ export class Waveforms {
     let pending = this.#inFlight.get(trackId);
     if (!pending) {
       const run = async (): Promise<Waveform> => {
-        let found = await this.#remote(trackId);
+        let found = await this.#remote(trackId, String(track.path));
         if (!found) {
           const pcm = await decode(this.#ffmpeg, String(track.path));
           found = { points: envelope(pcm), silence: silence(pcm) };

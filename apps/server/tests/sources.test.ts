@@ -365,6 +365,19 @@ test("a file that can't be read plays from the server's copy", async () => {
   expect(played.rawPayload.equals(readFileSync(join(s.lib, "Band/Album/1.wav")))).toBe(true);
 });
 
+test("a file that can't be read has the server's copy's waveform", async () => {
+  const s = await server();
+  const e = await engine();
+  const path = put(e.lib, "Band/Album/1.wav", { INAM: "One", IART: "Band", IPRD: "Album", ITRK: "1" }, 31);
+  await e.ctx.startScan();
+  await addServer(s, e);
+  const [one] = await search(e, "one");
+  unlinkSync(path);
+  const res = await e.inject(`/api/tracks/${one!.id}/waveform`);
+  expect(res.statusCode).toBe(200);
+  expect(res.json().points).toHaveLength(480);
+});
+
 test("removing the server keeps this computer's copies", async () => {
   const s = await server();
   const e = await engine();

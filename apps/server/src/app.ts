@@ -89,8 +89,20 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   });
   app.addHook("onClose", async () => scrobbler.close());
   const history = new History(db, catalog, scrobbler);
-  const waveforms = new Waveforms(db, config.ffmpeg, (trackId) => {
-    const remote = sources.remote(trackId);
+  /**
+   * Where a track's audio comes from when not this computer's file: a server's track, or
+   * a server's copy of this computer's file when that can't be read (an unmounted share).
+   */
+  const remoteFor = async (trackId: string, path: string) =>
+    sources.remote(trackId) ??
+    ((await access(path).then(
+      () => true,
+      () => false,
+    ))
+      ? null
+      : sources.copyOf(trackId));
+  const waveforms = new Waveforms(db, config.ffmpeg, async (trackId, path) => {
+    const remote = await remoteFor(trackId, path);
     return remote ? sources.waveform(remote) : null;
   });
   // LRCLIB is an online lookup like enrichment, so it's off when enrichment is.
@@ -433,15 +445,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     const track = catalog.trackPath(params.id);
     if (!track) throw notFound("Track");
     const limit = (s: Readable) => (config.debugThrottleKbps ? throttle(s, config.debugThrottleKbps) : s);
-    const remote =
-      sources.remote(params.id) ??
-      // This computer's file, unreadable now (an unmounted share): a server's copy, if there is one.
-      ((await access(track.path).then(
-        () => true,
-        () => false,
-      ))
-        ? null
-        : sources.copyOf(params.id));
+    const remote = await remoteFor(params.id, track.path);
     if (remote) {
       // A server's track: its stream, passed through as it comes (range requests included).
       const stop = new AbortController();
