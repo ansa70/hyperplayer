@@ -146,6 +146,8 @@ fn connected(url: String, token: String) {
         app.settings.save();
     });
     thread::spawn(move || {
+        #[cfg(target_os = "linux")]
+        use_host_folders(&api);
         let me = api.me();
         let _ = slint::invoke_from_event_loop(move || match me {
             Ok(me) => account::signed_in_locally(&me.user),
@@ -217,6 +219,77 @@ pub fn stop() {
     drop(engine);
 }
 
+/**
+ * The folder itself, for one the portal handed over as its own copy (`/run/user/<uid>/doc/<id>/…`)
+ * when the sandbox can read the real one (the Flatpak sees home, /mnt and /media). The portal's
+ * copy can turn up empty (seen with a CIFS share mounted over a VPN), and the engine then
+ * finds no music. None when the folder isn't the portal's, or isn't readable.
+ */
+#[cfg(target_os = "linux")]
+fn host_path(picked: &str) -> Option<String> {
+    use std::collections::HashMap;
+    use std::path::Path;
+    let (id, below) = portal_document(picked)?;
+    let bus = zbus::blocking::Connection::session().ok()?;
+    let paths: HashMap<String, Vec<u8>> = bus
+        .call_method(
+            Some("org.freedesktop.portal.Documents"),
+            "/org/freedesktop/portal/documents",
+            Some("org.freedesktop.portal.Documents"),
+            "GetHostPaths",
+            &(vec![id],),
+        )
+        .ok()?
+        .body()
+        .deserialize()
+        .ok()?;
+    let host = paths.get(id)?;
+    let host = String::from_utf8_lossy(host.strip_suffix(&[0]).unwrap_or(host)).into_owned();
+    let real = if below.is_empty() {
+        host
+    } else {
+        format!("{host}/{below}")
+    };
+    let readable = portal_document(&real).is_none() && Path::new(&real).read_dir().is_ok();
+    readable.then_some(real)
+}
+
+/// A path in the document portal (`/run/user/<uid>/doc/<id>/<name>/…`, or `/run/flatpak/doc/…`
+/// inside the sandbox): the document's id, and the path below the document (its `<name>`
+/// stands for the folder itself).
+#[cfg(target_os = "linux")]
+fn portal_document(path: &str) -> Option<(&str, &str)> {
+    let rest = match path.strip_prefix("/run/flatpak/doc/") {
+        Some(rest) => rest,
+        None => path
+            .strip_prefix("/run/user/")?
+            .split_once('/')?
+            .1
+            .strip_prefix("doc/")?,
+    };
+    let (id, inside) = rest.split_once('/')?;
+    Some((id, inside.split_once('/').map_or("", |(_, below)| below)))
+}
+
+/// Swaps library folders saved as the portal's copies (picked before `host_path` was
+/// used) for the folders themselves.
+#[cfg(target_os = "linux")]
+fn use_host_folders(api: &Api) {
+    let Ok(status) = api.library_status() else {
+        return;
+    };
+    let paths: Vec<String> = status.folders.iter().map(|f| f.path.clone()).collect();
+    let fixed: Vec<String> = paths
+        .iter()
+        .map(|p| host_path(p).unwrap_or_else(|| p.clone()))
+        .collect();
+    if fixed != paths
+        && let Err(e) = api.set_library_folders(fixed)
+    {
+        eprintln!("using the music folders themselves, not the portal's copies: {e:#}");
+    }
+}
+
 /// Asks for a folder with the system's dialog (the desktop portal on Linux).
 pub fn pick_folder(title: &'static str, done: impl FnOnce(Option<String>) + Send + 'static) {
     let ask = move || {
@@ -224,9 +297,14 @@ pub fn pick_folder(title: &'static str, done: impl FnOnce(Option<String>) + Send
         if let Some(dir) = engine::default_music_dir().filter(|d| d.is_dir()) {
             dialog = dialog.set_directory(dir);
         }
-        dialog
-            .pick_folder()
-            .map(|p| p.to_string_lossy().into_owned())
+        dialog.pick_folder().map(|p| {
+            let picked = p.to_string_lossy().into_owned();
+            #[cfg(target_os = "linux")]
+            if let Some(real) = host_path(&picked) {
+                return real;
+            }
+            picked
+        })
     };
     // macOS shows dialogs from the main thread only; elsewhere the UI keeps drawing meanwhile.
     if cfg!(target_os = "macos") {
@@ -236,5 +314,28 @@ pub fn pick_folder(title: &'static str, done: impl FnOnce(Option<String>) + Send
             let picked = ask();
             let _ = slint::invoke_from_event_loop(move || done(picked));
         });
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::portal_document;
+
+    #[test]
+    fn portal_paths() {
+        assert_eq!(
+            portal_document("/run/user/1000/doc/1bd01f28/Lidarr"),
+            Some(("1bd01f28", ""))
+        );
+        assert_eq!(
+            portal_document("/run/user/1000/doc/1bd01f28/Lidarr/Area"),
+            Some(("1bd01f28", "Area"))
+        );
+        assert_eq!(
+            portal_document("/run/flatpak/doc/ab/Music/a/b"),
+            Some(("ab", "a/b"))
+        );
+        assert_eq!(portal_document("/mnt/storage/Music/Lidarr"), None);
+        assert_eq!(portal_document("/run/user/1000/gvfs/smb-share/Music"), None);
     }
 }
