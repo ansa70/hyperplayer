@@ -31,6 +31,7 @@ use hyperplayer::{
     api::{Api, types},
     player::Audio,
     settings::Settings,
+    tr,
 };
 use slint::{Timer, TimerMode};
 
@@ -249,6 +250,40 @@ pub fn save_replaygain_preamp() {
     });
 }
 
+/// Shows the player in the language a setting stands for ("" for the system's). Slint's
+/// own text switches at once; the text built in Rust is rebuilt for the sidebar, the queue,
+/// the now-playing panel and Settings, and elsewhere when next shown.
+pub fn apply_language(setting: &str) {
+    select_language(setting);
+    browse::load_artists();
+    library::load_playlists();
+    let (track, settings_open) = with_app(|app| {
+        library::sync_queue_ui(app);
+        playback::update_stream_info(app);
+        let settings_open = app
+            .ui
+            .upgrade()
+            .is_some_and(|ui| ui.get_page() == Page::Settings);
+        (current_track(app).map(|t| t.id.to_string()), settings_open)
+    });
+    if let Some(id) = track {
+        browse::fetch_now_playing(id);
+    }
+    if settings_open {
+        settings::load();
+    }
+}
+
+/// Sets the language for both the Slint UI (once it exists) and the text built in Rust.
+fn select_language(setting: &str) {
+    let code = hyperplayer::i18n::resolve(setting);
+    hyperplayer::i18n::set_language(code);
+    // English is the text as written, which Slint selects by the empty name.
+    if let Err(e) = slint::select_bundled_translation(if code == "en" { "" } else { code }) {
+        eprintln!("language {code}: {e}");
+    }
+}
+
 /// The app's id on the desktop (Wayland app id, desktop entry, Flatpak).
 pub const APP_ID: &str = "io.ansaloni.HyperPlayer";
 
@@ -269,6 +304,8 @@ pub fn run() -> anyhow::Result<()> {
     // Matches the desktop entry, so the desktop shows our icon and name for the window.
     slint::set_xdg_app_id(APP_ID)?;
     let ui = AppWindow::new()?;
+    // After the window: Slint picks the system's language when it's created.
+    select_language(&settings.language);
 
     let audio = match Audio::open() {
         Ok(a) => Some(a),
@@ -338,7 +375,7 @@ pub fn run() -> anyhow::Result<()> {
             trim: trim::Trimming::default(),
         })
     });
-    ui.set_status(format!("Connecting to {server}…").into());
+    ui.set_status(tr!("Connecting to {}…", server).into());
     with_app(|app| playback::update_stream_info(app));
 
     // Browsing

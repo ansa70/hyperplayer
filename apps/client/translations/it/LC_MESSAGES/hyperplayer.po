@@ -1,0 +1,2328 @@
+# HyperPlayer, it. Updated by translations/update.ts; edit the msgstr lines.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: it\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/ui/settings.rs
+msgid " · {} waiting for artist and album info"
+msgstr " · {} in attesa di informazioni su artisti e album"
+
+#: src/ui/settings.rs
+msgid " · last scan {}"
+msgstr " · ultima scansione {}"
+
+#: ui/app.slint
+msgid "‹ Back to artist"
+msgstr "‹ Torna all'artista"
+
+#: ui/app.slint
+msgid "{}  ·  click the name to rename the playlist"
+msgstr "{}  ·  clicca sul nome per rinominare la playlist"
+
+#: ui/app.slint
+msgid "{}  (this device)"
+msgstr "{}  (questo dispositivo)"
+
+#: ui/app.slint
+msgid "{}  (you)"
+msgstr "{}  (tu)"
+
+#: src/ui/models.rs
+msgid "{} · album"
+msgstr "{} · album"
+
+#: ui/app.slint
+msgid "{} · missing"
+msgstr "{} · mancante"
+
+#: src/ui/settings.rs
+msgid "{} · synced {}"
+msgstr "{} · sincronizzato {}"
+
+#: src/ui/settings.rs
+msgid "{} ({} already in the library)"
+msgstr "{} ({} già nella libreria)"
+
+#: src/ui/smart.rs
+msgid "{} (saved)"
+msgstr "{} (salvata)"
+
+#: src/ui/history.rs
+msgid "{} days ago"
+msgstr "{} giorni fa"
+
+#: src/ui/history.rs
+msgid "{} h {} min"
+msgstr "{} h {} min"
+
+#: src/ui/history.rs
+msgid "{} h ago"
+msgstr "{} h fa"
+
+#: src/ui/account.rs
+msgid "{} isn't trusted, so HyperPlayer won't connect to it."
+msgstr "{} non è attendibile, quindi HyperPlayer non si collegherà."
+
+#: src/ui/history.rs
+msgid "{} min ago"
+msgstr "{} min fa"
+
+#: src/ui/trim.rs
+msgid "{} of silence at the end of this track."
+msgstr "{} di silenzio alla fine di questo brano."
+
+#: src/ui/trim.rs
+msgid "{} of silence at the start of this track and {} at the end."
+msgstr "{} di silenzio all'inizio di questo brano e {} alla fine."
+
+#: src/ui/trim.rs
+msgid "{} of silence at the start of this track."
+msgstr "{} di silenzio all'inizio di questo brano."
+
+#: src/ui/trim.rs
+msgid "{} Skip it whenever it plays, for everyone? Right-click the waveform to change it later."
+msgstr "{} Saltarlo sempre, per tutti? Clicca col tasto destro sulla forma d'onda per cambiarlo in seguito."
+
+#: ui/app.slint
+msgid "{} uses its own (self-signed) certificate, which this computer can't check by itself. Trust it only if this fingerprint matches the one the server shows in its log or the installer printed."
+msgstr "{} usa un proprio certificato (autofirmato), che questo computer non può verificare da solo. Consideralo attendibile solo se questa impronta corrisponde a quella che il server mostra nel suo log o che l'installer ha stampato."
+
+#: src/ui/albums.rs src/ui/browse.rs src/ui/models.rs src/ui/settings.rs
+msgid "{n} album"
+msgid_plural "{n} albums"
+msgstr[0] "{n} album"
+msgstr[1] "{n} album"
+
+#: src/ui/browse.rs src/ui/settings.rs
+msgid "{n} artist"
+msgid_plural "{n} artists"
+msgstr[0] "{n} artista"
+msgstr[1] "{n} artisti"
+
+#: src/ui/browse.rs
+msgid "{n} artist on server"
+msgid_plural "{n} artists on server"
+msgstr[0] "{n} artista sul server"
+msgstr[1] "{n} artisti sul server"
+
+#: src/ui/history.rs
+msgid "{n} listen · {} in the last {} days"
+msgid_plural "{n} listens · {} in the last {} days"
+msgstr[0] "{n} ascolto · {} negli ultimi {} giorni"
+msgstr[1] "{n} ascolti · {} negli ultimi {} giorni"
+
+#: src/ui/settings.rs
+msgid "{n} listen waiting to be sent."
+msgid_plural "{n} listens waiting to be sent."
+msgstr[0] "{n} ascolto in attesa di invio."
+msgstr[1] "{n} ascolti in attesa di invio."
+
+#: src/ui/history.rs
+msgid "{n} minute"
+msgid_plural "{n} minutes"
+msgstr[0] "{n} minuto"
+msgstr[1] "{n} minuti"
+
+#: src/ui/history.rs
+msgid "{n} play"
+msgid_plural "{n} plays"
+msgstr[0] "{n} riproduzione"
+msgstr[1] "{n} riproduzioni"
+
+#: src/ui/settings.rs
+msgid "{n} playlist"
+msgid_plural "{n} playlists"
+msgstr[0] "{n} playlist"
+msgstr[1] "{n} playlist"
+
+#: src/ui/browse.rs src/ui/library.rs src/ui/models.rs src/ui/settings.rs
+msgid "{n} track"
+msgid_plural "{n} tracks"
+msgstr[0] "{n} brano"
+msgstr[1] "{n} brani"
+
+#: src/ui/history.rs src/ui/settings.rs
+msgid "%-d %b %Y"
+msgstr "%-d/%m/%Y"
+
+#: src/ui/settings.rs
+msgid "%-d %b %Y, %H:%M"
+msgstr "%-d/%m/%Y, %H:%M"
+
+#: ui/app.slint
+msgid "+ Add"
+msgstr "+ Aggiungi"
+
+#: ui/app.slint
+msgid "+ Add rule"
+msgstr "+ Aggiungi regola"
+
+#: src/ui/settings.rs
+msgid "A password needs at least 8 characters."
+msgstr "Una password deve avere almeno 8 caratteri."
+
+#: ui/app.slint
+msgid "A server, at home or elsewhere, keeps the library, queue and playlists for all your devices."
+msgstr "Un server, a casa o altrove, conserva la libreria, la coda e le playlist per tutti i tuoi dispositivi."
+
+#: ui/app.slint
+msgid "About {}"
+msgstr "Su {}"
+
+#: ui/app.slint
+msgid "Accent colour"
+msgstr "Colore principale"
+
+#: src/roles.rs
+msgid "accordion"
+msgstr "fisarmonica"
+
+#: ui/app.slint
+msgid "Account"
+msgstr "Account"
+
+#: src/roles.rs
+msgid "acoustic bass guitar"
+msgstr "basso acustico"
+
+#: src/roles.rs
+msgid "acoustic guitar"
+msgstr "chitarra acustica"
+
+#: ui/app.slint
+msgid "Add a folder…"
+msgstr "Aggiungi una cartella…"
+
+#: src/ui/settings.rs
+msgid "Add a music folder"
+msgstr "Aggiungi una cartella musicale"
+
+#: ui/app.slint
+msgid "Add a user"
+msgstr "Aggiungi un utente"
+
+#: ui/app.slint
+msgid "Add folder"
+msgstr "Aggiungi cartella"
+
+#: ui/app.slint
+msgid "Add server"
+msgstr "Aggiungi server"
+
+#: ui/app.slint
+msgid "ADD TO PLAYLIST"
+msgstr "AGGIUNGI ALLA PLAYLIST"
+
+#: ui/app.slint
+msgid "Add to queue"
+msgstr "Aggiungi alla coda"
+
+#: ui/app.slint
+msgid "Add to this playlist: search for tracks, albums, artists or genres"
+msgstr "Aggiungi a questa playlist: cerca brani, album, artisti o generi"
+
+#: ui/app.slint
+msgid "Add user"
+msgstr "Aggiungi utente"
+
+#: ui/app.slint
+msgid "Added"
+msgstr "Aggiunto"
+
+#: src/ui/library.rs
+msgid "Added “{}”: {n} track"
+msgid_plural "Added “{}”: {n} tracks"
+msgstr[0] "Aggiunto “{}”: {n} brano"
+msgstr[1] "Aggiunto “{}”: {n} brani"
+
+#: src/ui/library.rs
+msgid "Added to “{}”"
+msgstr "Aggiunto a “{}”"
+
+#: ui/app.slint
+msgid "Added to every ReplayGain adjustment; boosts are still limited so peaks never clip."
+msgstr "Si somma a ogni correzione ReplayGain; gli aumenti restano limitati perché i picchi non saturino mai."
+
+#: src/roles.rs
+msgid "additional {}"
+msgstr "{} (in aggiunta)"
+
+#: src/ui/settings.rs
+msgid "admin"
+msgstr "amministratore"
+
+#: ui/app.slint
+msgid "Admin (can manage the server and its users)"
+msgstr "Amministratore (può gestire il server e i suoi utenti)"
+
+#: src/ui/smart.rs
+msgid "after"
+msgstr "dopo il"
+
+#: ui/app.slint
+msgid "Album"
+msgstr "Album"
+
+#: ui/app.slint
+msgid "ALBUM"
+msgstr "ALBUM"
+
+#: src/ui/smart.rs
+msgid "Album mix"
+msgstr "Mix di album"
+
+#: src/ui/library.rs
+msgid "Album: {}"
+msgstr "Album: {}"
+
+#: ui/app.slint
+msgid "Albums"
+msgstr "Album"
+
+#: ui/app.slint
+msgid "ALBUMS"
+msgstr "ALBUM"
+
+#: ui/app.slint
+msgid "all rules"
+msgstr "tutte le regole"
+
+#: ui/app.slint
+msgid "Allow HyperPlayer on the Last.fm page that opened in your browser; this page updates by itself once you have."
+msgstr "Autorizza HyperPlayer nella pagina di Last.fm che si è aperta nel browser; questa pagina si aggiorna da sola quando l'hai fatto."
+
+#: ui/app.slint
+msgid "Also between tracks of an album playing in order (gapless otherwise, as live albums need)"
+msgstr "Anche tra i brani di un album riprodotto in ordine (altrimenti senza pause, come serve agli album dal vivo)"
+
+#: ui/app.slint
+msgid "Also when skipping to another track"
+msgstr "Anche quando si passa a un altro brano"
+
+#: src/roles.rs
+msgid "alto flute"
+msgstr "flauto contralto"
+
+#: src/roles.rs
+msgid "alto saxophone"
+msgstr "sassofono contralto"
+
+#: src/roles.rs
+msgid "alto vocals"
+msgstr "contralto"
+
+#: ui/app.slint
+msgid "Another folder, as a path on the server (e.g. {})"
+msgstr "Un'altra cartella, come percorso sul server (es. {})"
+
+#: ui/app.slint
+msgid "any rule"
+msgstr "almeno una regola"
+
+#: ui/app.slint
+msgid "Appearance"
+msgstr "Aspetto"
+
+#: ui/app.slint
+msgid "Apply rules"
+msgstr "Applica le regole"
+
+#: src/roles.rs
+msgid "arranger"
+msgstr "arrangiatore"
+
+#: src/roles.rs
+msgid "art direction"
+msgstr "direzione artistica"
+
+#: ui/app.slint
+msgid "Artist"
+msgstr "Artista"
+
+#: ui/app.slint
+msgid "ARTIST"
+msgstr "ARTISTA"
+
+#: src/ui/smart.rs
+msgid "Artist mix"
+msgstr "Mix di un artista"
+
+#: src/ui/library.rs
+msgid "Artist: {}"
+msgstr "Artista: {}"
+
+#: ui/app.slint
+msgid "Artists"
+msgstr "Artisti"
+
+#: ui/app.slint
+msgid "ARTISTS"
+msgstr "ARTISTI"
+
+#: src/roles.rs
+msgid "assistant {}"
+msgstr "{} (assistente)"
+
+#: src/roles.rs
+msgid "associate {}"
+msgstr "{} (associato)"
+
+#: ui/app.slint
+msgid "At least 8 characters"
+msgstr "Almeno 8 caratteri"
+
+#: src/roles.rs
+msgid "audio engineer"
+msgstr "tecnico audio"
+
+#: ui/app.slint
+msgid "Auto"
+msgstr "Auto"
+
+#: src/adaptive.rs
+msgid "AUTO"
+msgstr "AUTO"
+
+#: ui/app.slint
+msgid "Auto picks the best quality your connection sustains and adapts as it changes. Original always streams the file as it is; Data saver uses about 128 kbit/s."
+msgstr "Auto sceglie la qualità migliore che la connessione regge e si adatta quando cambia. Originale trasmette sempre il file così com'è; Risparmio dati usa circa 128 kbit/s."
+
+#: ui/app.slint
+msgid "Automatic"
+msgstr "Automatica"
+
+#: ui/app.slint
+msgid "Automatic follows this computer's language. This computer only."
+msgstr "Automatica segue la lingua di questo computer. Vale solo per questo computer."
+
+#: src/roles.rs
+msgid "b. {}"
+msgstr "n. {}"
+
+#: ui/app.slint
+msgid "Back"
+msgstr "Indietro"
+
+#: ui/app.slint
+msgid "Back to my library"
+msgstr "Torna alla mia libreria"
+
+#: src/roles.rs
+msgid "background vocals"
+msgstr "cori"
+
+#: src/roles.rs
+msgid "bagpipes"
+msgstr "cornamusa"
+
+#: src/roles.rs
+msgid "banjo"
+msgstr "banjo"
+
+#: src/roles.rs
+msgid "baritone saxophone"
+msgstr "sassofono baritono"
+
+#: src/roles.rs
+msgid "baritone vocals"
+msgstr "baritono"
+
+#: src/roles.rs
+msgid "bass"
+msgstr "basso"
+
+#: src/roles.rs
+msgid "bass clarinet"
+msgstr "clarinetto basso"
+
+#: src/roles.rs
+msgid "bass guitar"
+msgstr "basso elettrico"
+
+#: src/roles.rs
+msgid "bass trombone"
+msgstr "trombone basso"
+
+#: src/roles.rs
+msgid "bass vocals"
+msgstr "basso"
+
+#: src/roles.rs
+msgid "bass-baritone vocals"
+msgstr "basso-baritono"
+
+#: src/roles.rs
+msgid "bassoon"
+msgstr "fagotto"
+
+#: src/roles.rs
+msgid "beatboxing"
+msgstr "beatbox"
+
+#: src/ui/smart.rs
+msgid "before"
+msgstr "prima del"
+
+#: src/ui/smart.rs
+msgid "between"
+msgstr "tra"
+
+#: src/roles.rs
+msgid "bongos"
+msgstr "bongos"
+
+#: src/roles.rs
+msgid "bouzouki"
+msgstr "bouzouki"
+
+#: src/roles.rs
+msgid "brass"
+msgstr "ottoni"
+
+#: ui/app.slint
+msgid "By genre"
+msgstr "Per genere"
+
+#: ui/app.slint
+msgid "Cancel"
+msgstr "Annulla"
+
+#: src/ui/playback.rs
+msgid "Cannot play {}: {}"
+msgstr "Impossibile riprodurre {}: {}"
+
+#: src/ui/account.rs
+msgid "Cannot reach {}: {}"
+msgstr "Impossibile raggiungere {}: {}"
+
+#: src/ui/account.rs
+msgid "Cannot reach the server: {}"
+msgstr "Impossibile raggiungere il server: {}"
+
+#: src/roles.rs
+msgid "castanets"
+msgstr "nacchere"
+
+#: src/roles.rs
+msgid "celesta"
+msgstr "celesta"
+
+#: src/roles.rs
+msgid "cello"
+msgstr "violoncello"
+
+#: ui/app.slint
+msgid "Change password"
+msgstr "Cambia password"
+
+#: ui/app.slint
+msgid "Changing it signs out your other devices."
+msgstr "Cambiarla disconnette gli altri tuoi dispositivi."
+
+#: src/ui/models.rs
+msgid "Character"
+msgstr "Personaggio"
+
+#: src/ui/models.rs
+msgid "Choir"
+msgstr "Coro"
+
+#: src/roles.rs
+msgid "choir vocals"
+msgstr "coro"
+
+#: ui/app.slint
+msgid "Choose a folder…"
+msgstr "Scegli una cartella…"
+
+#: src/ui/account.rs src/ui/settings.rs
+msgid "Choose a username."
+msgstr "Scegli un nome utente."
+
+#: ui/app.slint
+msgid "Choose another folder…"
+msgstr "Scegli un'altra cartella…"
+
+#: src/ui/account.rs
+msgid "Choose your music folder"
+msgstr "Scegli la tua cartella musicale"
+
+#: ui/app.slint
+msgid "Choose your password"
+msgstr "Scegli la tua password"
+
+#: src/roles.rs
+msgid "chorus master"
+msgstr "maestro del coro"
+
+#: src/roles.rs
+msgid "clarinet"
+msgstr "clarinetto"
+
+#: src/roles.rs
+msgid "classical guitar"
+msgstr "chitarra classica"
+
+#: src/roles.rs
+msgid "clavinet"
+msgstr "clavinet"
+
+#: ui/app.slint
+msgid "Clear"
+msgstr "Svuota"
+
+#: ui/app.slint
+msgid "Click again to delete"
+msgstr "Clicca di nuovo per eliminare"
+
+#: src/roles.rs
+msgid "co-{}"
+msgstr "co-{}"
+
+#: src/roles.rs
+msgid "composer"
+msgstr "compositore"
+
+#: src/roles.rs
+msgid "concertmaster"
+msgstr "primo violino"
+
+#: src/roles.rs
+msgid "conductor"
+msgstr "direttore"
+
+#: ui/app.slint
+msgid "Confirm delete"
+msgstr "Conferma eliminazione"
+
+#: ui/app.slint
+msgid "Confirm remove"
+msgstr "Conferma rimozione"
+
+#: src/roles.rs
+msgid "congas"
+msgstr "congas"
+
+#: ui/app.slint
+msgid "Connect"
+msgstr "Collega"
+
+#: ui/app.slint
+msgid "Connect to a HyperPlayer server"
+msgstr "Collegati a un server HyperPlayer"
+
+#: ui/app.slint
+msgid "Connected as {}"
+msgstr "Collegato come {}"
+
+#: src/ui/mod.rs
+msgid "Connecting to {}…"
+msgstr "Collegamento a {}…"
+
+#: src/ui/smart.rs
+msgid "contains"
+msgstr "contiene"
+
+#: src/roles.rs
+msgid "contrabassoon"
+msgstr "controfagotto"
+
+#: ui/app.slint
+msgid "Copy it from listenbrainz.org/settings"
+msgstr "Copialo da listenbrainz.org/settings"
+
+#: ui/app.slint
+msgid "Copy playlists"
+msgstr "Copia le playlist"
+
+#: src/ui/settings.rs
+msgid "Copying its catalog… · {}"
+msgstr "Copia del catalogo… · {}"
+
+#: src/ui/settings.rs
+msgid "Copying its playlists…"
+msgstr "Copia delle playlist…"
+
+#: src/roles.rs
+msgid "cornet"
+msgstr "cornetta"
+
+#: src/roles.rs
+msgid "countertenor vocals"
+msgstr "controtenore"
+
+#: src/roles.rs
+msgid "cowbell"
+msgstr "campanaccio"
+
+#: ui/app.slint
+msgid "Create my account"
+msgstr "Crea il mio account"
+
+#: ui/app.slint
+msgid "Create your own account for everyday listening, with your playlists and preferences. The admin account stays for managing the server."
+msgstr "Crea il tuo account per l'ascolto di tutti i giorni, con le tue playlist e preferenze. L'account admin resta per gestire il server."
+
+#: ui/app.slint
+msgid "Credits"
+msgstr "Crediti"
+
+#: ui/app.slint
+msgid "Crossfade"
+msgstr "Dissolvenza incrociata"
+
+#: ui/app.slint
+msgid "CURRENT PASSWORD"
+msgstr "PASSWORD ATTUALE"
+
+#: ui/app.slint
+msgid "Custom rules"
+msgstr "Regole personalizzate"
+
+#: src/roles.rs
+msgid "cymbal"
+msgstr "piatti"
+
+#: ui/app.slint
+msgid "Data saver"
+msgstr "Risparmio dati"
+
+#: src/adaptive.rs
+msgid "DATA SAVER"
+msgstr "RISPARMIO DATI"
+
+#: ui/app.slint
+msgid "Date added"
+msgstr "Data di aggiunta"
+
+#: src/ui/smart.rs
+msgid "days"
+msgstr "giorni"
+
+#: ui/app.slint
+msgid "Delete"
+msgstr "Elimina"
+
+#: ui/app.slint
+msgid "Descending"
+msgstr "Decrescente"
+
+#: src/roles.rs
+msgid "design"
+msgstr "grafica"
+
+#: ui/app.slint
+msgid "Discography"
+msgstr "Discografia"
+
+#: ui/app.slint
+msgid "Disconnect"
+msgstr "Scollega"
+
+#: src/roles.rs
+msgid "DJ mix"
+msgstr "DJ mix"
+
+#: src/roles.rs
+msgid "djembe"
+msgstr "djembe"
+
+#: src/ui/smart.rs
+msgid "doesn't contain"
+msgstr "non contiene"
+
+#: src/roles.rs
+msgid "double bass"
+msgstr "contrabbasso"
+
+#: src/roles.rs
+msgid "drum machine"
+msgstr "drum machine"
+
+#: src/roles.rs
+msgid "drum set"
+msgstr "batteria"
+
+#: src/roles.rs
+msgid "drums"
+msgstr "batteria"
+
+#: src/roles.rs
+msgid "drums (drum set)"
+msgstr "batteria"
+
+#: src/roles.rs
+msgid "dulcimer"
+msgstr "dulcimer"
+
+#: ui/app.slint
+msgid "Duration"
+msgstr "Durata"
+
+#: src/ui/smart.rs
+msgid "e.g. 1975"
+msgstr "es. 1975"
+
+#: src/ui/smart.rs
+msgid "e.g. FLAC"
+msgstr "es. FLAC"
+
+#: ui/app.slint
+msgid "e.g. music.example.com or 192.168.1.20:4533"
+msgstr "es. music.example.com o 192.168.1.20:4533"
+
+#: src/roles.rs
+msgid "editor"
+msgstr "montaggio"
+
+#: src/roles.rs
+msgid "effects"
+msgstr "effetti"
+
+#: src/roles.rs
+msgid "electric bass guitar"
+msgstr "basso elettrico"
+
+#: src/roles.rs
+msgid "electric guitar"
+msgstr "chitarra elettrica"
+
+#: src/roles.rs
+msgid "electric piano"
+msgstr "piano elettrico"
+
+#: src/roles.rs
+msgid "electronic instruments"
+msgstr "strumenti elettronici"
+
+#: ui/app.slint
+msgid "Empty for now: search above to add tracks, albums, whole artists or genres. The ⋯ menu on any track or album adds it too."
+msgstr "Per ora è vuota: cerca qui sopra per aggiungere brani, album, interi artisti o generi. Anche il menu ⋯ di ogni brano o album li aggiunge."
+
+#: ui/app.slint
+msgid "Empty playlist"
+msgstr "Playlist vuota"
+
+#: ui/app.slint
+msgid "End the track here"
+msgstr "Termina il brano qui"
+
+#: src/roles.rs
+msgid "engineer"
+msgstr "tecnico del suono"
+
+#: src/ui/models.rs
+msgid "ENGINEERING"
+msgstr "TECNICI DEL SUONO"
+
+#: src/roles.rs
+msgid "English horn"
+msgstr "corno inglese"
+
+#: src/ui/settings.rs
+msgid "Enter the server's address, your username there and its password."
+msgstr "Inserisci l'indirizzo del server, il tuo nome utente lì e la relativa password."
+
+#: src/roles.rs
+msgid "euphonium"
+msgstr "eufonio"
+
+#: ui/app.slint
+msgid "Evens out loudness between tracks using their ReplayGain tags. Auto keeps an album's own dynamics while it plays in order, and levels track by track otherwise."
+msgstr "Uniforma il volume tra i brani usando i loro tag ReplayGain. Auto mantiene la dinamica propria di un album quando è riprodotto in ordine, e altrimenti livella brano per brano."
+
+#: src/roles.rs
+msgid "executive {}"
+msgstr "{} esecutivo"
+
+#: ui/app.slint
+msgid "Fades each track into the next instead of playing them back to back. Tracks at different sample rates still change without a fade, so each plays at its own rate."
+msgstr "Sfuma ogni brano nel successivo invece di riprodurli uno dopo l'altro. I brani con frequenze di campionamento diverse cambiano comunque senza dissolvenza, così ognuno suona alla propria frequenza."
+
+#: ui/app.slint
+msgid "Fetching biography…"
+msgstr "Recupero della biografia…"
+
+#: src/roles.rs
+msgid "fiddle"
+msgstr "violino"
+
+#: src/ui/smart.rs
+msgid "Fill in the rules, then apply them."
+msgstr "Compila le regole, poi applicale."
+
+#: src/ui/settings.rs
+msgid "Finishing up…"
+msgstr "Quasi finito…"
+
+#: ui/app.slint
+msgid "First time on this server? Sign in as admin with the password “hyperplayer”, then choose your own."
+msgstr "Prima volta su questo server? Accedi come admin con la password “hyperplayer”, poi scegline una tua."
+
+#: ui/app.slint
+msgid "Fixed colour {}"
+msgstr "Colore fisso {}"
+
+#: src/adaptive.rs
+msgid "FLAC (transcoded)"
+msgstr "FLAC (transcodificato)"
+
+#: src/roles.rs
+msgid "flugelhorn"
+msgstr "flicorno"
+
+#: src/roles.rs
+msgid "flute"
+msgstr "flauto"
+
+#: src/ui/settings.rs
+msgid "Folder added; scanning it now."
+msgstr "Cartella aggiunta; scansione in corso."
+
+#: src/ui/settings.rs
+msgid "Folder removed; rescanning."
+msgstr "Cartella rimossa; nuova scansione in corso."
+
+#: ui/app.slint
+msgid "Format"
+msgstr "Formato"
+
+#: src/roles.rs
+msgid "French horn"
+msgstr "corno francese"
+
+#: src/roles.rs
+msgid "fretless bass"
+msgstr "basso fretless"
+
+#: ui/app.slint
+msgid "From albums"
+msgstr "Da album"
+
+#: ui/app.slint
+msgid "From an artist"
+msgstr "Da un artista"
+
+#: ui/app.slint
+msgid "From the album"
+msgstr "Dall'album"
+
+#: ui/app.slint
+msgid "FULL NAME"
+msgstr "NOME COMPLETO"
+
+#: ui/app.slint
+msgid "FULL NAME (OPTIONAL)"
+msgstr "NOME COMPLETO (FACOLTATIVO)"
+
+#: ui/app.slint
+msgid "Genre"
+msgstr "Genere"
+
+#: src/ui/smart.rs
+msgid "Genre mix"
+msgstr "Mix di un genere"
+
+#: src/ui/smart.rs
+msgid "genre, e.g. Jazz"
+msgstr "genere, es. Jazz"
+
+#: src/ui/library.rs
+msgid "Genre: {}"
+msgstr "Genere: {}"
+
+#: ui/app.slint
+msgid "GENRES"
+msgstr "GENERI"
+
+#: src/roles.rs
+msgid "glockenspiel"
+msgstr "glockenspiel"
+
+#: src/roles.rs
+msgid "grand piano"
+msgstr "pianoforte a coda"
+
+#: src/roles.rs
+msgid "graphic design"
+msgstr "progetto grafico"
+
+#: src/ui/models.rs
+msgid "Group"
+msgstr "Gruppo"
+
+#: src/roles.rs
+msgid "guest {}"
+msgstr "{} (ospite)"
+
+#: src/roles.rs
+msgid "guitar"
+msgstr "chitarra"
+
+#: src/roles.rs
+msgid "guitar synthesizer"
+msgstr "chitarra synth"
+
+#: src/roles.rs
+msgid "Hammond organ"
+msgstr "organo Hammond"
+
+#: src/roles.rs
+msgid "handclaps"
+msgstr "battimani"
+
+#: src/roles.rs
+msgid "harmonica"
+msgstr "armonica"
+
+#: src/roles.rs
+msgid "harmonium"
+msgstr "armonium"
+
+#: src/roles.rs
+msgid "harp"
+msgstr "arpa"
+
+#: src/roles.rs
+msgid "harpsichord"
+msgstr "clavicembalo"
+
+#: ui/app.slint
+msgid "History"
+msgstr "Cronologia"
+
+#: src/roles.rs
+msgid "horn"
+msgstr "corno"
+
+#: ui/app.slint
+msgid "How do you want to use HyperPlayer?"
+msgstr "Come vuoi usare HyperPlayer?"
+
+#: src/ui/settings.rs
+msgid "HyperPlayer {} · server {}"
+msgstr "HyperPlayer {} · server {}"
+
+#: ui/app.slint
+msgid "HyperPlayer builds its library from the music in this folder and its subfolders, and notices music added later. A folder on a network drive works too."
+msgstr "HyperPlayer crea la sua libreria dalla musica in questa cartella e nelle sue sottocartelle, e si accorge della musica aggiunta in seguito. Va bene anche una cartella su un disco di rete."
+
+#: ui/app.slint
+msgid "HyperPlayer keeps its own library of your music folders, on this computer's disks or on a network drive. Nothing else to install."
+msgstr "HyperPlayer tiene una propria libreria delle tue cartelle musicali, sui dischi di questo computer o su un disco di rete. Nient'altro da installare."
+
+#: ui/app.slint
+msgid "HyperPlayer notices new music in these folders while it's open, and rescans every few minutes. Folders on a network drive work too, as long as this computer can open them."
+msgstr "HyperPlayer si accorge della nuova musica in queste cartelle mentre è aperto, e le riesamina ogni pochi minuti. Vanno bene anche cartelle su un disco di rete, purché questo computer possa aprirle."
+
+#: src/roles.rs
+msgid "illustration"
+msgstr "illustrazioni"
+
+#: src/ui/smart.rs
+msgid "in the last"
+msgstr "negli ultimi"
+
+#: ui/app.slint
+msgid "Instrumental"
+msgstr "Strumentale"
+
+#: src/roles.rs
+msgid "instruments"
+msgstr "strumenti"
+
+#: src/ui/smart.rs
+msgid "is"
+msgstr "è"
+
+#: src/ui/smart.rs
+msgid "is not"
+msgstr "non è"
+
+#: src/ui/history.rs
+msgid "just now"
+msgstr "proprio ora"
+
+#: src/roles.rs
+msgid "keyboard"
+msgstr "tastiera"
+
+#: ui/app.slint
+msgid "Keyboard shortcuts"
+msgstr "Scorciatoie da tastiera"
+
+#: src/roles.rs
+msgid "keyboards"
+msgstr "tastiere"
+
+#: src/ui/smart.rs
+msgid "kHz, e.g. 96"
+msgstr "kHz, es. 96"
+
+#: ui/app.slint
+msgid "Language"
+msgstr "Lingua"
+
+#: src/roles.rs
+msgid "lap steel guitar"
+msgstr "lap steel guitar"
+
+#: ui/app.slint
+msgid "Last played"
+msgstr "Ultimo ascolto"
+
+#: src/ui/settings.rs
+msgid "Last used {} · signed in {}"
+msgstr "Ultimo uso {} · accesso {}"
+
+#: src/ui/settings.rs
+msgid "Last.fm wasn't allowed in time; connect again when you're ready."
+msgstr "Last.fm non è stato autorizzato in tempo; collegalo di nuovo quando sei pronto."
+
+#: src/roles.rs
+msgid "lead vocals"
+msgstr "voce solista"
+
+#: ui/app.slint
+msgid "Leave search / close"
+msgstr "Esci dalla ricerca / chiudi"
+
+#: ui/app.slint
+msgid "Length"
+msgstr "Durata"
+
+#: src/ui/smart.rs
+msgid "less than"
+msgstr "meno di"
+
+#: ui/app.slint
+msgid "Library"
+msgstr "Libreria"
+
+#: src/roles.rs
+msgid "librettist"
+msgstr "librettista"
+
+#: src/roles.rs
+msgid "liner notes"
+msgstr "note di copertina"
+
+#: src/ui/settings.rs
+msgid "listener"
+msgstr "ascoltatore"
+
+#: src/ui/albums.rs
+msgid "Loading…"
+msgstr "Caricamento…"
+
+#: src/ui/smart.rs
+msgid "longer than"
+msgstr "più lungo di"
+
+#: ui/app.slint
+msgid "Looking for lyrics…"
+msgstr "Ricerca del testo…"
+
+#: src/ui/settings.rs
+msgid "Looking for music files… {} found"
+msgstr "Ricerca dei file musicali… {} trovati"
+
+#: src/ui/browse.rs
+msgid "Looking for music… {} files found"
+msgstr "Ricerca della musica… {} file trovati"
+
+#: ui/app.slint
+msgid "Looking up musicians…"
+msgstr "Ricerca dei musicisti…"
+
+#: src/roles.rs
+msgid "loops"
+msgstr "loop"
+
+#: ui/app.slint
+msgid "Lossless"
+msgstr "Lossless"
+
+#: src/roles.rs
+msgid "lute"
+msgstr "liuto"
+
+#: src/roles.rs
+msgid "lyricist"
+msgstr "paroliere"
+
+#: ui/app.slint
+msgid "Lyrics"
+msgstr "Testi"
+
+#: src/ui/lyrics.rs
+msgid "Lyrics from a .lrc file"
+msgstr "Testo da un file .lrc"
+
+#: src/ui/lyrics.rs
+msgid "Lyrics from LRCLIB"
+msgstr "Testo da LRCLIB"
+
+#: src/ui/lyrics.rs
+msgid "Lyrics from the file's tags"
+msgstr "Testo dai tag del file"
+
+#: ui/app.slint
+msgid "Make admin"
+msgstr "Rendi amministratore"
+
+#: src/roles.rs
+msgid "mandolin"
+msgstr "mandolino"
+
+#: src/roles.rs
+msgid "marimba"
+msgstr "marimba"
+
+#: src/roles.rs
+msgid "mastering engineer"
+msgstr "tecnico del mastering"
+
+#: src/roles.rs
+msgid "Mellotron"
+msgstr "Mellotron"
+
+#: src/roles.rs
+msgid "melodica"
+msgstr "melodica"
+
+#: ui/app.slint
+msgid "Members"
+msgstr "Membri"
+
+#: src/ui/browse.rs
+msgid "MEMBERS"
+msgstr "MEMBRI"
+
+#: src/roles.rs
+msgid "mezzo-soprano vocals"
+msgstr "mezzosoprano"
+
+#: src/roles.rs
+msgid "Minimoog"
+msgstr "Minimoog"
+
+#: src/roles.rs
+msgid "mix"
+msgstr "missaggio"
+
+#: src/roles.rs
+msgid "mix engineer"
+msgstr "tecnico del missaggio"
+
+#: src/roles.rs
+msgid "Moog"
+msgstr "Moog"
+
+#: ui/app.slint
+msgid "More folders can be added later, in Settings."
+msgstr "Puoi aggiungere altre cartelle in seguito, nelle Impostazioni."
+
+#: ui/app.slint
+msgid "More from {}"
+msgstr "Altro di {}"
+
+#: src/ui/smart.rs
+msgid "more than"
+msgstr "più di"
+
+#: ui/app.slint
+msgid "Most played · last 30 days"
+msgstr "Più ascoltati · ultimi 30 giorni"
+
+#: ui/app.slint
+msgid "Move down"
+msgstr "Sposta giù"
+
+#: ui/app.slint
+msgid "Move up"
+msgstr "Sposta su"
+
+#: ui/app.slint
+msgid "MUSIC FOLDER"
+msgstr "CARTELLA MUSICALE"
+
+#: ui/app.slint
+msgid "Music on a HyperPlayer server can join this library: its artists and albums merge with yours, and it plays from the server whenever this computer can reach it. Your playlists on the server are copied here when you add it, and Copy playlists brings those copies up to date (replacing changes made to them here). The queue, playlists and listening history stay on this computer."
+msgstr "La musica di un server HyperPlayer può unirsi a questa libreria: i suoi artisti e album si fondono con i tuoi, e viene riprodotta dal server ogni volta che questo computer può raggiungerlo. Le tue playlist sul server vengono copiate qui quando lo aggiungi, e Copia le playlist aggiorna quelle copie (sostituendo le modifiche fatte qui). La coda, le playlist e la cronologia degli ascolti restano su questo computer."
+
+#: src/ui/models.rs
+msgid "MUSICIANS"
+msgstr "MUSICISTI"
+
+#: src/ui/settings.rs
+msgid "must choose a new password"
+msgstr "deve scegliere una nuova password"
+
+#: ui/app.slint
+msgid "Mute"
+msgstr "Silenzia"
+
+#: src/ui/smart.rs
+msgid "name"
+msgstr "nome"
+
+#: src/ui/smart.rs
+msgid "never"
+msgstr "mai"
+
+#: ui/app.slint
+msgid "Never for this track"
+msgstr "Mai per questo brano"
+
+#: ui/app.slint
+msgid "NEW PASSWORD"
+msgstr "NUOVA PASSWORD"
+
+#: ui/app.slint
+msgid "NEW PASSWORD (AT LEAST 8 CHARACTERS)"
+msgstr "NUOVA PASSWORD (ALMENO 8 CARATTERI)"
+
+#: src/ui/library.rs
+msgid "New playlist"
+msgstr "Nuova playlist"
+
+#: ui/app.slint
+msgid "New playlist…"
+msgstr "Nuova playlist…"
+
+#: ui/app.slint
+msgid "NEXT UP"
+msgstr "A SEGUIRE"
+
+#: src/ui/playback.rs
+msgid "No audio output device"
+msgstr "Nessun dispositivo di uscita audio"
+
+#: ui/app.slint
+msgid "No biography available."
+msgstr "Nessuna biografia disponibile."
+
+#: ui/app.slint
+msgid "No credits found for this track."
+msgstr "Nessun credito trovato per questo brano."
+
+#: ui/app.slint
+msgid "No folder chosen yet"
+msgstr "Nessuna cartella ancora scelta"
+
+#: ui/app.slint
+msgid "No lyrics found for this track"
+msgstr "Nessun testo trovato per questo brano"
+
+#: ui/app.slint
+msgid "No rules yet: any track in the library can be picked."
+msgstr "Ancora nessuna regola: può essere scelto qualsiasi brano della libreria."
+
+#: ui/app.slint
+msgid "No tracks match these rules."
+msgstr "Nessun brano corrisponde a queste regole."
+
+#: src/ui/settings.rs
+msgid "Not added: its certificate isn't trusted."
+msgstr "Non aggiunto: il suo certificato non è attendibile."
+
+#: src/ui/smart.rs
+msgid "not in the last"
+msgstr "non negli ultimi"
+
+#: ui/app.slint
+msgid "Not now"
+msgstr "Non ora"
+
+#: ui/app.slint
+msgid "Nothing found for “{}”."
+msgstr "Niente trovato per “{}”."
+
+#: ui/app.slint
+msgid "Nothing is playing"
+msgstr "Niente in riproduzione"
+
+#: ui/app.slint
+msgid "Nothing matches. Every word must appear in a title, artist or album name."
+msgstr "Nessun risultato. Ogni parola deve comparire in un titolo, un artista o un nome di album."
+
+#: ui/app.slint
+msgid "Nothing playing"
+msgstr "Niente in riproduzione"
+
+#: ui/app.slint
+msgid "Nothing queued. Use the ⋯ menu on any track or album to add music."
+msgstr "La coda è vuota. Usa il menu ⋯ di un brano o di un album per aggiungere musica."
+
+#: ui/app.slint
+msgid "Nothing yet. Tracks you listen to (half of them, or 4 minutes) show up here."
+msgstr "Ancora niente. I brani che ascolti (per metà, o 4 minuti) compaiono qui."
+
+#: ui/app.slint
+msgid "NOW PLAYING"
+msgstr "IN RIPRODUZIONE"
+
+#: src/roles.rs
+msgid "oboe"
+msgstr "oboe"
+
+#: ui/app.slint
+msgid "Off"
+msgstr "Disattivato"
+
+#: ui/app.slint
+msgid "Open Last.fm again"
+msgstr "Riapri Last.fm"
+
+#: src/ui/local.rs
+msgid "Opening your music library…"
+msgstr "Apertura della tua libreria musicale…"
+
+#: ui/app.slint
+msgid "Optional"
+msgstr "Facoltativo"
+
+#: src/roles.rs
+msgid "orchestra"
+msgstr "orchestra"
+
+#: src/ui/models.rs
+msgid "Orchestra"
+msgstr "Orchestra"
+
+#: src/roles.rs
+msgid "orchestrator"
+msgstr "orchestratore"
+
+#: ui/app.slint
+msgid "Order"
+msgstr "Ordine"
+
+#: src/roles.rs
+msgid "organ"
+msgstr "organo"
+
+#: ui/app.slint
+msgid "Original"
+msgstr "Originale"
+
+#: src/adaptive.rs
+msgid "ORIGINAL"
+msgstr "ORIGINALE"
+
+#: src/adaptive.rs
+msgid "Original {}"
+msgstr "Originale {}"
+
+#: src/ui/models.rs
+msgid "Other"
+msgstr "Altro"
+
+#: src/ui/models.rs
+msgid "OTHER"
+msgstr "ALTRO"
+
+#: src/roles.rs
+msgid "other vocals"
+msgstr "altre voci"
+
+#: src/roles.rs
+msgid "pan flute"
+msgstr "flauto di Pan"
+
+#: ui/app.slint
+msgid "Password"
+msgstr "Password"
+
+#: ui/app.slint
+msgid "PASSWORD"
+msgstr "PASSWORD"
+
+#: ui/app.slint
+msgid "PASSWORD (AT LEAST 8 CHARACTERS)"
+msgstr "PASSWORD (ALMENO 8 CARATTERI)"
+
+#: src/ui/settings.rs
+msgid "Password changed; your other devices were signed out."
+msgstr "Password cambiata; gli altri tuoi dispositivi sono stati disconnessi."
+
+#: src/roles.rs
+msgid "pedal steel guitar"
+msgstr "pedal steel guitar"
+
+#: src/roles.rs
+msgid "percussion"
+msgstr "percussioni"
+
+#: src/roles.rs
+msgid "performer"
+msgstr "interprete"
+
+#: src/ui/models.rs
+msgid "Person"
+msgstr "Persona"
+
+#: src/roles.rs
+msgid "photography"
+msgstr "fotografia"
+
+#: src/roles.rs
+msgid "piano"
+msgstr "pianoforte"
+
+#: src/roles.rs
+msgid "piccolo"
+msgstr "ottavino"
+
+#: src/roles.rs
+msgid "piccolo trumpet"
+msgstr "tromba piccola"
+
+#: ui/app.slint
+msgid "Pick an artist to start listening"
+msgstr "Scegli un artista per iniziare ad ascoltare"
+
+#: src/roles.rs
+msgid "pipe organ"
+msgstr "organo a canne"
+
+#: ui/app.slint
+msgid "Play / pause"
+msgstr "Riproduci / pausa"
+
+#: ui/app.slint
+msgid "Play next"
+msgstr "Riproduci dopo"
+
+#: ui/app.slint
+msgid "Play the whole track"
+msgstr "Riproduci il brano intero"
+
+#: ui/app.slint
+msgid "Playback"
+msgstr "Riproduzione"
+
+#: ui/app.slint
+msgid "Playing from {}"
+msgstr "In riproduzione da {}"
+
+#: src/ui/library.rs
+msgid "Playing next: “{}”"
+msgstr "Riproduzione successiva: “{}”"
+
+#: src/ui/trim.rs
+msgid "Playing past the trimmed end, this time"
+msgstr "Riproduzione oltre la fine tagliata, per questa volta"
+
+#: ui/app.slint
+msgid "PLAYLIST"
+msgstr "PLAYLIST"
+
+#: src/ui/library.rs
+msgid "Playlist: {}"
+msgstr "Playlist: {}"
+
+#: ui/app.slint
+msgid "PLAYLISTS"
+msgstr "PLAYLIST"
+
+#: src/ui/settings.rs
+msgid "Playlists copied from the server."
+msgstr "Playlist copiate dal server."
+
+#: ui/app.slint
+msgid "Plays"
+msgstr "Riproduzioni"
+
+#: ui/app.slint
+msgid "Please wait…"
+msgstr "Attendi…"
+
+#: ui/app.slint
+msgid "Pre-amp"
+msgstr "Pre-amplificazione"
+
+#: src/roles.rs
+msgid "present"
+msgstr "oggi"
+
+#: ui/app.slint
+msgid "Previous / next track"
+msgstr "Brano precedente / successivo"
+
+#: src/roles.rs
+msgid "producer"
+msgstr "produttore"
+
+#: src/ui/models.rs
+msgid "PRODUCTION"
+msgstr "PRODUZIONE"
+
+#: ui/app.slint
+msgid "Profile"
+msgstr "Profilo"
+
+#: src/roles.rs
+msgid "programming"
+msgstr "programmazione"
+
+#: ui/app.slint
+msgid "Queue"
+msgstr "Coda"
+
+#: src/ui/library.rs
+msgid "Queued: “{}”"
+msgstr "In coda: “{}”"
+
+#: ui/app.slint
+msgid "Random"
+msgstr "Casuale"
+
+#: src/ui/smart.rs
+msgid "Random mix"
+msgstr "Mix casuale"
+
+#: ui/app.slint
+msgid "Random tracks"
+msgstr "Brani casuali"
+
+#: src/roles.rs
+msgid "rap"
+msgstr "rap"
+
+#: src/ui/settings.rs
+msgid "Reading files: {} of {}"
+msgstr "Lettura dei file: {} di {}"
+
+#: src/ui/browse.rs
+msgid "Reading your music: {} of {}"
+msgstr "Lettura della tua musica: {} di {}"
+
+#: src/ui/browse.rs
+msgid "Reading your music…"
+msgstr "Lettura della tua musica…"
+
+#: ui/app.slint
+msgid "Recently added"
+msgstr "Aggiunti di recente"
+
+#: ui/app.slint
+msgid "Recently played"
+msgstr "Ascoltati di recente"
+
+#: ui/app.slint
+msgid "Reconnect"
+msgstr "Ricollega"
+
+#: src/roles.rs
+msgid "recorder"
+msgstr "flauto dolce"
+
+#: src/roles.rs
+msgid "recording engineer"
+msgstr "tecnico di registrazione"
+
+#: src/roles.rs
+msgid "remixer"
+msgstr "remixer"
+
+#: ui/app.slint
+msgid "Remove"
+msgstr "Rimuovi"
+
+#: ui/app.slint
+msgid "Remove admin"
+msgstr "Togli amministratore"
+
+#: ui/app.slint
+msgid "Remove from queue"
+msgstr "Rimuovi dalla coda"
+
+#: ui/app.slint
+msgid "Remove from this playlist"
+msgstr "Rimuovi da questa playlist"
+
+#: ui/app.slint
+msgid "Removing a folder takes its tracks out of the library. Playlists keep them, and find them again if the folder comes back."
+msgstr "Rimuovere una cartella toglie i suoi brani dalla libreria. Le playlist li conservano, e li ritrovano se la cartella torna."
+
+#: ui/app.slint
+msgid "Removing a server takes its music out of this library. Playlists keep its tracks, and find them again if the server is added back."
+msgstr "Rimuovere un server toglie la sua musica da questa libreria. Le playlist ne conservano i brani, e li ritrovano se il server viene aggiunto di nuovo."
+
+#: ui/app.slint
+msgid "REPEAT IT"
+msgstr "RIPETILA"
+
+#: ui/app.slint
+msgid "REPEAT THE NEW PASSWORD"
+msgstr "RIPETI LA NUOVA PASSWORD"
+
+#: ui/app.slint
+msgid "Replay the track from the start"
+msgstr "Riascolta il brano dall'inizio"
+
+#: ui/app.slint
+msgid "Rescan now"
+msgstr "Riesamina ora"
+
+#: ui/app.slint
+msgid "Reset password"
+msgstr "Reimposta password"
+
+#: src/roles.rs
+msgid "resonator guitar"
+msgstr "chitarra resonator"
+
+#: ui/app.slint
+msgid "Results for “{}”"
+msgstr "Risultati per “{}”"
+
+#: src/replaygain.rs
+msgid "RG {} dB album"
+msgstr "RG {} dB album"
+
+#: src/replaygain.rs
+msgid "RG {} dB album, peak-limited"
+msgstr "RG {} dB album, picchi limitati"
+
+#: src/replaygain.rs
+msgid "RG {} dB track"
+msgstr "RG {} dB brano"
+
+#: src/replaygain.rs
+msgid "RG {} dB track, peak-limited"
+msgstr "RG {} dB brano, picchi limitati"
+
+#: src/roles.rs
+msgid "Rhodes piano"
+msgstr "piano Rhodes"
+
+#: ui/app.slint
+msgid "Rules applied"
+msgstr "Regole applicate"
+
+#: ui/app.slint
+msgid "Sample rate"
+msgstr "Frequenza di campionamento"
+
+#: src/roles.rs
+msgid "sampler"
+msgstr "campionatore"
+
+#: src/roles.rs
+msgid "samples"
+msgstr "campionamenti"
+
+#: ui/app.slint
+msgid "Save"
+msgstr "Salva"
+
+#: ui/app.slint
+msgid "Save and continue"
+msgstr "Salva e continua"
+
+#: ui/app.slint
+msgid "Save as playlist"
+msgstr "Salva come playlist"
+
+#: src/ui/settings.rs
+msgid "Saved."
+msgstr "Salvato."
+
+#: src/roles.rs
+msgid "saxophone"
+msgstr "sassofono"
+
+#: ui/app.slint
+msgid "Scrobbles what you listen to to your Last.fm profile. Connecting opens Last.fm in your browser, where you allow HyperPlayer; your password stays with Last.fm."
+msgstr "Registra ciò che ascolti sul tuo profilo Last.fm. Il collegamento apre Last.fm nel browser, dove autorizzi HyperPlayer; la tua password resta a Last.fm."
+
+#: ui/app.slint
+msgid "Scrobbling"
+msgstr "Scrobbling"
+
+#: ui/app.slint
+msgid "Search"
+msgstr "Cerca"
+
+#: ui/app.slint
+msgid "Search artists, albums, tracks   ( / )"
+msgstr "Cerca artisti, album, brani   ( / )"
+
+#: ui/app.slint
+msgid "Searching…"
+msgstr "Ricerca…"
+
+#: src/ui/smart.rs
+msgid "seconds or m:ss"
+msgstr "secondi o m:ss"
+
+#: ui/app.slint
+msgid "Seek back / forward 10 s"
+msgstr "Indietro / avanti di 10 s"
+
+#: ui/app.slint
+msgid "Sends what you listen to to your ListenBrainz profile, for a public listening history, statistics and recommendations. Listens are sent from the moment you connect; earlier history stays here."
+msgstr "Invia ciò che ascolti al tuo profilo ListenBrainz, per una cronologia pubblica degli ascolti, statistiche e consigli. Gli ascolti vengono inviati dal momento del collegamento; la cronologia precedente resta qui."
+
+#: ui/app.slint
+msgid "Server"
+msgstr "Server"
+
+#: ui/app.slint
+msgid "SERVER"
+msgstr "SERVER"
+
+#: src/ui/settings.rs
+msgid "Server added: its music is being copied into your library."
+msgstr "Server aggiunto: la sua musica viene copiata nella tua libreria."
+
+#: ui/app.slint
+msgid "SERVER ADDRESS"
+msgstr "INDIRIZZO DEL SERVER"
+
+#: src/ui/settings.rs
+msgid "Server removed; its music is out of the library."
+msgstr "Server rimosso; la sua musica è fuori dalla libreria."
+
+#: ui/app.slint
+msgid "Servers"
+msgstr "Server"
+
+#: ui/app.slint
+msgid "Set"
+msgstr "Imposta"
+
+#: ui/app.slint
+msgid "Settings"
+msgstr "Impostazioni"
+
+#: ui/app.slint
+msgid "SHA-256 FINGERPRINT"
+msgstr "IMPRONTA SHA-256"
+
+#: src/roles.rs
+msgid "shaker"
+msgstr "shaker"
+
+#: src/ui/smart.rs
+msgid "shorter than"
+msgstr "più breve di"
+
+#: ui/app.slint
+msgid "Show the live spectrum under the cover"
+msgstr "Mostra lo spettro in tempo reale sotto la copertina"
+
+#: ui/app.slint
+msgid "Shuffle / repeat"
+msgstr "Casuale / ripeti"
+
+#: ui/app.slint
+msgid "SHUFFLE FROM"
+msgstr "RIPRODUZIONE CASUALE DA"
+
+#: ui/app.slint
+msgid "Shuffle from: {}"
+msgstr "Casuale da: {}"
+
+#: ui/app.slint
+msgid "Sign in"
+msgstr "Accedi"
+
+#: ui/app.slint
+msgid "Sign in to your server."
+msgstr "Accedi al tuo server."
+
+#: ui/app.slint
+msgid "Sign out"
+msgstr "Esci"
+
+#: ui/app.slint
+msgid "Signed-in devices"
+msgstr "Dispositivi collegati"
+
+#: src/ui/settings.rs
+msgid "since {}"
+msgstr "dal {}"
+
+#: src/roles.rs
+msgid "sitar"
+msgstr "sitar"
+
+#: ui/app.slint
+msgid "Skip it"
+msgstr "Saltalo"
+
+#: ui/app.slint
+msgid "Skip the silence?"
+msgstr "Saltare il silenzio?"
+
+#: ui/app.slint
+msgid "Skip: keep using the admin account"
+msgstr "Salta: continua a usare l'account admin"
+
+#: src/roles.rs
+msgid "slide guitar"
+msgstr "chitarra slide"
+
+#: src/ui/library.rs
+msgid "Smart · {n} track"
+msgid_plural "Smart · {n} tracks"
+msgstr[0] "Smart · {n} brano"
+msgstr[1] "Smart · {n} brani"
+
+#: src/ui/library.rs
+msgid "Smart · {n} track of {} matching"
+msgid_plural "Smart · {n} tracks of {} matching"
+msgstr[0] "Smart · {n} brano su {} corrispondenti"
+msgstr[1] "Smart · {n} brani su {} corrispondenti"
+
+#: src/ui/smart.rs
+msgid "Smart playlist"
+msgstr "Playlist smart"
+
+#: ui/app.slint
+msgid "SMART PLAYLIST"
+msgstr "PLAYLIST SMART"
+
+#: ui/app.slint
+msgid "SMART, KEPT UP TO DATE"
+msgstr "SMART, SEMPRE AGGIORNATE"
+
+#: src/roles.rs
+msgid "snare drum"
+msgstr "rullante"
+
+#: src/roles.rs
+msgid "solo {}"
+msgstr "{} solista"
+
+#: src/roles.rs
+msgid "soprano saxophone"
+msgstr "sassofono soprano"
+
+#: src/roles.rs
+msgid "soprano vocals"
+msgstr "soprano"
+
+#: src/roles.rs
+msgid "sound effects"
+msgstr "effetti sonori"
+
+#: src/roles.rs
+msgid "sound engineer"
+msgstr "tecnico del suono"
+
+#: ui/app.slint
+msgid "Standalone player"
+msgstr "Player autonomo"
+
+#: ui/app.slint
+msgid "Start the track here"
+msgstr "Inizia il brano qui"
+
+#: src/ui/smart.rs
+msgid "starts with"
+msgstr "inizia con"
+
+#: src/roles.rs
+msgid "steel guitar"
+msgstr "steel guitar"
+
+#: src/roles.rs
+msgid "steelpan"
+msgstr "steel drum"
+
+#: ui/app.slint
+msgid "Stop scan"
+msgstr "Ferma la scansione"
+
+#: ui/app.slint
+msgid "Streaming quality"
+msgstr "Qualità dello streaming"
+
+#: src/roles.rs
+msgid "string section"
+msgstr "sezione d'archi"
+
+#: src/roles.rs
+msgid "strings"
+msgstr "archi"
+
+#: ui/app.slint
+msgid "Switch library"
+msgstr "Cambia libreria"
+
+#: ui/app.slint
+msgid "Switch library…"
+msgstr "Cambia libreria…"
+
+#: src/roles.rs
+msgid "synthesizer"
+msgstr "sintetizzatore"
+
+#: src/roles.rs
+msgid "tabla"
+msgstr "tabla"
+
+#: src/roles.rs
+msgid "tambourine"
+msgstr "tamburello"
+
+#: src/roles.rs
+msgid "tape"
+msgstr "nastro"
+
+#: ui/app.slint
+msgid "Temporary password (at least 8 characters)"
+msgstr "Password temporanea (almeno 8 caratteri)"
+
+#: src/ui/settings.rs
+msgid "Temporary password set: they're signed out, and choose their own at the next sign-in."
+msgstr "Password temporanea impostata: l'utente è stato disconnesso, e ne sceglierà una sua al prossimo accesso."
+
+#: src/roles.rs
+msgid "tenor saxophone"
+msgstr "sassofono tenore"
+
+#: src/roles.rs
+msgid "tenor vocals"
+msgstr "tenore"
+
+#: src/ui/settings.rs
+msgid "The new password needs at least 8 characters."
+msgstr "La nuova password deve avere almeno 8 caratteri."
+
+#: src/ui/settings.rs
+msgid "The new passwords don't match."
+msgstr "Le nuove password non coincidono."
+
+#: ui/app.slint
+msgid "The server also rescans every few minutes and watches folders where the filesystem allows. Folders set here replace HP_LIBRARY's, until HP_LIBRARY itself is changed (e.g. by the installer). In Docker, only folders mounted into the container can be found."
+msgstr "Il server riesamina anche ogni pochi minuti e osserva le cartelle dove il filesystem lo consente. Le cartelle impostate qui sostituiscono quelle di HP_LIBRARY, finché HP_LIBRARY stessa non cambia (ad es. con l'installer). In Docker si trovano solo le cartelle montate nel container."
+
+#: ui/app.slint
+msgid "The server is scanning the library now."
+msgstr "Il server sta esaminando la libreria."
+
+#: ui/app.slint
+msgid "The server rescans the library every few minutes, so new music shows up on its own."
+msgstr "Il server riesamina la libreria ogni pochi minuti, così la nuova musica compare da sola."
+
+#: ui/app.slint
+msgid "The server uses a certificate of its own rather than one from a known authority, as home servers usually do. Its fingerprint should match the one in the server's log:"
+msgstr "Il server usa un proprio certificato invece di uno di un'autorità nota, come fanno di solito i server domestici. La sua impronta dovrebbe corrispondere a quella nel log del server:"
+
+#: src/ui/account.rs
+msgid "The two passwords don't match."
+msgstr "Le due password non coincidono."
+
+#: src/roles.rs
+msgid "theremin"
+msgstr "theremin"
+
+#: src/ui/settings.rs
+msgid "This account still has the password it was given: sign in to the server with HyperPlayer once to choose your own, then add it here."
+msgstr "Questo account ha ancora la password assegnata: accedi una volta al server con HyperPlayer per sceglierne una tua, poi aggiungilo qui."
+
+#: ui/app.slint
+msgid "This album"
+msgstr "Questo album"
+
+#: ui/app.slint
+msgid "This artist"
+msgstr "Questo artista"
+
+#: src/ui/local.rs
+msgid "This copy of HyperPlayer can only connect to a server: it has no library of its own."
+msgstr "Questa copia di HyperPlayer può solo collegarsi a un server: non ha una libreria propria."
+
+#: ui/app.slint
+msgid "This genre"
+msgstr "Questo genere"
+
+#: ui/app.slint
+msgid "This help"
+msgstr "Questo aiuto"
+
+#: ui/app.slint
+msgid "This playlist"
+msgstr "Questa playlist"
+
+#: ui/app.slint
+msgid "This server isn't set up for Last.fm yet: its admin needs a Last.fm API account (last.fm/api/account/create) and to start the server with HP_LASTFM_API_KEY and HP_LASTFM_SECRET."
+msgstr "Questo server non è ancora configurato per Last.fm: il suo amministratore deve creare un account API Last.fm (last.fm/api/account/create) e avviare il server con HP_LASTFM_API_KEY e HP_LASTFM_SECRET."
+
+#: src/ui/smart.rs
+msgid "times"
+msgstr "volte"
+
+#: src/roles.rs
+msgid "timpani"
+msgstr "timpani"
+
+#: ui/app.slint
+msgid "Tint the window with the colours of the album playing"
+msgstr "Colora la finestra con i colori dell'album in riproduzione"
+
+#: ui/app.slint
+msgid "Title"
+msgstr "Titolo"
+
+#: ui/app.slint
+msgid "To combine this server's music with folders on this computer, or with other servers, use HyperPlayer as a standalone player and add this server in Settings → Library → Servers."
+msgstr "Per unire la musica di questo server a cartelle di questo computer, o ad altri server, usa HyperPlayer come player autonomo e aggiungi questo server in Impostazioni → Libreria → Server."
+
+#: ui/app.slint
+msgid "Top artists · last 30 days"
+msgstr "Artisti più ascoltati · ultimi 30 giorni"
+
+#: ui/app.slint
+msgid "Track"
+msgstr "Brano"
+
+#: ui/app.slint
+msgid "Tracks"
+msgstr "Brani"
+
+#: ui/app.slint
+msgid "TRACKS"
+msgstr "BRANI"
+
+#: ui/app.slint
+msgid "tracks (max 500)"
+msgstr "brani (max 500)"
+
+#: ui/app.slint
+msgid "Tracks matching"
+msgstr "Brani che soddisfano"
+
+#: src/roles.rs
+msgid "triangle"
+msgstr "triangolo"
+
+#: ui/app.slint
+msgid "TRIM, FOR EVERYONE · {}"
+msgstr "TAGLIO, PER TUTTI · {}"
+
+#: src/roles.rs
+msgid "trombone"
+msgstr "trombone"
+
+#: src/roles.rs
+msgid "trumpet"
+msgstr "tromba"
+
+#: ui/app.slint
+msgid "Trust and add"
+msgstr "Considera attendibile e aggiungi"
+
+#: ui/app.slint
+msgid "Trust this server"
+msgstr "Considera attendibile questo server"
+
+#: ui/app.slint
+msgid "Trust this server?"
+msgstr "Considerare attendibile questo server?"
+
+#: ui/app.slint
+msgid "Trust this server's certificate?"
+msgstr "Considerare attendibile il certificato di questo server?"
+
+#: src/roles.rs
+msgid "tuba"
+msgstr "tuba"
+
+#: src/roles.rs
+msgid "tubular bells"
+msgstr "campane tubolari"
+
+#: src/roles.rs
+msgid "turntables"
+msgstr "giradischi"
+
+#: src/roles.rs
+msgid "twelve-string guitar"
+msgstr "chitarra a dodici corde"
+
+#: src/roles.rs
+msgid "ukulele"
+msgstr "ukulele"
+
+#: src/ui/settings.rs
+msgid "unavailable · keeping {n} track"
+msgid_plural "unavailable · keeping {n} tracks"
+msgstr[0] "non disponibile · {n} brano conservato"
+msgstr[1] "non disponibile · {n} brani conservati"
+
+#: ui/app.slint
+msgid "up to"
+msgstr "fino a"
+
+#: src/roles.rs
+msgid "upright piano"
+msgstr "pianoforte verticale"
+
+#: src/ui/account.rs
+msgid "Use at least 8 characters for the password."
+msgstr "Usa almeno 8 caratteri per la password."
+
+#: src/ui/account.rs
+msgid "Use at least 8 characters."
+msgstr "Usa almeno 8 caratteri."
+
+#: ui/app.slint
+msgid "Use HyperPlayer as a standalone player instead"
+msgstr "Usa invece HyperPlayer come player autonomo"
+
+#: ui/app.slint
+msgid "Use the desktop's title bar instead of HyperPlayer's (from the next start; this computer only)"
+msgstr "Usa la barra del titolo del desktop invece di quella di HyperPlayer (dal prossimo avvio; solo questo computer)"
+
+#: ui/app.slint
+msgid "Use this folder"
+msgstr "Usa questa cartella"
+
+#: ui/app.slint
+msgid "Used for highlights, active controls and the waveform. “From the album” follows the cover of what's playing."
+msgstr "Usato per evidenziazioni, controlli attivi e forma d'onda. “Dall'album” segue la copertina di ciò che è in riproduzione."
+
+#: src/ui/settings.rs
+msgid "User added."
+msgstr "Utente aggiunto."
+
+#: src/ui/settings.rs
+msgid "User deleted."
+msgstr "Utente eliminato."
+
+#: ui/app.slint
+msgid "USER TOKEN"
+msgstr "TOKEN UTENTE"
+
+#: ui/app.slint
+msgid "Username"
+msgstr "Nome utente"
+
+#: ui/app.slint
+msgid "USERNAME"
+msgstr "NOME UTENTE"
+
+#: ui/app.slint
+msgid "Users"
+msgstr "Utenti"
+
+#: src/roles.rs
+msgid "vibraphone"
+msgstr "vibrafono"
+
+#: src/roles.rs
+msgid "viola"
+msgstr "viola"
+
+#: src/roles.rs
+msgid "violin"
+msgstr "violino"
+
+#: src/roles.rs
+msgid "vocal"
+msgstr "voce"
+
+#: src/roles.rs
+msgid "vocal arranger"
+msgstr "arrangiatore vocale"
+
+#: src/roles.rs
+msgid "vocals"
+msgstr "voce"
+
+#: ui/app.slint
+msgid "Volume levelling (ReplayGain)"
+msgstr "Livellamento del volume (ReplayGain)"
+
+#: ui/app.slint
+msgid "Volume up / down"
+msgstr "Volume su / giù"
+
+#: src/roles.rs
+msgid "whistling"
+msgstr "fischio"
+
+#: ui/app.slint
+msgid "Who's listening?"
+msgstr "Chi ascolta?"
+
+#: src/ui/library.rs ui/app.slint
+msgid "Whole library"
+msgstr "Tutta la libreria"
+
+#: ui/app.slint
+msgid "Window"
+msgstr "Finestra"
+
+#: src/roles.rs
+msgid "woodwind"
+msgstr "legni"
+
+#: src/roles.rs
+msgid "writer"
+msgstr "autore"
+
+#: src/ui/models.rs
+msgid "WRITTEN BY"
+msgstr "SCRITTO DA"
+
+#: src/roles.rs
+msgid "Wurlitzer electric piano"
+msgstr "piano elettrico Wurlitzer"
+
+#: src/roles.rs
+msgid "xylophone"
+msgstr "xilofono"
+
+#: ui/app.slint
+msgid "Year"
+msgstr "Anno"
+
+#: src/ui/smart.rs
+msgid "yes or no"
+msgstr "sì o no"
+
+#: src/ui/history.rs
+msgid "yesterday"
+msgstr "ieri"
+
+#: ui/app.slint
+msgid "You signed in with the default password. Pick your own to continue; the default stops working once you do."
+msgstr "Hai effettuato l'accesso con la password predefinita. Scegline una tua per continuare; quella predefinita smette di funzionare quando lo fai."
+
+#: src/ui/settings.rs
+msgid "Your listens are sent as you play."
+msgstr "I tuoi ascolti vengono inviati mentre ascolti."
+
+#: ui/app.slint
+msgid "Your music folder"
+msgstr "La tua cartella musicale"
+
+#: src/ui/local.rs
+msgid "Your music library couldn't be opened: {}"
+msgstr "Impossibile aprire la tua libreria musicale: {}"
+
+#: src/ui/local.rs
+msgid "Your music library isn't answering: {}"
+msgstr "La tua libreria musicale non risponde: {}"
+
+#: src/ui/local.rs
+msgid "Your music library keeps stopping. Its log (engine.log, next to HyperPlayer's) says why."
+msgstr "La tua libreria musicale continua a fermarsi. Il suo log (engine.log, accanto a quello di HyperPlayer) spiega perché."
+
+#: ui/app.slint
+msgid "Your name"
+msgstr "Il tuo nome"
+
+#: src/ui/account.rs
+msgid "Your session has ended; please sign in again."
+msgstr "La sessione è scaduta; accedi di nuovo."

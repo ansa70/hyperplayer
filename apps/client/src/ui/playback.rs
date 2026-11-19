@@ -11,6 +11,7 @@ use hyperplayer::{
     pipeline::{BufferedSource, PipelineHandle},
     playback, replaygain,
     stream::StreamHandle,
+    tr,
 };
 use slint::SharedString;
 
@@ -340,10 +341,15 @@ pub fn start_stream(track: types::Track, quality: Quality, start: Duration, foll
                 app.loading = false;
                 let opened = match opened {
                     Ok(o) => o,
-                    Err(err) => return set_status(app, &format!("Cannot play {title}: {err:#}")),
+                    Err(err) => {
+                        return set_status(
+                            app,
+                            &tr!("Cannot play {}: {}", title, format!("{err:#}")),
+                        );
+                    }
                 };
                 let Some(audio) = &app.audio else {
-                    return set_status(app, "No audio output device");
+                    return set_status(app, tr!("No audio output device"));
                 };
                 if let Some(kbps) = opened.measured_kbps {
                     app.bandwidth.update(kbps);
@@ -374,7 +380,7 @@ pub fn start_stream(track: types::Track, quality: Quality, start: Duration, foll
                 app.fading = if fade.is_some() { old } else { None };
                 if let Err(e) = played {
                     app.session = None;
-                    return set_status(app, &format!("Cannot play {title}: {e:#}"));
+                    return set_status(app, &tr!("Cannot play {}: {}", title, format!("{e:#}")));
                 }
                 app.monitor.reset();
                 app.session = Some(session);

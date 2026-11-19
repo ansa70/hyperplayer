@@ -3,8 +3,8 @@
 import type { PlaylistSummary, TrackSource, UploadInfo } from "@hyperplayer/schemas";
 import { create } from "zustand";
 import { api, call, errorMessage } from "../api.ts";
-import { plural } from "../format.ts";
 import { usePlayer } from "./player.ts";
+import { t, tn } from "../i18n.ts";
 
 interface LibraryState {
   playlists: PlaylistSummary[];
@@ -67,7 +67,15 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
     try {
       const before = get().playlists.find((p) => p.id === playlistId)?.trackCount ?? 0;
       const p = await call(api.addToPlaylist, { params: { id: playlistId }, body: { source } });
-      get().notify(`Added “${what}” to ${p.name}: ${plural(p.trackCount - before, "track")}`);
+      get().notify(
+        tn(
+          "Added “{}” to {}: {n} track",
+          "Added “{}” to {}: {n} tracks",
+          p.trackCount - before,
+          what,
+          p.name,
+        ),
+      );
       await get().loadPlaylists();
     } catch (e) {
       get().notify(errorMessage(e));
@@ -78,7 +86,7 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
     try {
       const queue = await call(api.addToQueue, { body: { source, placement } });
       usePlayer.setState({ queue });
-      get().notify(placement === "next" ? `“${what}” plays next` : `Added “${what}” to the queue`);
+      get().notify(placement === "next" ? t("“{}” plays next", what) : t("Added “{}” to the queue", what));
     } catch (e) {
       get().notify(errorMessage(e));
     }

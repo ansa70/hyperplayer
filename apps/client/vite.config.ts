@@ -11,7 +11,12 @@ export default defineConfig({
       build: { command: "cargo build --release", dependsOn: [generate], cache: false },
       test: { command: "cargo test", dependsOn: [generate], cache: false },
       lint: {
-        command: ["cargo fmt --check", "cargo clippy --all-targets -- -D warnings"],
+        command: [
+          "cargo fmt --check",
+          "cargo clippy --all-targets -- -D warnings",
+          // Every @tr / tr! / trn! message in the catalogs, and translated.
+          "vpx translations/update.ts --check",
+        ],
         dependsOn: [generate],
         cache: false,
       },

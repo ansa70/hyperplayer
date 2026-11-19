@@ -13,12 +13,12 @@ use std::{
     },
 };
 
-use hyperplayer::api::types;
+use hyperplayer::{api::types, tr, trn};
 use slint::{Image, Model, ModelRc, SharedString, VecModel};
 
 use super::{
     AlbumItem, AlbumRow, App, Page, background,
-    models::{album_item, load_image_if, plural},
+    models::{album_item, load_image_if},
     with_app,
 };
 
@@ -79,7 +79,7 @@ pub fn load(sort: String) {
         app.albums.sort = sort.clone();
         if let Some(ui) = app.ui.upgrade() {
             ui.set_albums_sort(sort.as_str().into());
-            ui.set_albums_summary("Loading…".into());
+            ui.set_albums_summary(tr!("Loading…").into());
         }
         app.api.clone()
     });
@@ -104,7 +104,9 @@ pub fn load(sort: String) {
                     return;
                 }
                 if let Some(ui) = app.ui.upgrade() {
-                    ui.set_albums_summary(plural(albums.len() as i64, "album").into());
+                    ui.set_albums_summary(
+                        trn!("{n} album", "{n} albums", albums.len() as i64).into(),
+                    );
                     ui.invoke_albums_scroll_to_top();
                 }
                 app.albums.albums = albums;

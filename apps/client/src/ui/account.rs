@@ -2,7 +2,7 @@
 
 use hyperplayer::{
     api::{Api, Unauthorized},
-    credentials,
+    credentials, tr,
     trust::{self, UntrustedCertificate},
 };
 
@@ -129,9 +129,11 @@ pub fn begin(has_token: bool) {
             Err(e) if e.is::<UntrustedCertificate>() => ask_trust(&e),
             Err(e) if e.is::<Unauthorized>() => {
                 with_app(|app| credentials::delete(app.api.base(), &app.settings.username));
-                show_login(Some("Your session has ended; please sign in again.".into()));
+                show_login(Some(
+                    tr!("Your session has ended; please sign in again.").into(),
+                ));
             }
-            Err(e) => show_login(Some(format!("Cannot reach the server: {e:#}"))),
+            Err(e) => show_login(Some(tr!("Cannot reach the server: {}", format!("{e:#}")))),
         });
     });
 }
@@ -239,7 +241,7 @@ pub fn show_folder_step(suggested: String) {
 
 /// The folder step's "Choose another folder…": the system's dialog.
 pub fn browse_music_folder() {
-    local::pick_folder("Choose your music folder", |picked| {
+    local::pick_folder(tr!("Choose your music folder"), |picked| {
         if let Some(folder) = picked {
             with_app(|app| set_login(app, |l| l.music_folder = folder.into()));
         }
@@ -345,7 +347,7 @@ pub fn trust_server() {
 pub fn cancel_trust() {
     with_app(|app| {
         set_login(app, |l| {
-            l.error = format!(
+            l.error = tr!(
                 "{} isn't trusted, so HyperPlayer won't connect to it.",
                 l.trust_server
             )
@@ -370,7 +372,10 @@ pub fn check_server() {
             Ok(s) => with_app(|app| {
                 set_login(app, |l| {
                     l.default_admin = s.default_admin;
-                    if l.error.starts_with("Cannot reach") {
+                    // The words before the server's name: the same in both messages.
+                    let unreachable = tr!("Cannot reach {}: {}");
+                    let prefix = unreachable.split('{').next().unwrap_or_default().trim_end();
+                    if !prefix.is_empty() && l.error.starts_with(prefix) {
                         l.error = "".into();
                     }
                 });
@@ -385,7 +390,7 @@ pub fn check_server() {
             Err(e) if e.is::<UntrustedCertificate>() => ask_trust(&e),
             Err(e) => with_app(|app| {
                 set_login(app, |l| {
-                    l.error = format!("Cannot reach {server}: {e:#}").into()
+                    l.error = tr!("Cannot reach {}: {}", server, format!("{e:#}")).into()
                 })
             }),
         });
@@ -497,10 +502,10 @@ pub fn change_password() {
     };
     let complain = |msg: &str| with_app(|app| set_login(app, |l| l.error = msg.into()));
     if new.chars().count() < 8 {
-        return complain("Use at least 8 characters.");
+        return complain(tr!("Use at least 8 characters."));
     }
     if new != confirm {
-        return complain("The two passwords don't match.");
+        return complain(tr!("The two passwords don't match."));
     }
     with_app(|app| {
         set_login(app, |l| {
@@ -578,13 +583,13 @@ pub fn onboard() {
     };
     let complain = |msg: &str| with_app(|app| set_login(app, |l| l.error = msg.into()));
     if username.is_empty() {
-        return complain("Choose a username.");
+        return complain(tr!("Choose a username."));
     }
     if password.chars().count() < 8 {
-        return complain("Use at least 8 characters for the password.");
+        return complain(tr!("Use at least 8 characters for the password."));
     }
     if password != confirm {
-        return complain("The two passwords don't match.");
+        return complain(tr!("The two passwords don't match."));
     }
     with_app(|app| {
         set_login(app, |l| {
@@ -733,7 +738,9 @@ pub fn session_ended() {
         credentials::delete(app.api.base(), &app.settings.username);
         forget_session(app);
     });
-    show_login(Some("Your session has ended; please sign in again.".into()));
+    show_login(Some(
+        tr!("Your session has ended; please sign in again.").into(),
+    ));
 }
 
 fn forget_session(app: &mut App) {

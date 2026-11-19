@@ -172,3 +172,43 @@ test("uses the Wikidata description when an artist has no Wikipedia article", as
     imageUrl: null,
   });
 });
+
+test("biographies are fetched again when HP_WIKI_LANG changes, and only they", async () => {
+  db.exec(`
+    INSERT INTO artists (id, name, sort_name, musicbrainz_id, enrich_status, biography, biography_url, links)
+      VALUES ('area', 'Area', 'Area', 'mb-area', 'done', 'An Italian band.',
+        'https://en.wikipedia.org/wiki/Area_(band)',
+        '[{"kind":"musicbrainz","url":"https://musicbrainz.org/artist/mb-area"},{"kind":"wikidata","url":"https://www.wikidata.org/wiki/Q123"},{"kind":"wikipedia","url":"https://en.wikipedia.org/wiki/Area_(band)"}]');
+  `);
+  const http = fakeHttp({
+    "ids=Q123": {
+      entities: { Q123: { sitelinks: { itwiki: { title: "Area (gruppo musicale)" } }, claims: {} } },
+    },
+    "it.wikipedia.org/api/rest_v1/page/summary/Area_(gruppo_musicale)": {
+      type: "standard",
+      extract: "Gli Area sono un gruppo musicale italiano.",
+      content_urls: { desktop: { page: "https://it.wikipedia.org/wiki/Area_(gruppo_musicale)" } },
+    },
+  });
+  const config = { enabled: true, contact: "test", wikiLang: "it", fanartKey: null };
+  const enricher = new Enricher(db, new ArtworkStore(db, dir), silent, config, http);
+  enricher.enqueuePending();
+  await expect.poll(() => enricher.queueSize, { timeout: 5000 }).toBe(0);
+
+  const row = db.prepare("SELECT biography, biography_lang, links FROM artists").get() as Record<
+    string,
+    string
+  >;
+  expect(row.biography).toBe("Gli Area sono un gruppo musicale italiano.");
+  expect(row.biography_lang).toBe("it");
+  expect(JSON.parse(row.links)).toContainEqual({
+    kind: "wikipedia",
+    url: "https://it.wikipedia.org/wiki/Area_(gruppo_musicale)",
+  });
+  expect(http.requested.some((u) => u.includes("musicbrainz.org"))).toBe(false);
+
+  // Done for this language: nothing more to fetch at the next start.
+  const again = new Enricher(db, new ArtworkStore(db, dir), silent, config, http);
+  again.enqueuePending();
+  expect(again.queueSize).toBe(0);
+});

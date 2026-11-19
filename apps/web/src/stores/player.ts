@@ -16,6 +16,7 @@ import { begin, follow } from "../player/listening.ts";
 import { canFade, fade, prepareOutput, setLevel, stopFade } from "../player/output.ts";
 import { chooseStream, type Mode } from "../player/quality.ts";
 import { compute, label, UNITY, type Applied, type RgMode } from "../player/replaygain.ts";
+import { t } from "../i18n.ts";
 
 interface PlayerState {
   queue: QueueState | null;
@@ -512,7 +513,11 @@ elements.forEach((e, slot) => {
   e.addEventListener("ended", () => isActive() && void ended());
   e.addEventListener("error", () => {
     if (!isActive() || !loaded[slot]) return;
-    usePlayer.setState({ loading: false, playing: false, error: `Cannot play ${loaded[slot].track.title}` });
+    usePlayer.setState({
+      loading: false,
+      playing: false,
+      error: t("Cannot play {}", loaded[slot].track.title),
+    });
   });
   e.addEventListener("timeupdate", () => {
     if (!isActive()) return;

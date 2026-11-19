@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api, call, errorMessage } from "../api.ts";
 import { FIELDS, hint, MAX_LIMIT, opLabel, ops, ORDERS, rule } from "../player/smart.ts";
 import "./smart.css";
+import { t } from "../i18n.ts";
 
 /** A smart playlist's rules, edited in place and applied together, as in the Rust player. */
 export function SmartEditor({
@@ -39,17 +40,17 @@ export function SmartEditor({
   return (
     <div className="smart">
       <div className="smart-line">
-        <span>Tracks matching</span>
+        <span>{t("Tracks matching")}</span>
         <select
           value={rules.match}
           onChange={(e) => change((r) => ({ ...r, match: e.target.value as SmartRules["match"] }))}
         >
-          <option value="all">all</option>
-          <option value="any">any</option>
+          <option value="all">{t("all")}</option>
+          <option value="any">{t("any")}</option>
         </select>
-        <span>of these rules:</span>
+        <span>{t("of these rules:")}</span>
       </div>
-      {rules.rules.length === 0 && <div className="faint">No rules: any track in the library.</div>}
+      {rules.rules.length === 0 && <div className="faint">{t("No rules: any track in the library.")}</div>}
       {rules.rules.map((r, i) => (
         <div key={i} className="smart-rule">
           <select
@@ -61,7 +62,7 @@ export function SmartEditor({
           >
             {FIELDS.map((f) => (
               <option key={f.key} value={f.key}>
-                {f.label}
+                {t(f.label)}
               </option>
             ))}
           </select>
@@ -85,7 +86,7 @@ export function SmartEditor({
           )}
           {r.op === "between" && (
             <>
-              <span>and</span>
+              <span>{t("and")}</span>
               <input
                 value={r.value2}
                 placeholder={hint(r.field)}
@@ -96,7 +97,7 @@ export function SmartEditor({
           )}
           <button
             className="icon-button"
-            title="Remove this rule"
+            title={t("Remove this rule")}
             onClick={() => change((x) => ({ ...x, rules: x.rules.filter((_, j) => j !== i) }))}
           >
             ✕
@@ -109,18 +110,18 @@ export function SmartEditor({
           disabled={rules.rules.length >= 20}
           onClick={() => change((x) => ({ ...x, rules: [...x.rules, rule("title", "contains")] }))}
         >
-          Add a rule
+          {t("Add a rule")}
         </button>
       </div>
       <div className="smart-line">
-        <span>Order by</span>
+        <span>{t("Order by")}</span>
         <select
           value={rules.order}
           onChange={(e) => change((r) => ({ ...r, order: e.target.value as SmartRules["order"] }))}
         >
           {ORDERS.map((o) => (
             <option key={o.key} value={o.key}>
-              {o.label}
+              {t(o.label)}
             </option>
           ))}
         </select>
@@ -131,10 +132,10 @@ export function SmartEditor({
               checked={rules.descending}
               onChange={(e) => change((r) => ({ ...r, descending: e.target.checked }))}
             />
-            descending
+            {t("descending")}
           </label>
         )}
-        <span>up to</span>
+        <span>{t("up to")}</span>
         <input
           className="smart-limit"
           type="number"
@@ -145,18 +146,18 @@ export function SmartEditor({
             change((r) => ({ ...r, limit: Math.min(MAX_LIMIT, Math.max(1, Number(e.target.value) || 1)) }))
           }
         />
-        <span>tracks</span>
+        <span>{t("tracks")}</span>
       </div>
       <div className="smart-line">
         <button className="primary-button" disabled={!dirty} onClick={() => void apply()}>
-          Apply
+          {t("Apply")}
         </button>
         <button
           className="outline-button"
           onClick={onSaveCopy}
-          title="An ordinary playlist with what matches now"
+          title={t("An ordinary playlist with what matches now")}
         >
-          Save as playlist
+          {t("Save as playlist")}
         </button>
         {message && <span className="error">{message}</span>}
       </div>

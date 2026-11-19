@@ -5,6 +5,7 @@ import { usePlayer } from "../stores/player.ts";
 import { MenuButton, type MenuItem } from "./Menu.tsx";
 import { queueAndPlaylistItems, trackSource } from "./trackActions.ts";
 import "./components.css";
+import { t } from "../i18n.ts";
 
 export interface Row {
   /** Null for a playlist entry whose file is missing from the library. */
@@ -48,36 +49,36 @@ export function TrackList({
   return (
     <div className="tracklist">
       {list.map((r, i) => {
-        const t = r.track;
-        const playing = t !== null && t.id === playingId;
-        const newDisc = discs && (i === 0 || list[i - 1]!.track?.discNumber !== t?.discNumber);
+        const track = r.track;
+        const playing = track !== null && track.id === playingId;
+        const newDisc = discs && (i === 0 || list[i - 1]!.track?.discNumber !== track?.discNumber);
         return (
           <div key={r.key}>
-            {newDisc && <div className="caps disc">Disc {t?.discNumber ?? 1}</div>}
+            {newDisc && <div className="caps disc">{t("Disc {}", track?.discNumber ?? 1)}</div>}
             <div
-              className={`track ${playing ? "playing" : ""} ${t ? "" : "missing"}`}
+              className={`track ${playing ? "playing" : ""} ${track ? "" : "missing"}`}
               role="button"
               tabIndex={0}
-              onClick={() => t && onPlay(i)}
-              onKeyDown={(e) => e.key === "Enter" && t && onPlay(i)}
+              onClick={() => track && onPlay(i)}
+              onKeyDown={(e) => e.key === "Enter" && track && onPlay(i)}
             >
-              <span className="track-number">{numbered ? (t?.trackNumber ?? i + 1) : i + 1}</span>
+              <span className="track-number">{numbered ? (track?.trackNumber ?? i + 1) : i + 1}</span>
               <span className="track-title">
                 <span className="ellipsis">{r.title}</span>
                 {!numbered && (
                   <span className="muted ellipsis track-sub">
-                    {t ? (
+                    {track ? (
                       <>
-                        <Link to={`/artist/${t.artistId}`} onClick={(e) => e.stopPropagation()}>
+                        <Link to={`/artist/${track.artistId}`} onClick={(e) => e.stopPropagation()}>
                           {r.artistName}
                         </Link>
                         {" · "}
-                        <Link to={`/album/${t.albumId}`} onClick={(e) => e.stopPropagation()}>
+                        <Link to={`/album/${track.albumId}`} onClick={(e) => e.stopPropagation()}>
                           {r.albumTitle}
                         </Link>
                       </>
                     ) : (
-                      `${r.artistName} · ${r.albumTitle} · not in the library`
+                      t("{} · {} · not in the library", r.artistName, r.albumTitle)
                     )}
                   </span>
                 )}
@@ -85,12 +86,17 @@ export function TrackList({
               <span className="muted track-duration">{duration(r.durationMs)}</span>
               <MenuButton
                 items={() => [
-                  ...(t ? queueAndPlaylistItems(trackSource(t), t.title) : []),
-                  ...(t && !numbered
-                    ? [{ label: "Go to album", onSelect: () => void navigate(`/album/${t.albumId}`) }]
+                  ...(track ? queueAndPlaylistItems(trackSource(track), track.title) : []),
+                  ...(track && !numbered
+                    ? [{ label: t("Go to album"), onSelect: () => void navigate(`/album/${track.albumId}`) }]
                     : []),
-                  ...(t
-                    ? [{ label: "Go to artist", onSelect: () => void navigate(`/artist/${t.artistId}`) }]
+                  ...(track
+                    ? [
+                        {
+                          label: t("Go to artist"),
+                          onSelect: () => void navigate(`/artist/${track.artistId}`),
+                        },
+                      ]
                     : []),
                   ...(extraItems?.(i) ?? []),
                 ]}

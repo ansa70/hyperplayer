@@ -13,14 +13,14 @@ use std::{
 use chrono::{DateTime, Local, Utc};
 use hyperplayer::{
     api::{Api, ServerError, Unauthorized, types},
-    replaygain,
+    replaygain, tr, trn,
     trust::{self, UntrustedCertificate},
 };
 use slint::{ComponentHandle, Model, ModelRc, SharedString, Timer, VecModel};
 
 use super::{
     App, AppWindow, DeviceItem, FolderItem, Page, SettingsState, SourceItem, UserItem, background,
-    models::plural, with_app,
+    with_app,
 };
 
 /// Connects the page's actions; called once at startup.
@@ -65,6 +65,14 @@ pub fn init(ui: &AppWindow) {
         });
         state(|s| s.set_system_title_bar(on));
     });
+    s.on_set_language(|language| {
+        with_app(|app| {
+            app.settings.language = language.to_string();
+            app.settings.save();
+        });
+        state(|s| s.set_language(language.clone()));
+        super::apply_language(&language);
+    });
     s.on_save_name(save_name);
     s.on_change_password(change_password);
     s.on_revoke_device(revoke_device);
@@ -87,12 +95,12 @@ pub fn init(ui: &AppWindow) {
     });
     s.on_add_folder(add_folder);
     s.on_browse_folder(|| {
-        super::local::pick_folder("Add a music folder", |picked| {
+        super::local::pick_folder(tr!("Add a music folder"), |picked| {
             if let Some(path) = picked {
                 let mut paths = folder_paths();
                 if !paths.contains(&path) {
                     paths.push(path);
-                    set_folders(paths, "Folder added; scanning it now.");
+                    set_folders(paths, tr!("Folder added; scanning it now."));
                 }
             }
         })
@@ -102,14 +110,14 @@ pub fn init(ui: &AppWindow) {
             .into_iter()
             .filter(|p| *p != path.as_str())
             .collect();
-        set_folders(paths, "Folder removed; rescanning.");
+        set_folders(paths, tr!("Folder removed; rescanning."));
     });
     s.on_switch_library(super::account::switch_library);
     s.on_add_source(|| add_source(false));
     s.on_trust_source(|| add_source(true));
     s.on_cancel_trust_source(|| {
         state(|s| s.set_source_fingerprint("".into()));
-        sources_message("Not added: its certificate isn't trusted.", true);
+        sources_message(tr!("Not added: its certificate isn't trusted."), true);
     });
     s.on_remove_source(|id| {
         let api = with_app(|app| app.api.clone());
@@ -117,31 +125,36 @@ pub fn init(ui: &AppWindow) {
             move || api.remove_source(&id),
             |library| {
                 state(|s| show_library(&s, &library));
-                sources_message("Server removed; its music is out of the library.", false);
+                sources_message(
+                    tr!("Server removed; its music is out of the library."),
+                    false,
+                );
             },
         );
     });
     s.on_import_source_playlists(|id| {
         let api = with_app(|app| app.api.clone());
-        sources_message("Copying its playlists…", false);
+        sources_message(tr!("Copying its playlists…"), false);
         background(
             move || api.import_source_playlists(&id),
             |library| {
                 state(|s| show_library(&s, &library));
                 super::library::load_playlists();
-                sources_message("Playlists copied from the server.", false);
+                sources_message(tr!("Playlists copied from the server."), false);
             },
         );
     });
-    s.on_set_admin(|id, admin| update_user(id, serde_json::json!({ "admin": admin }), "Saved."));
+    s.on_set_admin(|id, admin| {
+        update_user(id, serde_json::json!({ "admin": admin }), tr!("Saved."))
+    });
     s.on_reset_password(|id, password| {
         if password.chars().count() < 8 {
-            return users_message("A password needs at least 8 characters.", true);
+            return users_message(tr!("A password needs at least 8 characters."), true);
         }
         update_user(
             id,
             serde_json::json!({ "password": password.as_str() }),
-            "Temporary password set: they're signed out, and choose their own at the next sign-in.",
+            tr!("Temporary password set: they're signed out, and choose their own at the next sign-in."),
         )
     });
     s.on_delete_user(delete_user);
@@ -198,6 +211,8 @@ pub fn toggle_page() {
         show_preferences(app, &ui);
         ui.global::<SettingsState>()
             .set_system_title_bar(app.settings.system_title_bar);
+        ui.global::<SettingsState>()
+            .set_language(app.settings.language.clone().into());
         Some(())
     });
     if open.is_some() {
@@ -205,7 +220,7 @@ pub fn toggle_page() {
     }
 }
 
-fn load() {
+pub fn load() {
     // Outcomes of earlier actions (perhaps by another account) are stale now.
     users_message("", false);
     state(|s| s.set_folders_message("".into()));
@@ -219,9 +234,10 @@ fn load() {
         |(me, devices, scrobbling, server)| {
             state(|s| {
                 s.set_versions(
-                    format!(
-                        "HyperPlayer {} · server {server}",
-                        env!("CARGO_PKG_VERSION")
+                    tr!(
+                        "HyperPlayer {} · server {}",
+                        env!("CARGO_PKG_VERSION"),
+                        server
                     )
                     .into(),
                 );
@@ -247,7 +263,7 @@ fn show_devices(s: &SettingsState, devices: &[types::Device]) {
         .map(|d| DeviceItem {
             id: d.id.to_string().into(),
             name: d.name.clone().into(),
-            detail: format!(
+            detail: tr!(
                 "Last used {} · signed in {}",
                 when(d.last_seen_at),
                 when(d.created_at)
@@ -261,7 +277,7 @@ fn show_devices(s: &SettingsState, devices: &[types::Device]) {
 
 fn when(t: DateTime<Utc>) -> String {
     t.with_timezone(&Local)
-        .format("%-d %b %Y, %H:%M")
+        .format(tr!("%-d %b %Y, %H:%M"))
         .to_string()
 }
 
@@ -281,7 +297,7 @@ fn save_name() {
     });
     background(
         move || api.update_me((!name.is_empty()).then_some(name.as_str())),
-        |_| state(|s| s.set_name_message("Saved.".into())),
+        |_| state(|s| s.set_name_message(tr!("Saved.").into())),
     );
 }
 
@@ -300,10 +316,10 @@ fn change_password() {
         })
     };
     if new.chars().count() < 8 {
-        return fail("The new password needs at least 8 characters.");
+        return fail(tr!("The new password needs at least 8 characters."));
     }
     if new != confirm {
-        return fail("The new passwords don't match.");
+        return fail(tr!("The new passwords don't match."));
     }
     let api = with_app(|app| app.api.clone());
     thread::spawn(move || {
@@ -317,7 +333,7 @@ fn change_password() {
                     s.set_pw_new("".into());
                     s.set_pw_confirm("".into());
                     s.set_pw_message(
-                        "Password changed; your other devices were signed out.".into(),
+                        tr!("Password changed; your other devices were signed out.").into(),
                     );
                     s.set_pw_error(false);
                     show_devices(&s, &devices);
@@ -361,8 +377,12 @@ fn show_scrobbling(s: &SettingsState, settings: &types::ScrobbleSettings) {
 fn account_status(account: &types::ScrobbleAccount) -> String {
     match (&account.last_error, account.pending) {
         (Some(e), _) => e.clone(),
-        (None, 0) => "Your listens are sent as you play.".into(),
-        (None, n) => format!("{n} listens waiting to be sent."),
+        (None, 0) => tr!("Your listens are sent as you play.").into(),
+        (None, n) => trn!(
+            "{n} listen waiting to be sent.",
+            "{n} listens waiting to be sent.",
+            n
+        ),
     }
 }
 
@@ -468,7 +488,7 @@ fn connect_lastfm() {
             report(Box::new(|s| {
                 s.set_fm_waiting(false);
                 s.set_fm_error(
-                    "Last.fm wasn't allowed in time; connect again when you're ready.".into(),
+                    tr!("Last.fm wasn't allowed in time; connect again when you're ready.").into(),
                 );
             }));
         }
@@ -521,10 +541,10 @@ fn load_users(me: String) {
 fn show_library(s: &SettingsState, l: &types::LibraryStatus) {
     let scanned = l
         .last_scan_at
-        .map(|t| format!(" · last scan {}", when(t)))
+        .map(|t| tr!(" · last scan {}", when(t)))
         .unwrap_or_default();
     let enriching = if l.enrichment_queue > 0 {
-        format!(
+        tr!(
             " · {} waiting for artist and album info",
             l.enrichment_queue
         )
@@ -534,9 +554,9 @@ fn show_library(s: &SettingsState, l: &types::LibraryStatus) {
     s.set_library_summary(
         format!(
             "{} · {} · {}{scanned}{enriching}",
-            plural(l.tracks, "track"),
-            plural(l.albums, "album"),
-            plural(l.artists, "artist")
+            trn!("{n} track", "{n} tracks", l.tracks),
+            trn!("{n} album", "{n} albums", l.albums),
+            trn!("{n} artist", "{n} artists", l.artists)
         )
         .into(),
     );
@@ -546,9 +566,13 @@ fn show_library(s: &SettingsState, l: &types::LibraryStatus) {
         .map(|f| FolderItem {
             path: f.path.clone().into(),
             detail: if f.available {
-                plural(f.tracks, "track")
+                trn!("{n} track", "{n} tracks", f.tracks)
             } else {
-                format!("unavailable · keeping {}", plural(f.tracks, "track"))
+                trn!(
+                    "unavailable · keeping {n} track",
+                    "unavailable · keeping {n} tracks",
+                    f.tracks
+                )
             }
             .into(),
             available: f.available,
@@ -562,13 +586,13 @@ fn show_library(s: &SettingsState, l: &types::LibraryStatus) {
     });
     let (progress, detail) = match &l.scan_progress {
         Some(p) if p.phase == types::LibraryStatusScanProgressPhase::Listing => {
-            (-1.0, format!("Looking for music files… {} found", p.total))
+            (-1.0, tr!("Looking for music files… {} found", p.total))
         }
         Some(p) if p.done < p.total => (
             p.done as f32 / p.total as f32,
-            format!("Reading files: {} of {}", p.done, p.total),
+            tr!("Reading files: {} of {}", p.done, p.total),
         ),
-        _ => (1.0, "Finishing up…".to_string()),
+        _ => (1.0, tr!("Finishing up…").to_string()),
     };
     s.set_scan_progress(progress);
     s.set_scan_detail(detail.into());
@@ -589,22 +613,22 @@ fn show_library(s: &SettingsState, l: &types::LibraryStatus) {
             detail: {
                 // Tracks also on this computer (or another server) are shown once.
                 let tracks = if source.duplicates > 0 {
-                    format!(
+                    tr!(
                         "{} ({} already in the library)",
-                        plural(source.tracks, "track"),
+                        trn!("{n} track", "{n} tracks", source.tracks),
                         source.duplicates
                     )
                 } else {
-                    plural(source.tracks, "track")
+                    trn!("{n} track", "{n} tracks", source.tracks)
                 };
                 let tracks = match source.playlists {
                     0 => tracks,
-                    n => format!("{tracks}, {}", plural(n, "playlist")),
+                    n => format!("{tracks}, {}", trn!("{n} playlist", "{n} playlists", n)),
                 };
                 match (&source.error, source.syncing, source.last_sync_at) {
-                    (_, true, _) => format!("Copying its catalog… · {tracks}"),
+                    (_, true, _) => tr!("Copying its catalog… · {}", tracks),
                     (Some(error), _, _) => format!("{tracks} · {error}"),
-                    (None, _, Some(t)) => format!("{tracks} · synced {}", when(t)),
+                    (None, _, Some(t)) => tr!("{} · synced {}", tracks, when(t)),
                     (None, _, None) => tracks,
                 }
             }
@@ -677,7 +701,7 @@ fn add_source(trusted: bool) {
     };
     if url.is_empty() || username.is_empty() || password.is_empty() {
         return sources_message(
-            "Enter the server's address, your username there and its password.",
+            tr!("Enter the server's address, your username there and its password."),
             true,
         );
     }
@@ -704,7 +728,7 @@ fn add_source(trusted: bool) {
                 if session.user.must_change_password {
                     let _ = signed_in.logout();
                     Added::Failed(
-                        "This account still has the password it was given: sign in to the server with HyperPlayer once to choose your own, then add it here."
+                        tr!("This account still has the password it was given: sign in to the server with HyperPlayer once to choose your own, then add it here.")
                             .into(),
                     )
                 } else {
@@ -731,7 +755,7 @@ fn add_source(trusted: bool) {
                         show_library(&s, &status);
                     });
                     sources_message(
-                        "Server added: its music is being copied into your library.",
+                        tr!("Server added: its music is being copied into your library."),
                         false,
                     );
                 }
@@ -750,16 +774,16 @@ fn show_users(s: &SettingsState, users: &[types::User], me: &str) {
         .map(|u| {
             let mut detail = vec![u.full_name.clone().unwrap_or_default()];
             detail.push(if u.admin {
-                "admin".into()
+                tr!("admin").into()
             } else {
-                "listener".into()
+                tr!("listener").into()
             });
             if u.must_change_password {
-                detail.push("must choose a new password".into());
+                detail.push(tr!("must choose a new password").into());
             }
-            detail.push(format!(
+            detail.push(tr!(
                 "since {}",
-                u.created_at.with_timezone(&Local).format("%-d %b %Y")
+                u.created_at.with_timezone(&Local).format(tr!("%-d %b %Y"))
             ));
             UserItem {
                 id: u.id.to_string().into(),
@@ -819,7 +843,7 @@ fn update_user(id: SharedString, changes: serde_json::Value, done: &'static str)
 }
 
 fn delete_user(id: SharedString) {
-    admin_action(move |api| api.delete_user(&id), "User deleted.");
+    admin_action(move |api| api.delete_user(&id), tr!("User deleted."));
 }
 
 fn create_user() {
@@ -836,10 +860,10 @@ fn create_user() {
         return;
     };
     if username.is_empty() {
-        return users_message("Choose a username.", true);
+        return users_message(tr!("Choose a username."), true);
     }
     if password.chars().count() < 8 {
-        return users_message("A password needs at least 8 characters.", true);
+        return users_message(tr!("A password needs at least 8 characters."), true);
     }
     admin_action(
         move |api| {
@@ -859,7 +883,7 @@ fn create_user() {
             });
             Ok(())
         },
-        "User added.",
+        tr!("User added."),
     );
 }
 
@@ -913,7 +937,7 @@ fn add_folder() {
     }
     let mut paths = folder_paths();
     paths.push(path);
-    set_folders(paths, "Folder added; scanning it now.");
+    set_folders(paths, tr!("Folder added; scanning it now."));
 }
 
 /// Sends the new folder list; the server refuses paths that aren't folders on it.

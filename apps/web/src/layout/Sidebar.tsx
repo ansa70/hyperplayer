@@ -4,12 +4,12 @@ import { NavLink, useLocation, useNavigate } from "react-router";
 import { api, call, errorMessage } from "../api.ts";
 import { Cover } from "../components/Cover.tsx";
 import { Icon } from "../components/Icon.tsx";
-import { plural } from "../format.ts";
 import { MenuButton } from "../components/Menu.tsx";
 import { Mosaic } from "../components/Mosaic.tsx";
 import { freshName, TEMPLATES } from "../player/smart.ts";
 import { useLibrary } from "../stores/library.ts";
 import { useSession } from "../stores/session.ts";
+import { t, tn } from "../i18n.ts";
 
 /** Loads every artist, a page at a time. */
 export function useArtists(): ArtistSummary[] {
@@ -40,7 +40,7 @@ export function ArtistRow({ artist }: { artist: ArtistSummary }) {
       <Cover art={artist.image} size={36} round />
       <span className="artist-row-text">
         <span className="ellipsis">{artist.name}</span>
-        <span className="faint ellipsis">{plural(artist.albumCount, "album")}</span>
+        <span className="faint ellipsis">{tn("{n} album", "{n} albums", artist.albumCount)}</span>
       </span>
     </NavLink>
   );
@@ -53,8 +53,9 @@ export function PlaylistRow({ playlist }: { playlist: PlaylistSummary }) {
       <span className="artist-row-text">
         <span className="ellipsis">{playlist.name}</span>
         <span className="faint ellipsis">
-          {playlist.rules ? "Smart · " : ""}
-          {plural(playlist.trackCount, "track")}
+          {playlist.rules
+            ? tn("Smart · {n} track", "Smart · {n} tracks", playlist.trackCount)
+            : tn("{n} track", "{n} tracks", playlist.trackCount)}
         </span>
       </span>
     </NavLink>
@@ -70,23 +71,23 @@ export function NewPlaylistMenu() {
   };
   return (
     <MenuButton
-      title="New playlist"
+      title={t("New playlist")}
       items={() => [
         {
-          label: "Empty playlist",
+          label: t("Empty playlist"),
           onSelect: () => {
-            const name = window.prompt("Name of the new playlist");
+            const name = window.prompt(t("Name of the new playlist"));
             if (name?.trim()) void createPlaylist(name.trim()).then(open);
           },
         },
-        ...TEMPLATES.map((t) => ({
-          label: `Smart: ${t.label.toLowerCase()}`,
+        ...TEMPLATES.map((template) => ({
+          label: t("Smart: {}", t(template.label).toLowerCase()),
           onSelect: () => {
             const name = freshName(
-              t.name,
+              t(template.name),
               playlists.map((p) => p.name),
             );
-            call(api.createPlaylist, { body: { name, rules: t.rules } })
+            call(api.createPlaylist, { body: { name, rules: template.rules } })
               .then((p) => {
                 void useLibrary.getState().loadPlaylists();
                 open(p.id);
@@ -124,7 +125,7 @@ export function Sidebar() {
         <div className="brand">HyperPlayer</div>
         <input
           type="search"
-          placeholder="Search artists, albums, tracks"
+          placeholder={t("Search artists, albums, tracks")}
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
@@ -134,26 +135,26 @@ export function Sidebar() {
           }}
         />
         <NavLink to="/albums" className="nav-row">
-          <Icon name="albums" size={18} /> Albums
+          <Icon name="albums" size={18} /> {t("Albums")}
         </NavLink>
         <NavLink to="/history" className="nav-row">
-          <Icon name="history" size={18} /> History
+          <Icon name="history" size={18} /> {t("History")}
         </NavLink>
         {uploadsOn && (
           <NavLink to="/uploads" className="nav-row">
-            <Icon name="upload" size={18} /> Uploads
+            <Icon name="upload" size={18} /> {t("Uploads")}
           </NavLink>
         )}
       </div>
       <div className="sidebar-artists">
         <div className="sidebar-heading-row">
-          <span className="caps">Playlists</span>
+          <span className="caps">{t("Playlists")}</span>
           <NewPlaylistMenu />
         </div>
         {playlists.map((p) => (
           <PlaylistRow key={p.id} playlist={p} />
         ))}
-        <div className="caps sidebar-heading">Artists</div>
+        <div className="caps sidebar-heading">{t("Artists")}</div>
         {artists.map((a) => (
           <ArtistRow key={a.id} artist={a} />
         ))}
@@ -161,10 +162,10 @@ export function Sidebar() {
       <div className="sidebar-account">
         <Icon name="user" size={18} className="muted" />
         <span className="ellipsis">{user?.fullName || user?.username}</span>
-        <NavLink to="/settings" className="icon-button" title="Settings">
+        <NavLink to="/settings" className="icon-button" title={t("Settings")}>
           <Icon name="settings" size={16} />
         </NavLink>
-        <button className="icon-button" title="Sign out" onClick={() => void signOut()}>
+        <button className="icon-button" title={t("Sign out")} onClick={() => void signOut()}>
           <Icon name="signOut" size={16} />
         </button>
       </div>

@@ -5,6 +5,8 @@ import { api, call } from "../api.ts";
 import { Cover } from "../components/Cover.tsx";
 import { Spectrum } from "../components/Spectrum.tsx";
 import { usePlayer } from "../stores/player.ts";
+import { t } from "../i18n.ts";
+import { roles, years } from "../roles.ts";
 
 /** How often, and how many times, to ask again while the server is still looking details up. */
 const POLL_EVERY = 2000;
@@ -40,8 +42,15 @@ export function useNowPlaying(): NowPlaying | null {
 
 function artistMeta(np: NowPlaying): string {
   const a = np.artist;
-  const kind = a.kind && a.kind !== "other" ? a.kind[0]!.toUpperCase() + a.kind.slice(1) : null;
-  return [kind, a.area, a.activeYears].filter(Boolean).join(" · ");
+  const kinds = {
+    person: t("Person"),
+    group: t("Group"),
+    orchestra: t("Orchestra"),
+    choir: t("Choir"),
+    character: t("Character"),
+  };
+  const kind = a.kind && a.kind !== "other" ? kinds[a.kind] : null;
+  return [kind, a.area, a.activeYears && years(a.activeYears)].filter(Boolean).join(" · ");
 }
 
 /** The desktop's right-hand panel, like the Rust player's: what's playing, its credits and artist. */
@@ -51,7 +60,7 @@ export function NowPlayingPanel() {
   if (!track) {
     return (
       <aside className="now-playing">
-        <div className="faint now-playing-empty">Nothing playing</div>
+        <div className="faint now-playing-empty">{t("Nothing playing")}</div>
       </aside>
     );
   }
@@ -60,7 +69,7 @@ export function NowPlayingPanel() {
   const f = track.format;
   return (
     <aside className="now-playing">
-      <div className="caps">Now playing</div>
+      <div className="caps">{t("Now playing")}</div>
       <Cover art={track.cover} size={312} className="now-playing-cover" />
       <Spectrum />
       <div className="now-playing-title">{track.title}</div>
@@ -84,10 +93,10 @@ export function NowPlayingPanel() {
         <div className="muted np-small">{details.artist.genres.join(" · ")}</div>
       )}
 
-      <h3>Credits</h3>
+      <h3>{t("Credits")}</h3>
       {!details || details.credits.length === 0 ? (
         <div className="faint np-small">
-          {!details || pending ? "Looking up musicians…" : "No credits found for this track."}
+          {!details || pending ? t("Looking up musicians…") : t("No credits found for this track.")}
         </div>
       ) : (
         <div className="credits">
@@ -95,7 +104,7 @@ export function NowPlayingPanel() {
             // The same person can be credited more than once (track and album, or in two categories).
             <div key={`${i}-${c.name}`} className="credit">
               {c.artistId ? <Link to={`/artist/${c.artistId}`}>{c.name}</Link> : <span>{c.name}</span>}
-              <span className="faint">{c.roles.join(", ")}</span>
+              <span className="faint">{roles(c.roles)}</span>
             </div>
           ))}
         </div>
@@ -103,24 +112,26 @@ export function NowPlayingPanel() {
 
       {details && (
         <>
-          <h3>About {details.artist.name}</h3>
+          <h3>{t("About {}", details.artist.name)}</h3>
           {artistMeta(details) && <div className="muted np-small">{artistMeta(details)}</div>}
           <p className="np-bio muted">
-            {details.artist.biography ?? (pending ? "Fetching biography…" : "No biography available.")}
+            {details.artist.biography ?? (pending ? t("Fetching biography…") : t("No biography available."))}
           </p>
           {details.artist.members.length > 0 && (
             <div className="credits">
               {details.artist.members.map((m, i) => (
                 <div key={`${i}-${m.name}`} className="credit">
                   {m.artistId ? <Link to={`/artist/${m.artistId}`}>{m.name}</Link> : <span>{m.name}</span>}
-                  <span className="faint">{[m.roles.join(", "), m.years].filter(Boolean).join(" · ")}</span>
+                  <span className="faint">
+                    {[roles(m.roles), m.years && years(m.years)].filter(Boolean).join(" · ")}
+                  </span>
                 </div>
               ))}
             </div>
           )}
           {details.moreFromArtist.length > 0 && (
             <>
-              <h3>More from {details.artist.name}</h3>
+              <h3>{t("More from {}", details.artist.name)}</h3>
               <div className="more-from">
                 {details.moreFromArtist.slice(0, 6).map((a) => (
                   <Link key={a.id} to={`/album/${a.id}`} className="more-from-album" title={a.title}>

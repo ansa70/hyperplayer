@@ -126,7 +126,8 @@ function condition(r: SmartRule, now: number): Sql {
     }
   }
   if (r.field === "lossless") {
-    const yes = ["yes", "true", "1"].includes(v.toLowerCase());
+    // In English or Italian, as the players' hints ask for it.
+    const yes = ["yes", "true", "1", "sì", "si"].includes(v.toLowerCase());
     if (!yes && !["no", "false", "0"].includes(v.toLowerCase())) throw invalid(`lossless is "yes" or "no"`);
     return { sql: "t.lossless = ?", args: [yes ? 1 : 0] };
   }

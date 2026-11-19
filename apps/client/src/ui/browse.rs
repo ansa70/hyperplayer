@@ -2,14 +2,14 @@
 
 use std::time::Duration;
 
-use hyperplayer::api::types;
+use hyperplayer::{api::types, tr, trn};
 use slint::{Image, Model, SharedString, Timer};
 
 use super::{
     AlbumView, App, ArtistView, NowPlayingView, Page, background, current_track,
     models::{
         accent, album_model, artist_meta, artist_model, credit_model, fmt_duration, load_image,
-        member_model, plural, quality, search_track_model, track_model,
+        member_model, quality, search_track_model, track_model,
     },
     with_app,
 };
@@ -22,12 +22,12 @@ pub fn load_artists() {
             with_app(|app| {
                 let Some(ui) = app.ui.upgrade() else { return };
                 ui.set_artists(artist_model(app, &page.items, |ui| ui.get_artists()));
-                let place = if app.settings.is_local() {
-                    ""
+                let status = if app.settings.is_local() {
+                    trn!("{n} artist", "{n} artists", page.total)
                 } else {
-                    " on server"
+                    trn!("{n} artist on server", "{n} artists on server", page.total)
                 };
-                ui.set_status(format!("{}{place}", plural(page.total, "artist")).into());
+                ui.set_status(status.into());
             })
         },
     );
@@ -71,10 +71,10 @@ pub fn follow_local_library() {
                                     if p.phase
                                         == types::LibraryStatusScanProgressPhase::Listing =>
                                 {
-                                    format!("Looking for music… {} files found", p.total)
+                                    tr!("Looking for music… {} files found", p.total)
                                 }
-                                Some(p) => format!("Reading your music: {} of {}", p.done, p.total),
-                                None => "Reading your music…".into(),
+                                Some(p) => tr!("Reading your music: {} of {}", p.done, p.total),
+                                None => tr!("Reading your music…").into(),
                             };
                             with_app(|app| {
                                 if let Some(ui) = app.ui.upgrade() {
@@ -201,8 +201,8 @@ pub fn select_artist(id: SharedString) {
                     name: artist.name.clone().into(),
                     stats: format!(
                         "{} · {}",
-                        plural(artist.album_count, "album"),
-                        plural(artist.track_count, "track")
+                        trn!("{n} album", "{n} albums", artist.album_count),
+                        trn!("{n} track", "{n} tracks", artist.track_count)
                     )
                     .into(),
                     genres: artist.genres.join(" · ").into(),
@@ -251,7 +251,7 @@ pub fn select_album(id: SharedString) {
                     artist: album.artist_name.clone().into(),
                     meta: [
                         album.year.map(|y| y.to_string()),
-                        Some(plural(album.track_count, "track")),
+                        Some(trn!("{n} track", "{n} tracks", album.track_count)),
                         Some(fmt_duration(album.duration_ms)),
                     ]
                     .into_iter()
@@ -347,7 +347,7 @@ pub fn show_now_playing(app: &mut App, np: types::NowPlaying) {
         accent: accent(cover),
     });
     ui.set_credits(credit_model(&np.credits));
-    ui.set_np_members(member_model(&np.artist.members, "MEMBERS"));
+    ui.set_np_members(member_model(&np.artist.members, tr!("MEMBERS")));
     super::appearance::cover_changed(app, cover);
     if !refresh {
         super::appearance::backdrop_changed(app, &Image::default());

@@ -7,25 +7,26 @@ import { usePlayer } from "../stores/player.ts";
 import { Chips, useStreamInfo } from "./Chips.tsx";
 import { Controls } from "./Controls.tsx";
 import { Seek } from "./Seek.tsx";
+import { t } from "../i18n.ts";
 
 export function TabBar() {
   return (
     <nav className="tabbar">
       <NavLink to="/" end className="tab">
         <Icon name="library" size={22} />
-        Library
+        {t("Library")}
       </NavLink>
       <NavLink to="/search" className="tab">
         <Icon name="search" size={22} />
-        Search
+        {t("Search")}
       </NavLink>
       <NavLink to="/playlists" className="tab">
         <Icon name="playlists" size={22} />
-        Playlists
+        {t("Playlists")}
       </NavLink>
       <NavLink to="/queue" className="tab">
         <Icon name="queue" size={22} />
-        Queue
+        {t("Queue")}
       </NavLink>
     </nav>
   );
@@ -81,15 +82,15 @@ export function NowPlayingSheet({ onClose }: { onClose: () => void }) {
   return (
     <div className="sheet">
       <div className="sheet-top">
-        <button className="icon-button" onClick={close} title="Close">
+        <button className="icon-button" onClick={close} title={t("Close")}>
           <Icon name="chevronDown" size={26} />
         </button>
-        <span className="caps">Now playing</span>
+        <span className="caps">{t("Now playing")}</span>
         <span>
-          <Link to="/lyrics" className="icon-button" onClick={goTo("/lyrics")} title="Lyrics">
+          <Link to="/lyrics" className="icon-button" onClick={goTo("/lyrics")} title={t("Lyrics")}>
             <Icon name="lyrics" size={22} />
           </Link>
-          <Link to="/queue" className="icon-button" onClick={goTo("/queue")} title="Queue">
+          <Link to="/queue" className="icon-button" onClick={goTo("/queue")} title={t("Queue")}>
             <Icon name="queue" size={22} />
           </Link>
         </span>

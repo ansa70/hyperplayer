@@ -32,6 +32,8 @@ pub struct Settings {
     pub quality: String,
     /// Let the desktop draw the title bar instead of our own (applies at the next start).
     pub system_title_bar: bool,
+    /// The language to show, as a code (`en`, `it`); empty follows the system's.
+    pub language: String,
 }
 
 impl Default for Settings {
@@ -46,6 +48,7 @@ impl Default for Settings {
             volume: 0.8,
             quality: "auto".into(),
             system_title_bar: false,
+            language: String::new(),
         }
     }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import "./menu.css";
+import { t } from "../i18n.ts";
 
 export interface MenuItem {
   label: string;
@@ -12,7 +13,7 @@ export interface MenuItem {
 /** A "⋯" button that opens a menu of actions; on phones the menu is a sheet from the bottom. */
 export function MenuButton({
   items,
-  title = "More",
+  title = t("More"),
   children,
 }: {
   items: () => MenuItem[];

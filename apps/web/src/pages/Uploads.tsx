@@ -4,11 +4,11 @@ import { ApiError } from "@hyperplayer/schemas";
 import { call, errorMessage, url } from "../api.ts";
 import { Icon } from "../components/Icon.tsx";
 import { TrackList } from "../components/TrackList.tsx";
-import { plural } from "../format.ts";
 import { useLibrary } from "../stores/library.ts";
 import { usePlayer } from "../stores/player.ts";
 import "./pages.css";
 import "./uploads.css";
+import { t, tn } from "../i18n.ts";
 
 /** The extensions the server's library reads (apps/server/src/library/scanner.ts). */
 const AUDIO = [
@@ -59,7 +59,7 @@ function send(file: File, onProgress: (p: number) => void): Promise<Track> {
       const err = ApiError.safeParse(body);
       reject(new Error(err.success ? err.data.message : `${xhr.status} ${xhr.statusText}`));
     };
-    xhr.onerror = () => reject(new Error("The connection was lost"));
+    xhr.onerror = () => reject(new Error(t("The connection was lost")));
     xhr.send(file);
   });
 }
@@ -110,7 +110,14 @@ export function Uploads() {
   const add = (files: FileList | File[]) => {
     const list = [...files].filter((f) => AUDIO.some((ext) => f.name.toLowerCase().endsWith(ext)));
     const skipped = [...files].length - list.length;
-    if (skipped > 0) notify(`${plural(skipped, "file")} skipped: not audio the library reads`);
+    if (skipped > 0)
+      notify(
+        tn(
+          "{n} file skipped: not audio the library reads",
+          "{n} files skipped: not audio the library reads",
+          skipped,
+        ),
+      );
     if (list.length === 0) return;
     const added = list.map((file): Job => ({
       id: nextId.current++,
@@ -129,12 +136,14 @@ export function Uploads() {
     add(e.dataTransfer.files);
   };
 
-  const remove = (t: Track) => {
-    if (!window.confirm(`Delete “${t.title}” from your uploads? The file is removed from the server.`))
+  const remove = (track: Track) => {
+    if (
+      !window.confirm(t("Delete “{}” from your uploads? The file is removed from the server.", track.title))
+    )
       return;
-    call(api.deleteUpload, { params: { id: t.id } })
+    call(api.deleteUpload, { params: { id: track.id } })
       .then(() => {
-        setMine((m) => m.filter((x) => x.id !== t.id));
+        setMine((m) => m.filter((x) => x.id !== track.id));
         libraryChanged();
       })
       .catch((e: unknown) => notify(errorMessage(e)));
@@ -143,8 +152,10 @@ export function Uploads() {
   if (uploads && !uploads.enabled) {
     return (
       <div className="page">
-        <h1>Uploads</h1>
-        <p className="muted">This server doesn't take uploads. Its admin can turn them on (HP_UPLOAD_DIR).</p>
+        <h1>{t("Uploads")}</h1>
+        <p className="muted">
+          {t("This server doesn't take uploads. Its admin can turn them on (HP_UPLOAD_DIR).")}
+        </p>
       </div>
     );
   }
@@ -152,11 +163,11 @@ export function Uploads() {
   return (
     <div className="page uploads">
       <div className="page-head">
-        <h1>Uploads</h1>
+        <h1>{t("Uploads")}</h1>
         {uploads && (
           <span className="muted">
-            {plural(uploads.tracks, "track")} · {size(uploads.usedBytes)}
-            {uploads.quotaBytes !== null && ` of ${size(uploads.quotaBytes)}`}
+            {tn("{n} track", "{n} tracks", uploads.tracks)} · {size(uploads.usedBytes)}
+            {uploads.quotaBytes !== null && ` ${t("of {}", size(uploads.quotaBytes))}`}
           </span>
         )}
       </div>
@@ -178,10 +189,12 @@ export function Uploads() {
         tabIndex={0}
       >
         <Icon name="upload" size={28} />
-        <strong>Drop music files here, or choose them</strong>
+        <strong>{t("Drop music files here, or choose them")}</strong>
         <span className="muted">
-          Only you can see and play what you upload. Files up to {uploads ? size(uploads.maxFileBytes) : "…"};
-          they're filed by their tags.
+          {t(
+            "Only you can see and play what you upload. Files up to {}; they're filed by their tags.",
+            uploads ? size(uploads.maxFileBytes) : "…",
+          )}
         </span>
         <input
           ref={input}
@@ -202,12 +215,12 @@ export function Uploads() {
               <span className="ellipsis">{j.file.name}</span>
               <span className="faint job-state">
                 {j.state === "waiting"
-                  ? "Waiting"
+                  ? t("Waiting")
                   : j.state === "sending"
                     ? `${Math.round(j.progress * 100)}%`
                     : j.state === "done"
-                      ? "Added"
-                      : "Failed"}
+                      ? t("Added")
+                      : t("Failed")}
               </span>
               <div className="job-bar">
                 <div style={{ width: `${j.progress * 100}%` }} />
@@ -219,14 +232,14 @@ export function Uploads() {
           ))}
         </div>
       )}
-      <div className="caps section">Your uploads</div>
+      <div className="caps section">{t("Your uploads")}</div>
       {mine.length === 0 ? (
-        <p className="muted">Nothing uploaded yet.</p>
+        <p className="muted">{t("Nothing uploaded yet.")}</p>
       ) : (
         <TrackList
           tracks={mine}
           onPlay={(i) => void play({ kind: "tracks", trackIds: mine.map((t) => t.id) }, i, false)}
-          extraItems={(i) => [{ label: "Delete upload", danger: true, onSelect: () => remove(mine[i]!) }]}
+          extraItems={(i) => [{ label: t("Delete upload"), danger: true, onSelect: () => remove(mine[i]!) }]}
         />
       )}
     </div>

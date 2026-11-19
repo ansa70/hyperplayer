@@ -17,8 +17,11 @@ import { Uploads } from "./pages/Uploads.tsx";
 import { useLibrary } from "./stores/library.ts";
 import { usePlayer } from "./stores/player.ts";
 import { useSession } from "./stores/session.ts";
+import { useLanguage } from "./i18n.ts";
 
 export function App() {
+  // Everything renders from here, so a change of language re-renders (re-translates) it all.
+  useLanguage((s) => s.language);
   const status = useSession((s) => s.status);
   const restore = useSession((s) => s.restore);
   const preferences = useSession((s) => s.preferences);

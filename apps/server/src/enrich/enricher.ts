@@ -24,7 +24,9 @@ export interface EnrichConfig {
   fanartKey: string | null;
 }
 
-type Job = `album:${string}` | `artist:${string}`;
+/** An album's credits, an artist's whole profile, or only an artist's biography (again,
+ *  in another language). */
+type Job = `album:${string}` | `artist:${string}` | `bio:${string}`;
 type Row = Record<string, unknown>;
 
 /** MusicBrainz's "Various Artists" and "[unknown]" special-purpose artists. */
@@ -159,6 +161,13 @@ export class Enricher {
     const artists = this.#db.prepare("SELECT id FROM artists WHERE enrich_status IS NULL").all() as Row[];
     for (const r of albums) this.#push(`album:${String(r.id)}`);
     for (const r of artists) this.#push(`artist:${String(r.id)}`);
+    // Biographies fetched for another HP_WIKI_LANG: only Wikipedia is asked again.
+    const stale = this.#db
+      .prepare(
+        "SELECT id FROM artists WHERE enrich_status = 'done' AND COALESCE(biography_lang, 'en') != ? AND links LIKE '%wikidata%'",
+      )
+      .all(this.#config.wikiLang) as Row[];
+    for (const r of stale) this.#push(`bio:${String(r.id)}`);
     void inBackground(() => this.#run());
   }
 
@@ -173,6 +182,8 @@ export class Enricher {
     for (const job of [
       `artist:${String(t.artist_id)}`,
       `artist:${String(t.album_artist_id)}`,
+      `bio:${String(t.artist_id)}`,
+      `bio:${String(t.album_artist_id)}`,
       `album:${String(t.album_id)}`,
     ] as Job[]) {
       if (this.#queue.includes(job)) this.#push(job, true);
@@ -191,7 +202,10 @@ export class Enricher {
 
   /** `pending` while an entity is queued, so clients know to poll again. */
   isPending(kind: "album" | "artist", id: string): boolean {
-    return this.enabled && this.#queue.includes(`${kind}:${id}`);
+    return (
+      this.enabled &&
+      (this.#queue.includes(`${kind}:${id}`) || (kind === "artist" && this.#queue.includes(`bio:${id}`)))
+    );
   }
 
   stop() {
@@ -215,10 +229,11 @@ export class Enricher {
     try {
       // Peek rather than shift: the job stays "pending" for clients until it has finished.
       for (let job = this.#queue[0]; job && !this.#stopped; job = this.#queue[0]) {
-        const [kind, id] = job.split(/:(.*)/s) as ["album" | "artist", string];
+        const [kind, id] = job.split(/:(.*)/s) as ["album" | "artist" | "bio", string];
         try {
           if (kind === "album") await this.#album(id);
-          else await this.#artist(id);
+          else if (kind === "artist") await this.#artist(id);
+          else await this.#biography(id);
         } catch (err) {
           this.#failed.add(job);
           this.#log.warn({ err: (err as Error).message, job }, "enrichment failed");
@@ -392,7 +407,7 @@ export class Enricher {
     db.prepare(
       `UPDATE artists SET
          name = ?, sort_name = ?, musicbrainz_id = ?, disambiguation = ?, kind = ?, area = ?, active_years = ?, biography = ?,
-         biography_url = ?, mb_genres = ?, links = ?, members = ?,
+         biography_url = ?, biography_lang = ?, mb_genres = ?, links = ?, members = ?,
          image_id = COALESCE(?, image_id), banner_id = COALESCE(?, banner_id),
          enrich_status = 'done', enriched_at = ?
        WHERE id = ?`,
@@ -406,6 +421,7 @@ export class Enricher {
       lifeSpan(a),
       wiki?.biography ?? null,
       wiki?.biographyUrl ?? null,
+      this.#config.wikiLang,
       JSON.stringify(genres),
       JSON.stringify(artistLinks),
       JSON.stringify(members(a)),
@@ -415,6 +431,34 @@ export class Enricher {
       artistId,
     );
     this.#log.info({ artist: row.name, mbid }, "artist enriched");
+  }
+
+  /** Fetches an enriched artist's biography again, in the language now configured. */
+  async #biography(artistId: string) {
+    const row = this.#db.prepare("SELECT links, biography_url FROM artists WHERE id = ?").get(artistId) as
+      | Row
+      | undefined;
+    if (!row) return;
+    const artistLinks = JSON.parse((row.links as string | null) ?? "[]") as ExternalLink[];
+    const wikidata = artistLinks.find((l) => l.kind === "wikidata");
+    if (!wikidata) return;
+    // A failure throws, so the job is retried at the next start rather than marked done.
+    const wiki = await this.#wiki.profile(wikidata.url);
+    // The Wikipedia link follows the biography, unless MusicBrainz gave one of its own.
+    const wikipedia = artistLinks.find((l) => l.kind === "wikipedia");
+    const fromBiography = wikipedia?.url === row.biography_url;
+    let updated = artistLinks;
+    if (wiki.biographyUrl?.includes("wikipedia.org") && (!wikipedia || fromBiography)) {
+      updated = [
+        ...artistLinks.filter((l) => l.kind !== "wikipedia"),
+        { kind: "wikipedia", url: wiki.biographyUrl },
+      ];
+    }
+    this.#db
+      .prepare(
+        "UPDATE artists SET biography = ?, biography_url = ?, biography_lang = ?, links = ? WHERE id = ?",
+      )
+      .run(wiki.biography, wiki.biographyUrl, this.#config.wikiLang, JSON.stringify(updated), artistId);
   }
 
   async #download(url: string): Promise<string | null> {

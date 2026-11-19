@@ -4,10 +4,11 @@ import { Link } from "react-router";
 import { api, call } from "../api.ts";
 import { Cover } from "../components/Cover.tsx";
 import { TrackList } from "../components/TrackList.tsx";
-import { duration, plural } from "../format.ts";
+import { duration } from "../format.ts";
 import { usePlayer } from "../stores/player.ts";
 import { useApi } from "../useApi.ts";
 import "./pages.css";
+import { locale, t, tn } from "../i18n.ts";
 
 const DAYS = 30;
 const PAGE = 50;
@@ -15,15 +16,15 @@ const PAGE = 50;
 function listened(ms: number): string {
   const hours = Math.floor(ms / 3_600_000);
   const minutes = Math.round((ms % 3_600_000) / 60_000);
-  return hours > 0 ? `${hours} h ${minutes} min` : `${minutes} min`;
+  return hours > 0 ? t("{} h {} min", hours, minutes) : t("{} min", minutes);
 }
 
 function when(iso: string): string {
   const d = new Date(iso);
   const today = new Date();
-  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const time = d.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
   if (d.toDateString() === today.toDateString()) return time;
-  return `${d.toLocaleDateString([], { day: "numeric", month: "short" })} ${time}`;
+  return `${d.toLocaleDateString(locale(), { day: "numeric", month: "short" })} ${time}`;
 }
 
 /** Most played over the last 30 days, and every listen, newest first. */
@@ -45,16 +46,22 @@ export function History() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>History</h1>
+        <h1>{t("History")}</h1>
       </div>
       {s && (
         <p className="muted">
-          Last {DAYS} days: {plural(s.listens, "listen")}, {listened(s.listenedMs)} of music.
+          {tn(
+            "Last {} days: {n} listen, {} of music.",
+            "Last {} days: {n} listens, {} of music.",
+            s.listens,
+            DAYS,
+            listened(s.listenedMs),
+          )}
         </p>
       )}
       {top.length > 0 && (
         <>
-          <div className="caps section">Most played</div>
+          <div className="caps section">{t("Most played")}</div>
           <TrackList
             tracks={top}
             onPlay={(i) => void play({ kind: "tracks", trackIds: top.map((t) => t.id) }, i, false)}
@@ -63,21 +70,21 @@ export function History() {
       )}
       {s && s.topArtists.length > 0 && (
         <>
-          <div className="caps section">Top artists</div>
+          <div className="caps section">{t("Top artists")}</div>
           <div className="top-artists">
             {s.topArtists.map((a) => (
               <Link key={a.artist.id} to={`/artist/${a.artist.id}`} className="top-artist">
                 <Cover art={a.artist.image} size={96} round />
                 <span className="ellipsis">{a.artist.name}</span>
-                <span className="faint">{plural(a.plays, "play")}</span>
+                <span className="faint">{tn("{n} play", "{n} plays", a.plays)}</span>
               </Link>
             ))}
           </div>
         </>
       )}
-      <div className="caps section">Recently played</div>
+      <div className="caps section">{t("Recently played")}</div>
       {recent.length === 0 && (
-        <p className="muted">Nothing yet: listens show up here once half a track is played.</p>
+        <p className="muted">{t("Nothing yet: listens show up here once half a track is played.")}</p>
       )}
       <div className="queue">
         {recent.map((l) => (
@@ -102,7 +109,7 @@ export function History() {
       </div>
       {recent.length < total && (
         <button className="outline-button load-more" onClick={() => void showMore()}>
-          Show more
+          {t("Show more")}
         </button>
       )}
     </div>

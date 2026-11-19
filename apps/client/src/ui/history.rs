@@ -7,12 +7,12 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use hyperplayer::api::types;
+use hyperplayer::{api::types, tr, trn};
 use slint::{Model, ModelRc, VecModel};
 
 use super::{
     App, AppWindow, Page, TrackItem, background, current_track,
-    models::{artist_model, fmt_duration, plural},
+    models::{artist_model, fmt_duration},
     with_app,
 };
 
@@ -161,9 +161,10 @@ fn show(app: &mut App, stats: types::HistoryStats, recent: types::ListenPage) {
         if stats.listens == 0 {
             String::new()
         } else {
-            format!(
-                "{} · {} in the last {} days",
-                plural(stats.listens, "listen"),
+            trn!(
+                "{n} listen · {} in the last {} days",
+                "{n} listens · {} in the last {} days",
+                stats.listens,
                 fmt_listened(listened),
                 stats.days
             )
@@ -176,7 +177,7 @@ fn show(app: &mut App, stats: types::HistoryStats, recent: types::ListenPage) {
     let model = artist_model(app, &artists, |ui| ui.get_history_artists());
     for (i, a) in stats.top_artists.iter().enumerate() {
         if let Some(mut row) = model.row_data(i) {
-            row.subtitle = plural(a.plays, "play").into();
+            row.subtitle = trn!("{n} play", "{n} plays", a.plays).into();
             model.set_row_data(i, row);
         }
     }
@@ -195,7 +196,7 @@ fn show(app: &mut App, stats: types::HistoryStats, recent: types::ListenPage) {
         .top_tracks
         .iter()
         .enumerate()
-        .map(|(i, t)| row(i, &t.track, plural(t.plays, "play")))
+        .map(|(i, t)| row(i, &t.track, trn!("{n} play", "{n} plays", t.plays)))
         .collect();
     let now = Utc::now();
     let recent_rows: Vec<TrackItem> = recent
@@ -232,8 +233,8 @@ pub fn refresh_playing(app: &App, ui: &AppWindow) {
 fn fmt_listened(d: Duration) -> String {
     let minutes = d.as_secs() / 60;
     match minutes {
-        0..60 => plural(minutes as i64, "minute"),
-        _ => format!("{} h {} min", minutes / 60, minutes % 60),
+        0..60 => trn!("{n} minute", "{n} minutes", minutes as i64),
+        _ => tr!("{} h {} min", minutes / 60, minutes % 60),
     }
 }
 
@@ -241,14 +242,15 @@ fn fmt_listened(d: Duration) -> String {
 fn ago(now: DateTime<Utc>, then: DateTime<Utc>) -> String {
     let secs = (now - then).num_seconds().max(0);
     match secs {
-        0..60 => "just now".into(),
-        60..3600 => format!("{} min ago", secs / 60),
-        3600..86_400 => format!("{} h ago", secs / 3600),
-        86_400..172_800 => "yesterday".into(),
-        172_800..604_800 => format!("{} days ago", secs / 86_400),
+        0..60 => tr!("just now").into(),
+        60..3600 => tr!("{} min ago", secs / 60),
+        3600..86_400 => tr!("{} h ago", secs / 3600),
+        86_400..172_800 => tr!("yesterday").into(),
+        172_800..604_800 => tr!("{} days ago", secs / 86_400),
+        // A chrono date format: English names the month, other languages may use numbers.
         _ => then
             .with_timezone(&chrono::Local)
-            .format("%-d %b %Y")
+            .format(tr!("%-d %b %Y"))
             .to_string(),
     }
 }

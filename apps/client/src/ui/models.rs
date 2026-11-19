@@ -10,6 +10,7 @@ use std::{
 use hyperplayer::{
     api::{Api, types},
     palette::{self, Rgb},
+    roles, tr, trn,
 };
 use image::imageops::FilterType;
 use slint::{Image, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
@@ -176,10 +177,6 @@ pub fn fmt_duration(ms: i64) -> String {
     }
 }
 
-pub fn plural(n: i64, word: &str) -> String {
-    format!("{n} {word}{}", if n == 1 { "" } else { "s" })
-}
-
 /// Theme.surface, the panel colour album colours are shown on.
 const SURFACE: Rgb = Rgb(
     0x15 as f32 / 255.0,
@@ -227,16 +224,21 @@ pub fn album_item(a: &types::AlbumSummary, subtitle: String) -> AlbumItem {
 /// One line describing the artist: "jazz trumpeter, bandleader · Alton, United States · 1926–1991".
 pub fn artist_meta(a: &types::Artist) -> String {
     let kind = a.kind.map(|k| {
-        let k = k.to_string();
-        let mut c = k.chars();
-        c.next()
-            .map(|f| f.to_uppercase().chain(c).collect::<String>())
-            .unwrap_or_default()
+        use types::ArtistKind::*;
+        match k {
+            Person => tr!("Person"),
+            Group => tr!("Group"),
+            Orchestra => tr!("Orchestra"),
+            Choir => tr!("Choir"),
+            Character => tr!("Character"),
+            Other => tr!("Other"),
+        }
+        .to_string()
     });
     [
         a.disambiguation.clone().or(kind),
         a.area.clone(),
-        a.active_years.clone(),
+        a.active_years.as_deref().map(roles::years),
     ]
     .into_iter()
     .flatten()
@@ -248,11 +250,11 @@ pub fn artist_meta(a: &types::Artist) -> String {
 pub fn credit_heading(c: types::CreditCategory) -> &'static str {
     use types::CreditCategory::*;
     match c {
-        Performance => "MUSICIANS",
-        Composition => "WRITTEN BY",
-        Production => "PRODUCTION",
-        Engineering => "ENGINEERING",
-        Other => "OTHER",
+        Performance => tr!("MUSICIANS"),
+        Composition => tr!("WRITTEN BY"),
+        Production => tr!("PRODUCTION"),
+        Engineering => tr!("ENGINEERING"),
+        Other => tr!("OTHER"),
     }
 }
 
@@ -268,9 +270,9 @@ pub fn credit_model(credits: &[types::Credit]) -> ModelRc<CreditItem> {
                 ""
             };
             last = Some(c.category);
-            let mut detail = c.roles.join(", ");
+            let mut detail = roles::roles(&c.roles);
             if c.scope == types::CreditScope::Album {
-                detail.push_str(" · album");
+                detail = tr!("{} · album", detail);
             }
             CreditItem {
                 heading: heading.into(),
@@ -293,12 +295,15 @@ pub fn member_model(members: &[types::BandMember], heading: &str) -> ModelRc<Cre
         .iter()
         .enumerate()
         .map(|(i, m)| {
-            let detail = [Some(m.roles.join(", ")), m.years.clone()]
-                .into_iter()
-                .flatten()
-                .filter(|s| !s.is_empty())
-                .collect::<Vec<_>>()
-                .join(" · ");
+            let detail = [
+                Some(roles::roles(&m.roles)),
+                m.years.as_deref().map(roles::years),
+            ]
+            .into_iter()
+            .flatten()
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join(" · ");
             CreditItem {
                 heading: if i == 0 { heading.into() } else { "".into() },
                 name: m.name.clone().into(),
@@ -360,8 +365,8 @@ pub fn artist_model(
             name: a.name.clone().into(),
             subtitle: format!(
                 "{} · {}",
-                plural(a.album_count, "album"),
-                plural(a.track_count, "track")
+                trn!("{n} album", "{n} albums", a.album_count),
+                trn!("{n} track", "{n} tracks", a.track_count)
             )
             .into(),
             image: Image::default(),

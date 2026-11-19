@@ -106,6 +106,7 @@ test("number rules: year, duration (seconds or m:ss), sample rate (kHz)", async 
   ).toEqual(["Blue in Green"]);
   expect(await pick({ rules: [rule("sampleRate", "greaterThan", "16")] })).toEqual(["Spanish Key"]);
   expect(await pick({ rules: [rule("lossless", "is", "yes")] })).toHaveLength(7);
+  expect(await pick({ rules: [rule("lossless", "is", "Sì")] })).toHaveLength(7);
 });
 
 test("history rules: plays and last played are the user's own; added is when the album appeared", async () => {

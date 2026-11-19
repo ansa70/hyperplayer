@@ -7,7 +7,10 @@ use std::{
     time::Duration,
 };
 
-use hyperplayer::api::types::{self, Silence, TrackTrim};
+use hyperplayer::{
+    api::types::{self, Silence, TrackTrim},
+    tr,
+};
 
 use super::{App, background, current_track, models::fmt_duration, set_status, with_app};
 
@@ -167,22 +170,23 @@ fn suggest(duration_ms: i64, silence: &Silence) -> Option<(TrackTrim, String)> {
     };
     let gap = |ms| fmt_duration(ms);
     let at = match (leading, trailing) {
-        (true, true) => format!(
+        (true, true) => tr!(
             "{} of silence at the start of this track and {} at the end.",
             gap(silence.leading_ms),
             gap(silence.trailing_ms)
         ),
-        (true, false) => format!(
+        (true, false) => tr!(
             "{} of silence at the start of this track.",
             gap(silence.leading_ms)
         ),
-        _ => format!(
+        _ => tr!(
             "{} of silence at the end of this track.",
             gap(silence.trailing_ms)
         ),
     };
-    let text = format!(
-        "{at} Skip it whenever it plays, for everyone? Right-click the waveform to change it later."
+    let text = tr!(
+        "{} Skip it whenever it plays, for everyone? Right-click the waveform to change it later.",
+        at
     );
     Some((trim, text))
 }
@@ -224,7 +228,7 @@ fn hide_offer(app: &mut App) {
 pub fn note_seek(app: &App, target: Duration) {
     let Some(s) = &app.session else { return };
     if super::playback::trim_end(&s.track).is_some_and(|end| target >= end) {
-        set_status(app, "Playing past the trimmed end, this time");
+        set_status(app, tr!("Playing past the trimmed end, this time"));
     }
 }
 

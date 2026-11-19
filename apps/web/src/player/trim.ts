@@ -4,6 +4,7 @@ import type { Silence, Track, TrackTrim } from "@hyperplayer/schemas";
 import { api, call } from "../api.ts";
 import { duration } from "../format.ts";
 import { usePlayer } from "../stores/player.ts";
+import { t } from "../i18n.ts";
 
 /** Silence this long at either end is offered for trimming: a hidden track's wait, not a fade-out's tail. */
 const LONG_GAP_MS = 10_000;
@@ -23,13 +24,20 @@ export function suggest(durationMs: number, silence: Silence): { trim: TrackTrim
   };
   const at =
     leading && trailing
-      ? `${duration(silence.leadingMs)} of silence at the start of this track and ${duration(silence.trailingMs)} at the end.`
+      ? t(
+          "{} of silence at the start of this track and {} at the end.",
+          duration(silence.leadingMs),
+          duration(silence.trailingMs),
+        )
       : leading
-        ? `${duration(silence.leadingMs)} of silence at the start of this track.`
-        : `${duration(silence.trailingMs)} of silence at the end of this track.`;
+        ? t("{} of silence at the start of this track.", duration(silence.leadingMs))
+        : t("{} of silence at the end of this track.", duration(silence.trailingMs));
   return {
     trim,
-    text: `${at} Skip it whenever it plays, for everyone? Right-click (or long-press) the waveform to change it later.`,
+    text: t(
+      "{} Skip it whenever it plays, for everyone? Right-click (or long-press) the waveform to change it later.",
+      at,
+    ),
   };
 }
 

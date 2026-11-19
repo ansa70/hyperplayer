@@ -467,7 +467,7 @@ component ShuffleMenu inherits PopupWindow {
             Text {
                 height: 24px;
                 x: 10px;
-                text: "SHUFFLE FROM";
+                text: @tr("SHUFFLE FROM");
                 color: Theme.faint;
                 font-size: 10px;
                 font-weight: 700;
@@ -475,11 +475,11 @@ component ShuffleMenu inherits PopupWindow {
                 vertical-alignment: center;
             }
             for option in [
-                { key: "library", label: "Whole library" },
-                { key: "album", label: "This album" },
-                { key: "artist", label: "This artist" },
-                { key: "genre", label: "This genre" },
-                { key: "playlist", label: "This playlist" },
+                { key: "library", label: @tr("Whole library") },
+                { key: "album", label: @tr("This album") },
+                { key: "artist", label: @tr("This artist") },
+                { key: "genre", label: @tr("This genre") },
+                { key: "playlist", label: @tr("This playlist") },
             ]: MenuItem {
                 text: option.label;
                 checked: option.key == root.scope;
@@ -504,23 +504,23 @@ component NewPlaylistMenu inherits PopupWindow {
         VerticalLayout {
             padding: 6px;
             spacing: 1px;
-            MenuItem { text: "Empty playlist"; clicked => { root.pick("empty"); } }
+            MenuItem { text: @tr("Empty playlist"); clicked => { root.pick("empty"); } }
             Rectangle { height: 9px; Rectangle { height: 1px; background: Theme.surface.brighter(0.8); } }
             Text {
                 height: 24px;
                 x: 10px;
-                text: "SMART, KEPT UP TO DATE";
+                text: @tr("SMART, KEPT UP TO DATE");
                 color: Theme.faint;
                 font-size: 10px;
                 font-weight: 700;
                 letter-spacing: 1.2px;
                 vertical-alignment: center;
             }
-            MenuItem { text: "Random tracks"; clicked => { root.pick("random"); } }
-            MenuItem { text: "From an artist"; clicked => { root.pick("artist"); } }
-            MenuItem { text: "From albums"; clicked => { root.pick("albums"); } }
-            MenuItem { text: "By genre"; clicked => { root.pick("genre"); } }
-            MenuItem { text: "Custom rules"; clicked => { root.pick("custom"); } }
+            MenuItem { text: @tr("Random tracks"); clicked => { root.pick("random"); } }
+            MenuItem { text: @tr("From an artist"); clicked => { root.pick("artist"); } }
+            MenuItem { text: @tr("From albums"); clicked => { root.pick("albums"); } }
+            MenuItem { text: @tr("By genre"); clicked => { root.pick("genre"); } }
+            MenuItem { text: @tr("Custom rules"); clicked => { root.pick("custom"); } }
         }
     }
 }
@@ -531,7 +531,7 @@ component ActionMenu inherits PopupWindow {
     in property <[PlaylistItem]> playlists;
     in property <bool> removable;
     in property <bool> movable;
-    in property <string> remove-label: "Remove";
+    in property <string> remove-label: @tr("Remove");
     callback action(string, string);
     width: 230px;
     Rectangle {
@@ -544,14 +544,14 @@ component ActionMenu inherits PopupWindow {
         VerticalLayout {
             padding: 6px;
             spacing: 1px;
-            MenuItem { text: "Play next"; clicked => { root.action("next", ""); } }
-            MenuItem { text: "Add to queue"; clicked => { root.action("end", ""); } }
-            if root.movable: MenuItem { text: "Move up"; clicked => { root.action("up", ""); } }
-            if root.movable: MenuItem { text: "Move down"; clicked => { root.action("down", ""); } }
+            MenuItem { text: @tr("Play next"); clicked => { root.action("next", ""); } }
+            MenuItem { text: @tr("Add to queue"); clicked => { root.action("end", ""); } }
+            if root.movable: MenuItem { text: @tr("Move up"); clicked => { root.action("up", ""); } }
+            if root.movable: MenuItem { text: @tr("Move down"); clicked => { root.action("down", ""); } }
             if root.removable: MenuItem { text: root.remove-label; clicked => { root.action("remove", ""); } }
             Rectangle { height: 9px; Rectangle { height: 1px; background: Theme.surface.brighter(0.8); } }
             Text {
-                text: "ADD TO PLAYLIST";
+                text: @tr("ADD TO PLAYLIST");
                 color: Theme.faint;
                 font-size: 10px;
                 font-weight: 700;
@@ -560,7 +560,7 @@ component ActionMenu inherits PopupWindow {
                 vertical-alignment: center;
             }
             for p in root.playlists: MenuItem { text: p.name; clicked => { root.action("playlist", p.id); } }
-            MenuItem { text: "New playlist…"; clicked => { root.action("new-playlist", ""); } }
+            MenuItem { text: @tr("New playlist…"); clicked => { root.action("new-playlist", ""); } }
         }
     }
 }
@@ -571,7 +571,7 @@ component TrackRow inherits Rectangle {
     in property <[PlaylistItem]> playlists;
     in property <bool> removable;
     in property <bool> movable;
-    in property <string> remove-label: "Remove";
+    in property <string> remove-label: @tr("Remove");
     callback play();
     callback action(string, string);
     height: 44px;
@@ -597,7 +597,7 @@ component TrackRow inherits Rectangle {
                 font-size: 14px;
                 overflow: elide;
             }
-            Text { text: track.available ? track.artist : track.artist + " · missing"; color: Theme.muted; font-size: 11px; overflow: elide; }
+            Text { text: track.available ? track.artist : @tr("{} · missing", track.artist); color: Theme.muted; font-size: 11px; overflow: elide; }
         }
         Text { text: track.duration; color: Theme.muted; font-size: 12px; vertical-alignment: center; horizontal-alignment: right; }
         Rectangle {
@@ -759,24 +759,24 @@ component Sidebar inherits Rectangle {
                 letter-spacing: -0.5px;
             }
             search := LineEdit {
-                placeholder-text: "Search artists, albums, tracks   ( / )";
+                placeholder-text: @tr("Search artists, albums, tracks   ( / )");
                 edited(text) => { root.search-changed(text); }
                 accepted(text) => { root.search-accepted(text); }
             }
             NavRow {
                 icon: Icons.albums;
-                text: "Albums";
+                text: @tr("Albums");
                 active: root.albums-open;
                 clicked => { root.show-albums(); }
             }
             NavRow {
                 icon: Icons.history;
-                text: "History";
+                text: @tr("History");
                 active: root.history-open;
                 clicked => { root.show-history(); }
             }
             HorizontalLayout {
-                Text { text: "PLAYLISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; vertical-alignment: center; }
+                Text { text: @tr("PLAYLISTS"); color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; vertical-alignment: center; }
                 plus := Rectangle {
                     width: 24px;
                     height: 24px;
@@ -822,7 +822,7 @@ component Sidebar inherits Rectangle {
                     pl-ta := TouchArea { clicked => { root.select-playlist(p.id); } }
                 }
             }
-            Text { text: "ARTISTS"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
+            Text { text: @tr("ARTISTS"); color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
             Rectangle {
                 vertical-stretch: 1;
                 artist-list := ListView {
@@ -889,14 +889,14 @@ component Sidebar inherits Rectangle {
                     spacing: 2px;
                     SidebarAction {
                         commands: Icons.settings;
-                        label: "Settings";
+                        label: @tr("Settings");
                         active: root.settings-open;
                         clicked => { root.show-settings(); }
                     }
                     // Standalone, there's no account to sign out of: "sign out" is switching library.
                     if root.local || root.can-switch: SidebarAction {
                         commands: Icons.switch-library;
-                        label: "Switch library";
+                        label: @tr("Switch library");
                         clicked => {
                             if root.local {
                                 root.sign-out();
@@ -907,7 +907,7 @@ component Sidebar inherits Rectangle {
                     }
                     if !root.local: SidebarAction {
                         commands: Icons.sign-out;
-                        label: "Sign out";
+                        label: @tr("Sign out");
                         clicked => { root.sign-out(); }
                     }
                 }
@@ -973,7 +973,7 @@ component ArtistPage inherits Rectangle {
                     VerticalLayout {
                         alignment: center;
                         spacing: 6px;
-                        Text { text: "ARTIST"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+                        Text { text: @tr("ARTIST"); color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
                         Text { text: artist.name; color: Theme.text; font-size: 44px; font-weight: 900; letter-spacing: -1px; }
                         if artist.meta != "": Text { text: artist.meta; color: Theme.text; font-size: 13px; }
                         Text { text: artist.stats; color: Theme.muted; font-size: 13px; }
@@ -989,13 +989,13 @@ component ArtistPage inherits Rectangle {
                 }
                 if root.members.length > 0: VerticalLayout {
                     max-width: 760px;
-                    Text { text: "Members"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                    Text { text: @tr("Members"); color: Theme.text; font-size: 18px; font-weight: 700; }
                     CreditList {
                         items: root.members;
                         select-artist(id) => { root.select-artist(id); }
                     }
                 }
-                Text { text: "Discography"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                Text { text: @tr("Discography"); color: Theme.text; font-size: 18px; font-weight: 700; }
                 AlbumGrid {
                     albums: root.albums;
                     select(id) => { root.select-album(id); }
@@ -1036,12 +1036,12 @@ component AlbumPage inherits Rectangle {
                 alignment: end;
                 spacing: 6px;
                 Text {
-                    text: "‹ Back to artist";
+                    text: @tr("‹ Back to artist");
                     color: back-ta.has-hover ? Theme.text : Theme.muted;
                     font-size: 12px;
                     back-ta := TouchArea { clicked => { root.back(); } }
                 }
-                Text { text: "ALBUM"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+                Text { text: @tr("ALBUM"); color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
                 Text { text: album.title; color: Theme.text; font-size: 36px; font-weight: 900; letter-spacing: -0.8px; wrap: word-wrap; }
                 Text { text: album.artist; color: Theme.text; font-size: 15px; font-weight: 600; }
                 Text { text: album.meta; color: Theme.muted; font-size: 12px; }
@@ -1117,11 +1117,11 @@ component AlbumsPage inherits Rectangle {
             spacing: 12px;
             VerticalLayout {
                 spacing: 4px;
-                Text { text: "Albums"; color: Theme.text; font-size: 28px; font-weight: 800; }
+                Text { text: @tr("Albums"); color: Theme.text; font-size: 28px; font-weight: 800; }
                 Text { text: root.summary; color: Theme.muted; font-size: 13px; }
             }
             Rectangle { horizontal-stretch: 1; }
-            for option in [{ key: "artist", label: "Artist" }, { key: "title", label: "Title" }, { key: "year", label: "Year" }, { key: "added", label: "Recently added" }]: VerticalLayout {
+            for option in [{ key: "artist", label: @tr("Artist") }, { key: "title", label: @tr("Title") }, { key: "year", label: @tr("Year") }, { key: "added", label: @tr("Recently added") }]: VerticalLayout {
                 alignment: center;
                 Rectangle {
                     height: 28px;
@@ -1194,16 +1194,16 @@ component HistoryPage inherits Rectangle {
                 spacing: 18px;
                 VerticalLayout {
                     spacing: 6px;
-                    Text { text: "History"; color: Theme.text; font-size: 28px; font-weight: 800; }
+                    Text { text: @tr("History"); color: Theme.text; font-size: 28px; font-weight: 800; }
                     if root.summary != "": Text { text: root.summary; color: Theme.muted; font-size: 13px; }
                 }
                 if root.loaded && root.recent.length == 0: Text {
-                    text: "Nothing yet. Tracks you listen to (half of them, or 4 minutes) show up here.";
+                    text: @tr("Nothing yet. Tracks you listen to (half of them, or 4 minutes) show up here.");
                     color: Theme.faint;
                     font-size: 13px;
                     wrap: word-wrap;
                 }
-                if root.artists.length > 0: Text { text: "Top artists · last 30 days"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                if root.artists.length > 0: Text { text: @tr("Top artists · last 30 days"); color: Theme.text; font-size: 18px; font-weight: 700; }
                 if root.artists.length > 0: HorizontalLayout {
                     alignment: start;
                     spacing: 20px;
@@ -1223,14 +1223,14 @@ component HistoryPage inherits Rectangle {
                         Text { text: artist.subtitle; color: Theme.muted; font-size: 11px; horizontal-alignment: center; }
                     }
                 }
-                if root.top.length > 0: Text { text: "Most played · last 30 days"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                if root.top.length > 0: Text { text: @tr("Most played · last 30 days"); color: Theme.text; font-size: 18px; font-weight: 700; }
                 for track[i] in root.top: TrackRow {
                     track: track;
                     playlists: root.playlists;
                     play => { root.play("history-top", i); }
                     action(kind, id) => { root.track-action("history-top", i, kind, id); }
                 }
-                if root.recent.length > 0: Text { text: "Recently played"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                if root.recent.length > 0: Text { text: @tr("Recently played"); color: Theme.text; font-size: 18px; font-weight: 700; }
                 for track[i] in root.recent: TrackRow {
                     track: track;
                     playlists: root.playlists;
@@ -1266,13 +1266,13 @@ component SearchPage inherits Rectangle {
                 alignment: start;
                 padding: 28px;
                 spacing: 18px;
-                Text { text: "Results for “" + root.query + "”"; color: Theme.text; font-size: 24px; font-weight: 800; }
+                Text { text: @tr("Results for “{}”", root.query); color: Theme.text; font-size: 24px; font-weight: 800; }
                 if artists.length + albums.length + tracks.length == 0: Text {
-                    text: "Nothing matches. Every word must appear in a title, artist or album name.";
+                    text: @tr("Nothing matches. Every word must appear in a title, artist or album name.");
                     color: Theme.faint;
                     font-size: 13px;
                 }
-                if artists.length > 0: Text { text: "Artists"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                if artists.length > 0: Text { text: @tr("Artists"); color: Theme.text; font-size: 18px; font-weight: 700; }
                 if artists.length > 0: HorizontalLayout {
                     alignment: start;
                     spacing: 20px;
@@ -1291,12 +1291,12 @@ component SearchPage inherits Rectangle {
                         Text { text: artist.name; color: Theme.text; font-size: 13px; font-weight: 600; horizontal-alignment: center; overflow: elide; }
                     }
                 }
-                if albums.length > 0: Text { text: "Albums"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                if albums.length > 0: Text { text: @tr("Albums"); color: Theme.text; font-size: 18px; font-weight: 700; }
                 if albums.length > 0: AlbumGrid {
                     albums: root.albums;
                     select(id) => { root.select-album(id); }
                 }
-                if tracks.length > 0: Text { text: "Tracks"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                if tracks.length > 0: Text { text: @tr("Tracks"); color: Theme.text; font-size: 18px; font-weight: 700; }
                 for track[i] in root.tracks: TrackRow {
                     track: track;
                     playlists: root.playlists;
@@ -1389,7 +1389,7 @@ component AddSection inherits VerticalLayout {
             }
             VerticalLayout {
                 alignment: center;
-                OutlineButton { text: "+ Add"; clicked => { root.add(root.kind, item.id, item.title); } }
+                OutlineButton { text: @tr("+ Add"); clicked => { root.add(root.kind, item.id, item.title); } }
             }
         }
     }
@@ -1424,10 +1424,10 @@ component SmartEditor inherits Rectangle {
         HorizontalLayout {
             spacing: 10px;
             alignment: start;
-            Text { text: "Tracks matching"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+            Text { text: @tr("Tracks matching"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
             Segmented {
                 selected: root.match-any ? "any" : "all";
-                options: [{ key: "all", label: "all rules" }, { key: "any", label: "any rule" }];
+                options: [{ key: "all", label: @tr("all rules") }, { key: "any", label: @tr("any rule") }];
                 pick(key) => { root.set-match(key == "any"); }
             }
         }
@@ -1435,7 +1435,7 @@ component SmartEditor inherits Rectangle {
             spacing: 8px;
             ComboBox {
                 width: 140px;
-                model: ["Title", "Artist", "Album", "Genre", "Format", "Year", "Duration", "Sample rate", "Plays", "Lossless", "Last played", "Added"];
+                model: [@tr("Title"), @tr("Artist"), @tr("Album"), @tr("Genre"), @tr("Format"), @tr("Year"), @tr("Duration"), @tr("Sample rate"), @tr("Plays"), @tr("Lossless"), @tr("Last played"), @tr("Added")];
                 current-index: rule.field;
                 selected => { root.rule-field(i, self.current-index); }
             }
@@ -1464,39 +1464,39 @@ component SmartEditor inherits Rectangle {
             IconButton { commands: Icons.window-close; size: 32px; clicked => { root.remove-rule(i); } }
         }
         if root.rules.length == 0: Text {
-            text: "No rules yet: any track in the library can be picked.";
+            text: @tr("No rules yet: any track in the library can be picked.");
             color: Theme.faint;
             font-size: 12px;
         }
         HorizontalLayout {
             spacing: 10px;
-            OutlineButton { text: "+ Add rule"; clicked => { root.add-rule(); } }
+            OutlineButton { text: @tr("+ Add rule"); clicked => { root.add-rule(); } }
             Rectangle { horizontal-stretch: 1; }
-            Text { text: "Order"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+            Text { text: @tr("Order"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
             ComboBox {
                 width: 140px;
-                model: ["Random", "Title", "Artist", "Album", "Year", "Date added", "Plays", "Last played"];
+                model: [@tr("Random"), @tr("Title"), @tr("Artist"), @tr("Album"), @tr("Year"), @tr("Date added"), @tr("Plays"), @tr("Last played")];
                 current-index: root.order;
                 selected => { root.set-order(self.current-index); }
             }
             if root.order != 0: CheckBox {
-                text: "Descending";
+                text: @tr("Descending");
                 checked: root.descending;
                 toggled => { root.set-descending(self.checked); }
             }
-            Text { text: "up to"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+            Text { text: @tr("up to"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
             LineEdit {
                 width: 64px;
                 text: root.limit;
                 edited(text) => { root.set-limit(text); }
                 accepted => { root.apply(); }
             }
-            Text { text: "tracks (max 500)"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+            Text { text: @tr("tracks (max 500)"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
         }
         HorizontalLayout {
             spacing: 12px;
             alignment: start;
-            OutlineButton { text: root.dirty ? "Apply rules" : "Rules applied"; clicked => { root.apply(); } }
+            OutlineButton { text: root.dirty ? @tr("Apply rules") : @tr("Rules applied"); clicked => { root.apply(); } }
             if root.message != "": Text {
                 text: root.message;
                 color: root.dirty ? Theme.accent : Theme.muted;
@@ -1566,7 +1566,7 @@ component PlaylistPage inherits Rectangle {
             VerticalLayout {
                 alignment: end;
                 spacing: 6px;
-                Text { text: root.smart ? "SMART PLAYLIST" : "PLAYLIST"; color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+                Text { text: root.smart ? @tr("SMART PLAYLIST") : @tr("PLAYLIST"); color: Theme.muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
                 LineEdit {
                     text: playlist.name;
                     font-size: 24px;
@@ -1577,7 +1577,7 @@ component PlaylistPage inherits Rectangle {
                         if !self.has-focus { root.rename(self.text); }
                     }
                 }
-                Text { text: playlist.meta + "  ·  click the name to rename the playlist"; color: Theme.muted; font-size: 12px; }
+                Text { text: @tr("{}  ·  click the name to rename the playlist", playlist.meta); color: Theme.muted; font-size: 12px; }
                 HorizontalLayout {
                     alignment: start;
                     padding-top: 8px;
@@ -1590,7 +1590,7 @@ component PlaylistPage inherits Rectangle {
                     // Freezes what matches now into an ordinary playlist, to edit by hand.
                     if root.smart: VerticalLayout {
                         alignment: center;
-                        OutlineButton { text: "Save as playlist"; clicked => { root.save-copy(); } }
+                        OutlineButton { text: @tr("Save as playlist"); clicked => { root.save-copy(); } }
                     }
                     VerticalLayout {
                         alignment: center;
@@ -1601,7 +1601,7 @@ component PlaylistPage inherits Rectangle {
                             border-width: 1px;
                             border-color: root.confirm-delete ? #e5484d : (delete-ta.has-hover ? Theme.text : Theme.faint);
                             delete-label := Text {
-                                text: root.confirm-delete ? "Click again to delete" : "Delete";
+                                text: root.confirm-delete ? @tr("Click again to delete") : @tr("Delete");
                                 color: root.confirm-delete ? #e5484d : Theme.muted;
                                 font-size: 12px;
                                 horizontal-alignment: center;
@@ -1644,7 +1644,7 @@ component PlaylistPage inherits Rectangle {
             spacing: 8px;
             vertical-stretch: root.add-query != "" ? 1 : 0;
             LineEdit {
-                placeholder-text: "Add to this playlist: search for tracks, albums, artists or genres";
+                placeholder-text: @tr("Add to this playlist: search for tracks, albums, artists or genres");
                 text <=> root.add-query;
                 edited(text) => { root.add-search(text); }
             }
@@ -1660,12 +1660,12 @@ component PlaylistPage inherits Rectangle {
                     add-results := VerticalLayout {
                         padding: 10px;
                         spacing: 12px;
-                        AddSection { heading: "GENRES"; kind: "genre"; items: root.add-genres; add(k, id, t) => { root.add(k, id, t); } }
-                        AddSection { heading: "ARTISTS"; kind: "artist"; items: root.add-artists; add(k, id, t) => { root.add(k, id, t); } }
-                        AddSection { heading: "ALBUMS"; kind: "album"; items: root.add-albums; add(k, id, t) => { root.add(k, id, t); } }
-                        AddSection { heading: "TRACKS"; kind: "track"; items: root.add-tracks; add(k, id, t) => { root.add(k, id, t); } }
+                        AddSection { heading: @tr("GENRES"); kind: "genre"; items: root.add-genres; add(k, id, t) => { root.add(k, id, t); } }
+                        AddSection { heading: @tr("ARTISTS"); kind: "artist"; items: root.add-artists; add(k, id, t) => { root.add(k, id, t); } }
+                        AddSection { heading: @tr("ALBUMS"); kind: "album"; items: root.add-albums; add(k, id, t) => { root.add(k, id, t); } }
+                        AddSection { heading: @tr("TRACKS"); kind: "track"; items: root.add-tracks; add(k, id, t) => { root.add(k, id, t); } }
                         if root.nothing-found: Text {
-                            text: root.add-pending ? "Searching…" : "Nothing found for “" + root.add-query + "”.";
+                            text: root.add-pending ? @tr("Searching…") : @tr("Nothing found for “{}”.", root.add-query);
                             color: Theme.faint;
                             font-size: 13px;
                         }
@@ -1681,12 +1681,12 @@ component PlaylistPage inherits Rectangle {
             }
         }
         if tracks.length == 0 && root.smart: Text {
-            text: "No tracks match these rules.";
+            text: @tr("No tracks match these rules.");
             color: Theme.faint;
             font-size: 13px;
         }
         if tracks.length == 0 && !root.smart && root.add-query == "": Text {
-            text: "Empty for now: search above to add tracks, albums, whole artists or genres. The ⋯ menu on any track or album adds it too.";
+            text: @tr("Empty for now: search above to add tracks, albums, whole artists or genres. The ⋯ menu on any track or album adds it too.");
             color: Theme.faint;
             font-size: 13px;
             wrap: word-wrap;
@@ -1700,7 +1700,7 @@ component PlaylistPage inherits Rectangle {
                     playlists: root.playlists;
                     removable: !root.smart;
                     movable: !root.smart;
-                    remove-label: "Remove from this playlist";
+                    remove-label: @tr("Remove from this playlist");
                     play => { root.play(i); }
                     action(kind, id) => { root.track-action(i, kind, id); }
                 }
@@ -1732,7 +1732,7 @@ component QueuePage inherits Rectangle {
                 padding: 28px;
                 spacing: 14px;
                 HorizontalLayout {
-                    Text { text: "Queue"; color: Theme.text; font-size: 28px; font-weight: 800; }
+                    Text { text: @tr("Queue"); color: Theme.text; font-size: 28px; font-weight: 800; }
                     VerticalLayout {
                         alignment: center;
                         Rectangle {
@@ -1741,29 +1741,29 @@ component QueuePage inherits Rectangle {
                             border-radius: 15px;
                             border-width: 1px;
                             border-color: clear-ta.has-hover ? Theme.text : Theme.faint;
-                            clear-label := Text { text: "Clear"; color: Theme.muted; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                            clear-label := Text { text: @tr("Clear"); color: Theme.muted; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
                             clear-ta := TouchArea { mouse-cursor: pointer; clicked => { root.clear(); } }
                         }
                     }
                 }
-                if origin != "": Text { text: "Playing from " + root.origin; color: Theme.muted; font-size: 13px; }
+                if origin != "": Text { text: @tr("Playing from {}", root.origin); color: Theme.muted; font-size: 13px; }
                 if now.length == 0 && next.length == 0: Text {
-                    text: "Nothing queued. Use the ⋯ menu on any track or album to add music.";
+                    text: @tr("Nothing queued. Use the ⋯ menu on any track or album to add music.");
                     color: Theme.faint;
                     font-size: 13px;
                 }
-                if now.length > 0: Text { text: "NOW PLAYING"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
+                if now.length > 0: Text { text: @tr("NOW PLAYING"); color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
                 for track in root.now: TrackRow {
                     track: track;
                     playlists: root.playlists;
                     action(kind, id) => { root.track-action(-1, kind, id); }
                 }
-                if next.length > 0: Text { text: "NEXT UP"; color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
+                if next.length > 0: Text { text: @tr("NEXT UP"); color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
                 for track[i] in root.next: TrackRow {
                     track: track;
                     playlists: root.playlists;
                     removable: true;
-                    remove-label: "Remove from queue";
+                    remove-label: @tr("Remove from queue");
                     play => { root.jump(i); }
                     action(kind, id) => { root.track-action(i, kind, id); }
                 }
@@ -1803,7 +1803,7 @@ component NowPlayingPanel inherits Rectangle {
         background: @linear-gradient(180deg, np.accent.with-alpha(0.25) 0%, Theme.surface.with-alpha(0.75) 45%, Theme.surface.with-alpha(0.6) 100%);
     }
     if !np.active: Text {
-        text: "Nothing playing";
+        text: @tr("Nothing playing");
         color: Theme.art-faint;
         horizontal-alignment: center;
         vertical-alignment: center;
@@ -1817,7 +1817,7 @@ component NowPlayingPanel inherits Rectangle {
                 alignment: start;
                 padding: 22px;
                 spacing: 14px;
-                Text { text: "NOW PLAYING"; color: Theme.art-muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+                Text { text: @tr("NOW PLAYING"); color: Theme.art-muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
                 Cover {
                     source: np.cover;
                     size: root.width - 44px;
@@ -1850,9 +1850,9 @@ component NowPlayingPanel inherits Rectangle {
                 }
                 if np.genres != "": Text { text: np.genres; color: Theme.art-muted; font-size: 12px; wrap: word-wrap; }
                 Rectangle { height: 1px; background: Theme.surface-hi; }
-                Text { text: "Credits"; color: Theme.art-text; font-size: 15px; font-weight: 700; }
+                Text { text: @tr("Credits"); color: Theme.art-text; font-size: 15px; font-weight: 700; }
                 if credits.length == 0: Text {
-                    text: np.loading-details ? "Looking up musicians…" : "No credits found for this track.";
+                    text: np.loading-details ? @tr("Looking up musicians…") : @tr("No credits found for this track.");
                     color: Theme.art-faint;
                     font-size: 12px;
                 }
@@ -1868,7 +1868,7 @@ component NowPlayingPanel inherits Rectangle {
                 VerticalLayout {
                     spacing: 2px;
                     Text {
-                        text: "About " + np.artist;
+                        text: @tr("About {}", np.artist);
                         color: about-ta.has-hover ? np.accent.brighter(0.4) : Theme.art-text;
                         font-size: 15px;
                         font-weight: 700;
@@ -1881,7 +1881,7 @@ component NowPlayingPanel inherits Rectangle {
                     if np.artist-meta != "": Text { text: np.artist-meta; color: Theme.art-muted; font-size: 12px; wrap: word-wrap; }
                 }
                 Text {
-                    text: np.biography != "" ? np.biography : np.loading-details ? "Fetching biography…" : "No biography available.";
+                    text: np.biography != "" ? np.biography : np.loading-details ? @tr("Fetching biography…") : @tr("No biography available.");
                     color: Theme.art-muted;
                     font-size: 12px;
                     wrap: word-wrap;
@@ -1894,7 +1894,7 @@ component NowPlayingPanel inherits Rectangle {
                     faint-color: Theme.art-faint;
                     select-artist(id) => { root.select-artist(id); }
                 }
-                if more-from.length > 0: Text { text: "More from " + np.artist; color: Theme.art-text; font-size: 15px; font-weight: 700; wrap: word-wrap; }
+                if more-from.length > 0: Text { text: @tr("More from {}", np.artist); color: Theme.art-text; font-size: 15px; font-weight: 700; wrap: word-wrap; }
                 if more-from.length > 0: AlbumGrid {
                     albums: root.more-from;
                     cell: (root.width - 44px - 20px) / 2;
@@ -1934,7 +1934,7 @@ component LyricsPage inherits Rectangle {
         padding: 28px;
         padding-bottom: 12px;
         spacing: 6px;
-        Text { text: root.title == "" ? "Lyrics" : root.title; color: Theme.text; font-size: 28px; font-weight: 800; overflow: elide; }
+        Text { text: root.title == "" ? @tr("Lyrics") : root.title; color: Theme.text; font-size: 28px; font-weight: 800; overflow: elide; }
         Text { text: root.artist; color: Theme.muted; font-size: 14px; overflow: elide; }
         if root.state != LyricsState.plain && root.state != LyricsState.synced: Text {
             vertical-stretch: 1;
@@ -1942,9 +1942,9 @@ component LyricsPage inherits Rectangle {
             horizontal-alignment: center;
             color: Theme.faint;
             font-size: 18px;
-            text: root.state == LyricsState.loading ? "Looking for lyrics…"
-                : root.state == LyricsState.instrumental ? "Instrumental"
-                : root.title == "" ? "Nothing is playing" : "No lyrics found for this track";
+            text: root.state == LyricsState.loading ? @tr("Looking for lyrics…")
+                : root.state == LyricsState.instrumental ? @tr("Instrumental")
+                : root.title == "" ? @tr("Nothing is playing") : @tr("No lyrics found for this track");
         }
         Rectangle {
             visible: root.state == LyricsState.plain || root.state == LyricsState.synced;
@@ -2007,16 +2007,16 @@ component TrimMenu inherits PopupWindow {
             Text {
                 height: 24px;
                 x: 10px;
-                text: "TRIM, FOR EVERYONE · " + root.at-text;
+                text: @tr("TRIM, FOR EVERYONE · {}", root.at-text);
                 color: Theme.faint;
                 font-size: 10px;
                 font-weight: 700;
                 letter-spacing: 1.2px;
                 vertical-alignment: center;
             }
-            MenuItem { text: "Start the track here"; clicked => { root.pick("start", root.at); } }
-            MenuItem { text: "End the track here"; clicked => { root.pick("end", root.at); } }
-            if root.trimmed: MenuItem { text: "Play the whole track"; clicked => { root.pick("clear", 0); } }
+            MenuItem { text: @tr("Start the track here"); clicked => { root.pick("start", root.at); } }
+            MenuItem { text: @tr("End the track here"); clicked => { root.pick("end", root.at); } }
+            if root.trimmed: MenuItem { text: @tr("Play the whole track"); clicked => { root.pick("clear", 0); } }
         }
     }
 }
@@ -2103,14 +2103,14 @@ component TrimOffer inherits Rectangle {
     layout := VerticalLayout {
         padding: 14px;
         spacing: 10px;
-        Text { text: "Skip the silence?"; color: Theme.text; font-size: 13px; font-weight: 600; }
+        Text { text: @tr("Skip the silence?"); color: Theme.text; font-size: 13px; font-weight: 600; }
         Text { text: root.text; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
         HorizontalLayout {
             spacing: 8px;
             alignment: end;
-            OutlineButton { text: "Never for this track"; clicked => { root.answer("never"); } }
-            OutlineButton { text: "Not now"; clicked => { root.answer("later"); } }
-            OutlineButton { text: "Skip it"; clicked => { root.answer("accept"); } }
+            OutlineButton { text: @tr("Never for this track"); clicked => { root.answer("never"); } }
+            OutlineButton { text: @tr("Not now"); clicked => { root.answer("later"); } }
+            OutlineButton { text: @tr("Skip it"); clicked => { root.answer("accept"); } }
         }
     }
 }
@@ -2197,10 +2197,10 @@ component TransportBar inherits Rectangle {
                     // While shuffling, what from; otherwise, on hover, what it would draw from.
                     caption: root.shuffle ? root.shuffle-label
                         : !self.hovered ? ""
-                        : "Shuffle from: " + (root.shuffle-scope == "album" ? "This album"
-                            : root.shuffle-scope == "artist" ? "This artist"
-                            : root.shuffle-scope == "genre" ? "This genre"
-                            : root.shuffle-scope == "playlist" ? "This playlist" : "Whole library");
+                        : @tr("Shuffle from: {}", root.shuffle-scope == "album" ? @tr("This album")
+                            : root.shuffle-scope == "artist" ? @tr("This artist")
+                            : root.shuffle-scope == "genre" ? @tr("This genre")
+                            : root.shuffle-scope == "playlist" ? @tr("This playlist") : @tr("Whole library"));
                     caption-color: root.shuffle ? root.accent : Theme.muted;
                     caption-width: self.x - 10px;
                     caption-clicked => { shuffle-menu.show(); }
@@ -2363,7 +2363,7 @@ component PrimaryButton inherits Rectangle {
     border-radius: 20px;
     background: root.busy ? Theme.surface-hi : (ta.has-hover ? #ffffff : #e8e9ec);
     Text {
-        text: root.busy ? "Please wait…" : root.text;
+        text: root.busy ? @tr("Please wait…") : root.text;
         color: root.busy ? Theme.muted : Theme.bg;
         font-size: 14px;
         font-weight: 700;
@@ -2417,15 +2417,15 @@ component LoginScreen inherits Rectangle {
                     if root.state.trust-fingerprint != "": VerticalLayout {
                         padding: 32px;
                         spacing: 14px;
-                        Text { text: "Trust this server?"; color: Theme.text; font-size: 22px; font-weight: 800; }
+                        Text { text: @tr("Trust this server?"); color: Theme.text; font-size: 22px; font-weight: 800; }
                         Text {
-                            text: root.state.trust-server + " uses its own (self-signed) certificate, which this computer can't check by itself. Trust it only if this fingerprint matches the one the server shows in its log or the installer printed.";
+                            text: @tr("{} uses its own (self-signed) certificate, which this computer can't check by itself. Trust it only if this fingerprint matches the one the server shows in its log or the installer printed.", root.state.trust-server);
                             color: Theme.muted;
                             font-size: 13px;
                             wrap: word-wrap;
                         }
                         Field {
-                            label: "SHA-256 FINGERPRINT";
+                            label: @tr("SHA-256 FINGERPRINT");
                             Text {
                                 text: root.state.trust-fingerprint;
                                 color: Theme.text;
@@ -2434,9 +2434,9 @@ component LoginScreen inherits Rectangle {
                                 wrap: char-wrap;
                             }
                         }
-                        PrimaryButton { text: "Trust this server"; clicked => { root.trust(); } }
+                        PrimaryButton { text: @tr("Trust this server"); clicked => { root.trust(); } }
                         Text {
-                            text: "Cancel";
+                            text: @tr("Cancel");
                             color: cancel-ta.has-hover ? Theme.text : Theme.faint;
                             font-size: 12px;
                             horizontal-alignment: center;
@@ -2448,13 +2448,13 @@ component LoginScreen inherits Rectangle {
                         spacing: 14px;
                         Text { text: "HyperPlayer"; color: Theme.text; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
                         Text {
-                            text: "How do you want to use HyperPlayer?";
+                            text: @tr("How do you want to use HyperPlayer?");
                             color: Theme.muted;
                             font-size: 13px;
                             wrap: word-wrap;
                         }
                         if root.state.local-available: PrimaryButton {
-                            text: "Standalone player";
+                            text: @tr("Standalone player");
                             busy: root.state.busy;
                             clicked => { root.use-local(); }
                         }
@@ -2462,18 +2462,18 @@ component LoginScreen inherits Rectangle {
                             color: Theme.muted;
                             font-size: 12px;
                             wrap: word-wrap;
-                            text: "HyperPlayer keeps its own library of your music folders, on this computer's disks or on a network drive. Nothing else to install.";
+                            text: @tr("HyperPlayer keeps its own library of your music folders, on this computer's disks or on a network drive. Nothing else to install.");
                         }
                         OutlineButton {
-                            text: "Connect to a HyperPlayer server";
+                            text: @tr("Connect to a HyperPlayer server");
                             clicked => { root.use-server(); }
                         }
-                        Text { text: "A server, at home or elsewhere, keeps the library, queue and playlists for all your devices."; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                        Text { text: @tr("A server, at home or elsewhere, keeps the library, queue and playlists for all your devices."); color: Theme.muted; font-size: 12px; wrap: word-wrap; }
                         if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
                         if root.state.can-go-back: HorizontalLayout {
                             alignment: start;
                             OutlineButton {
-                                text: "Back to my library";
+                                text: @tr("Back to my library");
                                 clicked => { root.back-to-library(); }
                             }
                         }
@@ -2481,35 +2481,35 @@ component LoginScreen inherits Rectangle {
                     if root.state.trust-fingerprint == "" && root.state.choosing && root.state.picking-folder: VerticalLayout {
                         padding: 32px;
                         spacing: 14px;
-                        Text { text: "Your music folder"; color: Theme.text; font-size: 22px; font-weight: 800; }
+                        Text { text: @tr("Your music folder"); color: Theme.text; font-size: 22px; font-weight: 800; }
                         Text {
-                            text: "HyperPlayer builds its library from the music in this folder and its subfolders, and notices music added later. A folder on a network drive works too.";
+                            text: @tr("HyperPlayer builds its library from the music in this folder and its subfolders, and notices music added later. A folder on a network drive works too.");
                             color: Theme.muted;
                             font-size: 13px;
                             wrap: word-wrap;
                         }
                         Field {
-                            label: "MUSIC FOLDER";
+                            label: @tr("MUSIC FOLDER");
                             Text {
-                                text: root.state.music-folder != "" ? root.state.music-folder : "No folder chosen yet";
+                                text: root.state.music-folder != "" ? root.state.music-folder : @tr("No folder chosen yet");
                                 color: root.state.music-folder != "" ? Theme.text : Theme.faint;
                                 font-size: 13px;
                                 wrap: char-wrap;
                             }
                         }
                         if root.state.music-folder != "": PrimaryButton {
-                            text: "Use this folder";
+                            text: @tr("Use this folder");
                             busy: root.state.busy;
                             clicked => { root.use-music-folder(); }
                         }
                         OutlineButton {
-                            text: root.state.music-folder != "" ? "Choose another folder…" : "Choose a folder…";
+                            text: root.state.music-folder != "" ? @tr("Choose another folder…") : @tr("Choose a folder…");
                             clicked => { root.browse-music-folder(); }
                         }
-                        Text { text: "More folders can be added later, in Settings."; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                        Text { text: @tr("More folders can be added later, in Settings."); color: Theme.muted; font-size: 12px; wrap: word-wrap; }
                         if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
                         if !root.state.busy: Text {
-                            text: "Back";
+                            text: @tr("Back");
                             color: back-ta.has-hover ? Theme.text : Theme.faint;
                             font-size: 12px;
                             horizontal-alignment: center;
@@ -2522,14 +2522,14 @@ component LoginScreen inherits Rectangle {
                         Text { text: "HyperPlayer"; color: Theme.text; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
                         Text {
                             text: root.state.default-admin
-                                ? "First time on this server? Sign in as admin with the password “hyperplayer”, then choose your own."
-                                : "Sign in to your server.";
+                                ? @tr("First time on this server? Sign in as admin with the password “hyperplayer”, then choose your own.")
+                                : @tr("Sign in to your server.");
                             color: Theme.muted;
                             font-size: 13px;
                             wrap: word-wrap;
                         }
                         Field {
-                            label: "SERVER";
+                            label: @tr("SERVER");
                             LineEdit {
                                 text <=> root.server;
                                 placeholder-text: "https://music.home:4533";
@@ -2537,22 +2537,22 @@ component LoginScreen inherits Rectangle {
                             }
                         }
                         Field {
-                            label: "USERNAME";
-                            LineEdit { text <=> root.username; placeholder-text: "Username"; }
+                            label: @tr("USERNAME");
+                            LineEdit { text <=> root.username; placeholder-text: @tr("Username"); }
                         }
                         Field {
-                            label: "PASSWORD";
+                            label: @tr("PASSWORD");
                             LineEdit {
                                 text <=> root.password;
                                 input-type: InputType.password;
-                                placeholder-text: "Password";
+                                placeholder-text: @tr("Password");
                                 accepted => { root.submit(); }
                             }
                         }
                         if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
-                        PrimaryButton { text: "Sign in"; busy: root.state.busy; clicked => { root.submit(); } }
+                        PrimaryButton { text: @tr("Sign in"); busy: root.state.busy; clicked => { root.submit(); } }
                         if root.state.local-available: Text {
-                            text: "Use HyperPlayer as a standalone player instead";
+                            text: @tr("Use HyperPlayer as a standalone player instead");
                             color: local-ta.has-hover ? Theme.text : Theme.faint;
                             font-size: 12px;
                             horizontal-alignment: center;
@@ -2562,23 +2562,23 @@ component LoginScreen inherits Rectangle {
                     if root.state.trust-fingerprint == "" && root.state.changing-password: VerticalLayout {
                         padding: 32px;
                         spacing: 14px;
-                        Text { text: "Choose your password"; color: Theme.text; font-size: 22px; font-weight: 800; }
+                        Text { text: @tr("Choose your password"); color: Theme.text; font-size: 22px; font-weight: 800; }
                         Text {
-                            text: "You signed in with the default password. Pick your own to continue; the default stops working once you do.";
+                            text: @tr("You signed in with the default password. Pick your own to continue; the default stops working once you do.");
                             color: Theme.muted;
                             font-size: 13px;
                             wrap: word-wrap;
                         }
                         if root.state.need-current: Field {
-                            label: "CURRENT PASSWORD";
+                            label: @tr("CURRENT PASSWORD");
                             LineEdit { text <=> root.password; input-type: InputType.password; }
                         }
                         Field {
-                            label: "NEW PASSWORD (AT LEAST 8 CHARACTERS)";
+                            label: @tr("NEW PASSWORD (AT LEAST 8 CHARACTERS)");
                             LineEdit { text <=> root.new-password; input-type: InputType.password; }
                         }
                         Field {
-                            label: "REPEAT IT";
+                            label: @tr("REPEAT IT");
                             LineEdit {
                                 text <=> root.confirm-password;
                                 input-type: InputType.password;
@@ -2586,32 +2586,32 @@ component LoginScreen inherits Rectangle {
                             }
                         }
                         if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
-                        PrimaryButton { text: "Save and continue"; busy: root.state.busy; clicked => { root.change-password(); } }
+                        PrimaryButton { text: @tr("Save and continue"); busy: root.state.busy; clicked => { root.change-password(); } }
                     }
                     if root.state.trust-fingerprint == "" && root.state.onboarding: VerticalLayout {
                         padding: 32px;
                         spacing: 14px;
-                        Text { text: "Who's listening?"; color: Theme.text; font-size: 22px; font-weight: 800; }
+                        Text { text: @tr("Who's listening?"); color: Theme.text; font-size: 22px; font-weight: 800; }
                         Text {
-                            text: "Create your own account for everyday listening, with your playlists and preferences. The admin account stays for managing the server.";
+                            text: @tr("Create your own account for everyday listening, with your playlists and preferences. The admin account stays for managing the server.");
                             color: Theme.muted;
                             font-size: 13px;
                             wrap: word-wrap;
                         }
                         Field {
-                            label: "FULL NAME (OPTIONAL)";
-                            LineEdit { text <=> root.full-name; placeholder-text: "Your name"; }
+                            label: @tr("FULL NAME (OPTIONAL)");
+                            LineEdit { text <=> root.full-name; placeholder-text: @tr("Your name"); }
                         }
                         Field {
-                            label: "USERNAME";
-                            LineEdit { text <=> root.username; placeholder-text: "Username"; }
+                            label: @tr("USERNAME");
+                            LineEdit { text <=> root.username; placeholder-text: @tr("Username"); }
                         }
                         Field {
-                            label: "PASSWORD (AT LEAST 8 CHARACTERS)";
+                            label: @tr("PASSWORD (AT LEAST 8 CHARACTERS)");
                             LineEdit { text <=> root.new-password; input-type: InputType.password; }
                         }
                         Field {
-                            label: "REPEAT IT";
+                            label: @tr("REPEAT IT");
                             LineEdit {
                                 text <=> root.confirm-password;
                                 input-type: InputType.password;
@@ -2619,9 +2619,9 @@ component LoginScreen inherits Rectangle {
                             }
                         }
                         if root.state.error != "": Text { text: root.state.error; color: #e5484d; font-size: 12px; wrap: word-wrap; }
-                        PrimaryButton { text: "Create my account"; busy: root.state.busy; clicked => { root.onboard(); } }
+                        PrimaryButton { text: @tr("Create my account"); busy: root.state.busy; clicked => { root.onboard(); } }
                         Text {
-                            text: "Skip: keep using the admin account";
+                            text: @tr("Skip: keep using the admin account");
                             color: skip-ta.has-hover ? Theme.text : Theme.faint;
                             font-size: 12px;
                             horizontal-alignment: center;
@@ -2650,23 +2650,23 @@ component ShortcutHelp inherits Rectangle {
             y: 24px;
             width: parent.width - 48px;
             spacing: 8px;
-            Text { text: "Keyboard shortcuts"; color: Theme.text; font-size: 18px; font-weight: 800; }
+            Text { text: @tr("Keyboard shortcuts"); color: Theme.text; font-size: 18px; font-weight: 800; }
             for row in [
-                { key: "Space", what: "Play / pause" },
-                { key: "← / →", what: "Seek back / forward 10 s" },
-                { key: "Ctrl+← / Ctrl+→", what: "Previous / next track" },
-                { key: "Home", what: "Replay the track from the start" },
-                { key: "↑ / ↓", what: "Volume up / down" },
-                { key: "M", what: "Mute" },
-                { key: "S / R", what: "Shuffle / repeat" },
-                { key: "Q", what: "Queue" },
-                { key: "L", what: "Lyrics" },
-                { key: "H", what: "History" },
-                { key: "A", what: "Albums" },
-                { key: ",", what: "Settings" },
-                { key: "/  or  Ctrl+F", what: "Search" },
-                { key: "Esc", what: "Leave search / close" },
-                { key: "?", what: "This help" },
+                { key: "Space", what: @tr("Play / pause") },
+                { key: "← / →", what: @tr("Seek back / forward 10 s") },
+                { key: "Ctrl+← / Ctrl+→", what: @tr("Previous / next track") },
+                { key: "Home", what: @tr("Replay the track from the start") },
+                { key: "↑ / ↓", what: @tr("Volume up / down") },
+                { key: "M", what: @tr("Mute") },
+                { key: "S / R", what: @tr("Shuffle / repeat") },
+                { key: "Q", what: @tr("Queue") },
+                { key: "L", what: @tr("Lyrics") },
+                { key: "H", what: @tr("History") },
+                { key: "A", what: @tr("Albums") },
+                { key: ",", what: @tr("Settings") },
+                { key: "/  or  Ctrl+F", what: @tr("Search") },
+                { key: "Esc", what: @tr("Leave search / close") },
+                { key: "?", what: @tr("This help") },
             ]: HorizontalLayout {
                 Text { width: 150px; text: row.key; color: Theme.text; font-size: 13px; font-weight: 700; }
                 Text { text: row.what; color: Theme.muted; font-size: 13px; }
@@ -2727,6 +2727,9 @@ export global SettingsState {
     /// Off where the desktop's title bar is the only one (macOS).
     in property <bool> title-bar-choice: true;
     callback set-system-title-bar(bool);
+    /// The language setting: "" follows the system's, or a code ("en", "it").
+    in property <string> language;
+    callback set-language(string);
 
     // Playback (the user's preferences).
     in property <string> quality;
@@ -2868,37 +2871,37 @@ component SettingsPage inherits Rectangle {
                 spacing: 18px;
                 HorizontalLayout {
                     spacing: 14px;
-                    Text { text: "Settings"; color: Theme.text; font-size: 28px; font-weight: 800; }
+                    Text { text: @tr("Settings"); color: Theme.text; font-size: 28px; font-weight: 800; }
                     Text { text: SettingsState.versions; color: Theme.faint; font-size: 12px; vertical-alignment: center; }
                 }
                 Segmented {
                     selected: SettingsState.tab;
                     // Listeners see the library's state too, read-only, as "Library".
-                    options: [{ key: "playback", label: "Playback" }, { key: "appearance", label: "Appearance" }, { key: "account", label: "Account" }, { key: "scrobbling", label: "Scrobbling" }, { key: "server", label: SettingsState.is-admin && !SettingsState.local ? "Server" : "Library" }];
+                    options: [{ key: "playback", label: @tr("Playback") }, { key: "appearance", label: @tr("Appearance") }, { key: "account", label: @tr("Account") }, { key: "scrobbling", label: @tr("Scrobbling") }, { key: "server", label: SettingsState.is-admin && !SettingsState.local ? @tr("Server") : @tr("Library") }];
                     pick(key) => { SettingsState.tab = key; }
                 }
 
                 // ------------------------------------------------------------ playback
                 if SettingsState.tab == "playback": Card {
-                    title: "Streaming quality";
-                    Note { text: "Auto picks the best quality your connection sustains and adapts as it changes. Original always streams the file as it is; Data saver uses about 128 kbit/s."; }
+                    title: @tr("Streaming quality");
+                    Note { text: @tr("Auto picks the best quality your connection sustains and adapts as it changes. Original always streams the file as it is; Data saver uses about 128 kbit/s."); }
                     Segmented {
                         selected: SettingsState.quality;
-                        options: [{ key: "auto", label: "Auto" }, { key: "original", label: "Original" }, { key: "data-saver", label: "Data saver" }];
+                        options: [{ key: "auto", label: @tr("Auto") }, { key: "original", label: @tr("Original") }, { key: "data-saver", label: @tr("Data saver") }];
                         pick(key) => { SettingsState.set-quality(key); }
                     }
                 }
                 if SettingsState.tab == "playback": Card {
-                    title: "Volume levelling (ReplayGain)";
-                    Note { text: "Evens out loudness between tracks using their ReplayGain tags. Auto keeps an album's own dynamics while it plays in order, and levels track by track otherwise."; }
+                    title: @tr("Volume levelling (ReplayGain)");
+                    Note { text: @tr("Evens out loudness between tracks using their ReplayGain tags. Auto keeps an album's own dynamics while it plays in order, and levels track by track otherwise."); }
                     Segmented {
                         selected: SettingsState.replaygain;
-                        options: [{ key: "auto", label: "Auto" }, { key: "track", label: "Track" }, { key: "album", label: "Album" }, { key: "off", label: "Off" }];
+                        options: [{ key: "auto", label: @tr("Auto") }, { key: "track", label: @tr("Track") }, { key: "album", label: @tr("Album") }, { key: "off", label: @tr("Off") }];
                         pick(key) => { SettingsState.set-replaygain(key); }
                     }
                     HorizontalLayout {
                         spacing: 12px;
-                        Text { text: "Pre-amp"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+                        Text { text: @tr("Pre-amp"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
                         Slider {
                             minimum: -15;
                             maximum: 15;
@@ -2916,14 +2919,14 @@ component SettingsPage inherits Rectangle {
                             horizontal-alignment: right;
                         }
                     }
-                    Note { text: "Added to every ReplayGain adjustment; boosts are still limited so peaks never clip."; }
+                    Note { text: @tr("Added to every ReplayGain adjustment; boosts are still limited so peaks never clip."); }
                 }
                 if SettingsState.tab == "playback": Card {
-                    title: "Crossfade";
-                    Note { text: "Fades each track into the next instead of playing them back to back. Tracks at different sample rates still change without a fade, so each plays at its own rate."; }
+                    title: @tr("Crossfade");
+                    Note { text: @tr("Fades each track into the next instead of playing them back to back. Tracks at different sample rates still change without a fade, so each plays at its own rate."); }
                     HorizontalLayout {
                         spacing: 12px;
-                        Text { text: "Length"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+                        Text { text: @tr("Length"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
                         Slider {
                             minimum: 0;
                             maximum: 12;
@@ -2934,7 +2937,7 @@ component SettingsPage inherits Rectangle {
                         }
                         Text {
                             width: 60px;
-                            text: SettingsState.crossfade == 0 ? "Off" : SettingsState.crossfade + " s";
+                            text: SettingsState.crossfade == 0 ? @tr("Off") : SettingsState.crossfade + " s";
                             color: Theme.text;
                             font-size: 12px;
                             vertical-alignment: center;
@@ -2942,13 +2945,13 @@ component SettingsPage inherits Rectangle {
                         }
                     }
                     CheckBox {
-                        text: "Also when skipping to another track";
+                        text: @tr("Also when skipping to another track");
                         enabled: SettingsState.crossfade > 0;
                         checked: SettingsState.crossfade-on-skip;
                         toggled => { SettingsState.set-crossfade-on-skip(self.checked); }
                     }
                     CheckBox {
-                        text: "Also between tracks of an album playing in order (gapless otherwise, as live albums need)";
+                        text: @tr("Also between tracks of an album playing in order (gapless otherwise, as live albums need)");
                         enabled: SettingsState.crossfade > 0;
                         checked: SettingsState.crossfade-albums;
                         toggled => { SettingsState.set-crossfade-albums(self.checked); }
@@ -2957,8 +2960,8 @@ component SettingsPage inherits Rectangle {
 
                 // ---------------------------------------------------------- appearance
                 if SettingsState.tab == "appearance": Card {
-                    title: "Accent colour";
-                    Note { text: "Used for highlights, active controls and the waveform. “From the album” follows the cover of what's playing."; }
+                    title: @tr("Accent colour");
+                    Note { text: @tr("Used for highlights, active controls and the waveform. “From the album” follows the cover of what's playing."); }
                     HorizontalLayout {
                         spacing: 10px;
                         alignment: start;
@@ -2985,80 +2988,90 @@ component SettingsPage inherits Rectangle {
                             swatch-ta := TouchArea { mouse-cursor: pointer; clicked => { SettingsState.set-accent(swatch.key); } }
                         }
                     }
-                    Note { text: SettingsState.accent == "cover" ? "From the album" : "Fixed colour " + SettingsState.accent; color: Theme.text; }
+                    Note { text: SettingsState.accent == "cover" ? @tr("From the album") : @tr("Fixed colour {}", SettingsState.accent); color: Theme.text; }
                 }
                 if SettingsState.tab == "appearance": Card {
-                    title: "Window";
+                    title: @tr("Window");
                     CheckBox {
-                        text: "Tint the window with the colours of the album playing";
+                        text: @tr("Tint the window with the colours of the album playing");
                         checked: SettingsState.cover-background;
                         toggled => { SettingsState.set-cover-background(self.checked); }
                     }
                     CheckBox {
-                        text: "Show the live spectrum under the cover";
+                        text: @tr("Show the live spectrum under the cover");
                         checked: SettingsState.visualizer;
                         toggled => { SettingsState.set-visualizer(self.checked); }
                     }
                     if SettingsState.title-bar-choice: CheckBox {
-                        text: "Use the desktop's title bar instead of HyperPlayer's (from the next start; this computer only)";
+                        text: @tr("Use the desktop's title bar instead of HyperPlayer's (from the next start; this computer only)");
                         checked: SettingsState.system-title-bar;
                         toggled => { SettingsState.set-system-title-bar(self.checked); }
+                    }
+                }
+                if SettingsState.tab == "appearance": Card {
+                    title: @tr("Language");
+                    Note { text: @tr("Automatic follows this computer's language. This computer only."); }
+                    // Each language by its own name; one bundled in translations/ is added here too.
+                    Segmented {
+                        selected: SettingsState.language;
+                        options: [{ key: "", label: @tr("Automatic") }, { key: "en", label: "English" }, { key: "it", label: "Italiano" }];
+                        pick(key) => { SettingsState.set-language(key); }
                     }
                 }
 
                 // ------------------------------------------------------------- account
                 if SettingsState.tab == "account": Card {
-                    title: "Profile";
+                    title: @tr("Profile");
                     Field {
-                        label: "FULL NAME";
-                        LineEdit { text <=> SettingsState.full-name; placeholder-text: "Optional"; accepted => { SettingsState.save-name(); } }
+                        label: @tr("FULL NAME");
+                        LineEdit { text <=> SettingsState.full-name; placeholder-text: @tr("Optional"); accepted => { SettingsState.save-name(); } }
                     }
                     HorizontalLayout {
                         spacing: 12px;
                         alignment: start;
-                        OutlineButton { text: "Save"; clicked => { SettingsState.save-name(); } }
+                        OutlineButton { text: @tr("Save"); clicked => { SettingsState.save-name(); } }
                         if SettingsState.name-message != "": Note { text: SettingsState.name-message; vertical-alignment: center; }
                     }
                 }
                 if SettingsState.tab == "account" && !SettingsState.local: Card {
-                    title: "Password";
+                    title: @tr("Password");
                     Field {
-                        label: "CURRENT PASSWORD";
+                        label: @tr("CURRENT PASSWORD");
                         LineEdit { text <=> SettingsState.pw-current; input-type: InputType.password; }
                     }
                     Field {
-                        label: "NEW PASSWORD";
-                        LineEdit { text <=> SettingsState.pw-new; input-type: InputType.password; placeholder-text: "At least 8 characters"; }
+                        label: @tr("NEW PASSWORD");
+                        LineEdit { text <=> SettingsState.pw-new; input-type: InputType.password; placeholder-text: @tr("At least 8 characters"); }
                     }
                     Field {
-                        label: "REPEAT THE NEW PASSWORD";
+                        label: @tr("REPEAT THE NEW PASSWORD");
                         LineEdit { text <=> SettingsState.pw-confirm; input-type: InputType.password; accepted => { SettingsState.change-password(); } }
                     }
                     HorizontalLayout {
                         spacing: 12px;
                         alignment: start;
-                        OutlineButton { text: "Change password"; clicked => { SettingsState.change-password(); } }
+                        OutlineButton { text: @tr("Change password"); clicked => { SettingsState.change-password(); } }
                         if SettingsState.pw-message != "": Note {
                             text: SettingsState.pw-message;
                             color: SettingsState.pw-error ? #ff8a80 : Theme.muted;
                             vertical-alignment: center;
                         }
                     }
-                    Note { text: "Changing it signs out your other devices."; }
+                    Note { text: @tr("Changing it signs out your other devices."); }
                 }
                 if SettingsState.tab == "account" && !SettingsState.local: Card {
-                    title: "Signed-in devices";
+                    title: @tr("Signed-in devices");
                     for device in SettingsState.devices: HorizontalLayout {
                         spacing: 12px;
                         VerticalLayout {
                             alignment: center;
                             horizontal-stretch: 1;
-                            Text { text: device.name + (device.current ? "  (this device)" : ""); color: Theme.text; font-size: 13px; overflow: elide; }
+                            Text { text: (device.current ? @tr("{}  (this device)", device.name) : device.name); color: Theme.text; font-size: 13px; overflow: elide; }
                             Note { text: device.detail; }
                         }
                         if !device.current: VerticalLayout {
                             alignment: center;
-                            OutlineButton { text: "Sign out"; clicked => { SettingsState.revoke-device(device.id); } }
+                            OutlineButton { text: @tr("Sign out"); clicked => { SettingsState.revoke-device(device.id); } }
                         }
                     }
                 }
@@ -3070,12 +3083,12 @@ component SettingsPage inherits Rectangle {
                         Text { text: "ListenBrainz"; color: Theme.text; font-size: 15px; font-weight: 700; vertical-alignment: center; }
                         if SettingsState.lb-connected: VerticalLayout {
                             alignment: center;
-                            Chip { text: "Connected as " + SettingsState.lb-username; accent: Theme.accent; }
+                            Chip { text: @tr("Connected as {}", SettingsState.lb-username); accent: Theme.accent; }
                         }
                         Rectangle { horizontal-stretch: 1; }
                     }
                     Text {
-                        text: "Sends what you listen to to your ListenBrainz profile, for a public listening history, statistics and recommendations. Listens are sent from the moment you connect; earlier history stays here.";
+                        text: @tr("Sends what you listen to to your ListenBrainz profile, for a public listening history, statistics and recommendations. Listens are sent from the moment you connect; earlier history stays here.");
                         color: Theme.muted;
                         font-size: 13px;
                         wrap: word-wrap;
@@ -3086,11 +3099,11 @@ component SettingsPage inherits Rectangle {
                     }
                     // Shown to connect, and to replace a token ListenBrainz no longer accepts.
                     if !SettingsState.lb-connected || SettingsState.lb-failing: Field {
-                        label: "USER TOKEN";
+                        label: @tr("USER TOKEN");
                         LineEdit {
                             text <=> SettingsState.lb-token;
                             input-type: InputType.password;
-                            placeholder-text: "Copy it from listenbrainz.org/settings";
+                            placeholder-text: @tr("Copy it from listenbrainz.org/settings");
                             accepted(t) => { SettingsState.lb-connect(t); }
                         }
                     }
@@ -3100,13 +3113,13 @@ component SettingsPage inherits Rectangle {
                         spacing: 12px;
                         if !SettingsState.lb-connected || SettingsState.lb-failing: PrimaryButton {
                             width: 160px;
-                            text: SettingsState.lb-connected ? "Reconnect" : "Connect";
+                            text: SettingsState.lb-connected ? @tr("Reconnect") : @tr("Connect");
                             busy: SettingsState.lb-busy;
                             clicked => { SettingsState.lb-connect(SettingsState.lb-token); }
                         }
                         if SettingsState.lb-connected: VerticalLayout {
                             alignment: center;
-                            OutlineButton { text: "Disconnect"; clicked => { SettingsState.lb-disconnect(); } }
+                            OutlineButton { text: @tr("Disconnect"); clicked => { SettingsState.lb-disconnect(); } }
                         }
                     }
                 }
@@ -3116,25 +3129,25 @@ component SettingsPage inherits Rectangle {
                         Text { text: "Last.fm"; color: Theme.text; font-size: 15px; font-weight: 700; vertical-alignment: center; }
                         if SettingsState.fm-connected: VerticalLayout {
                             alignment: center;
-                            Chip { text: "Connected as " + SettingsState.fm-username; accent: Theme.accent; }
+                            Chip { text: @tr("Connected as {}", SettingsState.fm-username); accent: Theme.accent; }
                         }
                         Rectangle { horizontal-stretch: 1; }
                     }
                     Text {
-                        text: "Scrobbles what you listen to to your Last.fm profile. Connecting opens Last.fm in your browser, where you allow HyperPlayer; your password stays with Last.fm.";
+                        text: @tr("Scrobbles what you listen to to your Last.fm profile. Connecting opens Last.fm in your browser, where you allow HyperPlayer; your password stays with Last.fm.");
                         color: Theme.muted;
                         font-size: 13px;
                         wrap: word-wrap;
                     }
                     if !SettingsState.fm-available: Note {
-                        text: "This server isn't set up for Last.fm yet: its admin needs a Last.fm API account (last.fm/api/account/create) and to start the server with HP_LASTFM_API_KEY and HP_LASTFM_SECRET.";
+                        text: @tr("This server isn't set up for Last.fm yet: its admin needs a Last.fm API account (last.fm/api/account/create) and to start the server with HP_LASTFM_API_KEY and HP_LASTFM_SECRET.");
                     }
                     if SettingsState.fm-connected: Note {
                         text: SettingsState.fm-status;
                         color: SettingsState.fm-failing ? #ff8a80 : Theme.muted;
                     }
                     if SettingsState.fm-waiting: Note {
-                        text: "Allow HyperPlayer on the Last.fm page that opened in your browser; this page updates by itself once you have.";
+                        text: @tr("Allow HyperPlayer on the Last.fm page that opened in your browser; this page updates by itself once you have.");
                     }
                     if SettingsState.fm-error != "": Note { text: SettingsState.fm-error; color: #ff8a80; }
                     if SettingsState.fm-available: HorizontalLayout {
@@ -3143,28 +3156,28 @@ component SettingsPage inherits Rectangle {
                         // Shown to connect, and to reconnect when Last.fm no longer accepts the session.
                         if !SettingsState.fm-waiting && (!SettingsState.fm-connected || SettingsState.fm-failing): PrimaryButton {
                             width: 160px;
-                            text: SettingsState.fm-connected ? "Reconnect" : "Connect";
+                            text: SettingsState.fm-connected ? @tr("Reconnect") : @tr("Connect");
                             busy: SettingsState.fm-busy;
                             clicked => { SettingsState.fm-connect(); }
                         }
                         if SettingsState.fm-waiting: VerticalLayout {
                             alignment: center;
-                            OutlineButton { text: "Open Last.fm again"; clicked => { SettingsState.fm-open(SettingsState.fm-url); } }
+                            OutlineButton { text: @tr("Open Last.fm again"); clicked => { SettingsState.fm-open(SettingsState.fm-url); } }
                         }
                         if SettingsState.fm-waiting: VerticalLayout {
                             alignment: center;
-                            OutlineButton { text: "Cancel"; clicked => { SettingsState.fm-cancel(); } }
+                            OutlineButton { text: @tr("Cancel"); clicked => { SettingsState.fm-cancel(); } }
                         }
                         if SettingsState.fm-connected && !SettingsState.fm-waiting: VerticalLayout {
                             alignment: center;
-                            OutlineButton { text: "Disconnect"; clicked => { SettingsState.fm-disconnect(); } }
+                            OutlineButton { text: @tr("Disconnect"); clicked => { SettingsState.fm-disconnect(); } }
                         }
                     }
                 }
 
                 // --------------------------------------------------------------- admin
                 if SettingsState.tab == "server": Card {
-                    title: "Library";
+                    title: @tr("Library");
                     // The figures are the card's point: larger than the notes around them.
                     Text { text: SettingsState.library-summary; color: Theme.text; font-size: 14px; wrap: word-wrap; }
                     // Folders are the server's paths: the server only lists them for admins.
@@ -3175,7 +3188,7 @@ component SettingsPage inherits Rectangle {
                         // The library keeps at least one folder.
                         if SettingsState.folders.length > 1: OutlineButton {
                             danger: true;
-                            text: root.removing-folder == folder.path ? "Confirm remove" : "Remove";
+                            text: root.removing-folder == folder.path ? @tr("Confirm remove") : @tr("Remove");
                             clicked => {
                                 if root.removing-folder == folder.path {
                                     root.removing-folder = "";
@@ -3187,22 +3200,22 @@ component SettingsPage inherits Rectangle {
                         }
                     }
                     if root.removing-folder != "": Note {
-                        text: "Removing a folder takes its tracks out of the library. Playlists keep them, and find them again if the folder comes back.";
+                        text: @tr("Removing a folder takes its tracks out of the library. Playlists keep them, and find them again if the folder comes back.");
                         color: #ff8a80;
                     }
                     if SettingsState.is-admin && SettingsState.local: HorizontalLayout {
                         spacing: 8px;
                         alignment: start;
-                        OutlineButton { text: "Add a folder…"; clicked => { SettingsState.browse-folder(); } }
+                        OutlineButton { text: @tr("Add a folder…"); clicked => { SettingsState.browse-folder(); } }
                     }
                     if SettingsState.is-admin && !SettingsState.local: HorizontalLayout {
                         spacing: 8px;
                         LineEdit {
                             text <=> SettingsState.new-folder;
-                            placeholder-text: "Another folder, as a path on the server (e.g. " + SettingsState.folder-example + ")";
+                            placeholder-text: @tr("Another folder, as a path on the server (e.g. {})", SettingsState.folder-example);
                             accepted => { SettingsState.add-folder(); }
                         }
-                        OutlineButton { text: "Add folder"; clicked => { SettingsState.add-folder(); } }
+                        OutlineButton { text: @tr("Add folder"); clicked => { SettingsState.add-folder(); } }
                     }
                     if SettingsState.folders-message != "": Note {
                         text: SettingsState.folders-message;
@@ -3236,7 +3249,7 @@ component SettingsPage inherits Rectangle {
                         alignment: start;
                         OutlineButton {
                             danger: SettingsState.scanning;
-                            text: SettingsState.scanning ? "Stop scan" : "Rescan now";
+                            text: SettingsState.scanning ? @tr("Stop scan") : @tr("Rescan now");
                             clicked => {
                                 if SettingsState.scanning {
                                     SettingsState.cancel-scan();
@@ -3248,23 +3261,23 @@ component SettingsPage inherits Rectangle {
                     }
                     Note {
                         text: SettingsState.local
-                            ? "HyperPlayer notices new music in these folders while it's open, and rescans every few minutes. Folders on a network drive work too, as long as this computer can open them."
+                            ? @tr("HyperPlayer notices new music in these folders while it's open, and rescans every few minutes. Folders on a network drive work too, as long as this computer can open them.")
                             : SettingsState.is-admin
-                            ? "The server also rescans every few minutes and watches folders where the filesystem allows. Folders set here replace HP_LIBRARY's, until HP_LIBRARY itself is changed (e.g. by the installer). In Docker, only folders mounted into the container can be found."
-                            : SettingsState.scanning ? "The server is scanning the library now." : "The server rescans the library every few minutes, so new music shows up on its own.";
+                            ? @tr("The server also rescans every few minutes and watches folders where the filesystem allows. Folders set here replace HP_LIBRARY's, until HP_LIBRARY itself is changed (e.g. by the installer). In Docker, only folders mounted into the container can be found.")
+                            : SettingsState.scanning ? @tr("The server is scanning the library now.") : @tr("The server rescans the library every few minutes, so new music shows up on its own.");
                     }
                     if !SettingsState.local && SettingsState.can-switch: Note {
-                        text: "To combine this server's music with folders on this computer, or with other servers, use HyperPlayer as a standalone player and add this server in Settings → Library → Servers.";
+                        text: @tr("To combine this server's music with folders on this computer, or with other servers, use HyperPlayer as a standalone player and add this server in Settings → Library → Servers.");
                     }
                     if !SettingsState.local && SettingsState.can-switch: HorizontalLayout {
                         alignment: start;
-                        OutlineButton { text: "Switch library…"; clicked => { SettingsState.switch-library(); } }
+                        OutlineButton { text: @tr("Switch library…"); clicked => { SettingsState.switch-library(); } }
                     }
                 }
                 if SettingsState.tab == "server" && SettingsState.local: Card {
-                    title: "Servers";
+                    title: @tr("Servers");
                     Note {
-                        text: "Music on a HyperPlayer server can join this library: its artists and albums merge with yours, and it plays from the server whenever this computer can reach it. Your playlists on the server are copied here when you add it, and Copy playlists brings those copies up to date (replacing changes made to them here). The queue, playlists and listening history stay on this computer.";
+                        text: @tr("Music on a HyperPlayer server can join this library: its artists and albums merge with yours, and it plays from the server whenever this computer can reach it. Your playlists on the server are copied here when you add it, and Copy playlists brings those copies up to date (replacing changes made to them here). The queue, playlists and listening history stay on this computer.");
                     }
                     for source in SettingsState.sources: HorizontalLayout {
                         spacing: 10px;
@@ -3277,7 +3290,7 @@ component SettingsPage inherits Rectangle {
                         VerticalLayout {
                             alignment: center;
                             OutlineButton {
-                                text: "Copy playlists";
+                                text: @tr("Copy playlists");
                                 clicked => { SettingsState.import-source-playlists(source.id); }
                             }
                         }
@@ -3285,7 +3298,7 @@ component SettingsPage inherits Rectangle {
                             alignment: center;
                             OutlineButton {
                                 danger: true;
-                                text: root.removing-source == source.id ? "Confirm remove" : "Remove";
+                                text: root.removing-source == source.id ? @tr("Confirm remove") : @tr("Remove");
                                 clicked => {
                                     if root.removing-source == source.id {
                                         root.removing-source = "";
@@ -3298,23 +3311,23 @@ component SettingsPage inherits Rectangle {
                         }
                     }
                     if root.removing-source != "": Note {
-                        text: "Removing a server takes its music out of this library. Playlists keep its tracks, and find them again if the server is added back.";
+                        text: @tr("Removing a server takes its music out of this library. Playlists keep its tracks, and find them again if the server is added back.");
                         color: #ff8a80;
                     }
                     if SettingsState.source-fingerprint == "": VerticalLayout {
                         spacing: 12px;
                         Field {
-                            label: "SERVER ADDRESS";
-                            LineEdit { text <=> SettingsState.source-url; placeholder-text: "e.g. music.example.com or 192.168.1.20:4533"; }
+                            label: @tr("SERVER ADDRESS");
+                            LineEdit { text <=> SettingsState.source-url; placeholder-text: @tr("e.g. music.example.com or 192.168.1.20:4533"); }
                         }
                         HorizontalLayout {
                             spacing: 12px;
                             Field {
-                                label: "USERNAME";
+                                label: @tr("USERNAME");
                                 LineEdit { text <=> SettingsState.source-username; }
                             }
                             Field {
-                                label: "PASSWORD";
+                                label: @tr("PASSWORD");
                                 LineEdit {
                                     text <=> SettingsState.source-password;
                                     input-type: InputType.password;
@@ -3326,7 +3339,7 @@ component SettingsPage inherits Rectangle {
                             alignment: start;
                             PrimaryButton {
                                 width: 160px;
-                                text: "Add server";
+                                text: @tr("Add server");
                                 busy: SettingsState.source-busy;
                                 clicked => { SettingsState.add-source(); }
                             }
@@ -3335,13 +3348,13 @@ component SettingsPage inherits Rectangle {
                     if SettingsState.source-fingerprint != "": VerticalLayout {
                         spacing: 10px;
                         Text {
-                            text: "Trust this server's certificate?";
+                            text: @tr("Trust this server's certificate?");
                             color: Theme.text;
                             font-size: 14px;
                             font-weight: 700;
                         }
                         Note {
-                            text: "The server uses a certificate of its own rather than one from a known authority, as home servers usually do. Its fingerprint should match the one in the server's log:";
+                            text: @tr("The server uses a certificate of its own rather than one from a known authority, as home servers usually do. Its fingerprint should match the one in the server's log:");
                         }
                         Text { text: SettingsState.source-fingerprint; color: Theme.text; font-size: 12px; wrap: char-wrap; font-family: "monospace"; }
                         HorizontalLayout {
@@ -3349,13 +3362,13 @@ component SettingsPage inherits Rectangle {
                             spacing: 12px;
                             PrimaryButton {
                                 width: 160px;
-                                text: "Trust and add";
+                                text: @tr("Trust and add");
                                 busy: SettingsState.source-busy;
                                 clicked => { SettingsState.trust-source(); }
                             }
                             VerticalLayout {
                                 alignment: center;
-                                OutlineButton { text: "Cancel"; clicked => { SettingsState.cancel-trust-source(); } }
+                                OutlineButton { text: @tr("Cancel"); clicked => { SettingsState.cancel-trust-source(); } }
                             }
                         }
                     }
@@ -3365,7 +3378,7 @@ component SettingsPage inherits Rectangle {
                     }
                 }
                 if SettingsState.tab == "server" && SettingsState.is-admin && !SettingsState.local: Card {
-                    title: "Users";
+                    title: @tr("Users");
                     for user in SettingsState.users: VerticalLayout {
                         spacing: 8px;
                         HorizontalLayout {
@@ -3373,20 +3386,20 @@ component SettingsPage inherits Rectangle {
                             VerticalLayout {
                                 alignment: center;
                                 horizontal-stretch: 1;
-                                Text { text: user.username + (user.me ? "  (you)" : ""); color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
+                                Text { text: (user.me ? @tr("{}  (you)", user.username) : user.username); color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
                                 Note { text: user.detail; }
                             }
                             VerticalLayout {
                                 alignment: center;
                                 OutlineButton {
-                                    text: user.admin ? "Remove admin" : "Make admin";
+                                    text: user.admin ? @tr("Remove admin") : @tr("Make admin");
                                     clicked => { SettingsState.set-admin(user.id, !user.admin); }
                                 }
                             }
                             if !user.me: VerticalLayout {
                                 alignment: center;
                                 OutlineButton {
-                                    text: "Reset password";
+                                    text: @tr("Reset password");
                                     clicked => {
                                         root.resetting = root.resetting == user.id ? "" : user.id;
                                         root.reset-password = "";
@@ -3397,7 +3410,7 @@ component SettingsPage inherits Rectangle {
                                 alignment: center;
                                 OutlineButton {
                                     danger: true;
-                                    text: root.deleting == user.id ? "Confirm delete" : "Delete";
+                                    text: root.deleting == user.id ? @tr("Confirm delete") : @tr("Delete");
                                     clicked => {
                                         if root.deleting == user.id {
                                             root.deleting = "";
@@ -3414,10 +3427,10 @@ component SettingsPage inherits Rectangle {
                             LineEdit {
                                 text <=> root.reset-password;
                                 input-type: InputType.password;
-                                placeholder-text: "Temporary password (at least 8 characters)";
+                                placeholder-text: @tr("Temporary password (at least 8 characters)");
                             }
                             OutlineButton {
-                                text: "Set";
+                                text: @tr("Set");
                                 clicked => {
                                     SettingsState.reset-password(user.id, root.reset-password);
                                     root.resetting = "";
@@ -3431,26 +3444,26 @@ component SettingsPage inherits Rectangle {
                     }
                 }
                 if SettingsState.tab == "server" && SettingsState.is-admin && !SettingsState.local: Card {
-                    title: "Add a user";
+                    title: @tr("Add a user");
                     HorizontalLayout {
                         spacing: 12px;
                         Field {
-                            label: "USERNAME";
+                            label: @tr("USERNAME");
                             LineEdit { text <=> SettingsState.new-username; }
                         }
                         Field {
-                            label: "FULL NAME";
-                            LineEdit { text <=> SettingsState.new-full-name; placeholder-text: "Optional"; }
+                            label: @tr("FULL NAME");
+                            LineEdit { text <=> SettingsState.new-full-name; placeholder-text: @tr("Optional"); }
                         }
                     }
                     Field {
-                        label: "PASSWORD";
-                        LineEdit { text <=> SettingsState.new-password; input-type: InputType.password; placeholder-text: "At least 8 characters"; }
+                        label: @tr("PASSWORD");
+                        LineEdit { text <=> SettingsState.new-password; input-type: InputType.password; placeholder-text: @tr("At least 8 characters"); }
                     }
-                    CheckBox { text: "Admin (can manage the server and its users)"; checked <=> SettingsState.new-admin; }
+                    CheckBox { text: @tr("Admin (can manage the server and its users)"); checked <=> SettingsState.new-admin; }
                     HorizontalLayout {
                         alignment: start;
-                        OutlineButton { text: "Add user"; clicked => { SettingsState.create-user(); } }
+                        OutlineButton { text: @tr("Add user"); clicked => { SettingsState.create-user(); } }
                     }
                 }
             }
@@ -3827,7 +3840,7 @@ export component AppWindow inherits Window {
                 Rectangle {
                     horizontal-stretch: 1;
                     if root.page == Page.welcome: Text {
-                        text: "Pick an artist to start listening";
+                        text: @tr("Pick an artist to start listening");
                         color: Theme.faint;
                         font-size: 16px;
                         horizontal-alignment: center;

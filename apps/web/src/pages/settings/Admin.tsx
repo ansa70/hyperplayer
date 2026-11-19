@@ -1,10 +1,10 @@
 import type { LibraryStatus, User } from "@hyperplayer/schemas";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, call, errorMessage } from "../../api.ts";
-import { plural } from "../../format.ts";
 import { useLibrary } from "../../stores/library.ts";
 import { useSession } from "../../stores/session.ts";
 import { Card } from "./Card.tsx";
+import { locale, t, tn } from "../../i18n.ts";
 
 /** The server's library (admins): what's in it, its music folders, and scanning. */
 export function Library() {
@@ -32,7 +32,7 @@ export function Library() {
     };
   }, [lib?.scanning]);
 
-  if (!lib) return <p className="muted">Loading…</p>;
+  if (!lib) return <p className="muted">{t("Loading…")}</p>;
   const scan = (op: Promise<LibraryStatus>) => op.then(setLib).catch((e: unknown) => notify(errorMessage(e)));
   const saveFolders = (e: FormEvent) => {
     e.preventDefault();
@@ -51,41 +51,42 @@ export function Library() {
   const progress = lib.scanProgress;
   return (
     <>
-      <Card title="Library">
+      <Card title={t("Library")}>
         <p className="note">
-          {plural(lib.artists, "artist")} · {plural(lib.albums, "album")} · {plural(lib.tracks, "track")}
-          {lib.lastScanAt && ` · last scanned ${new Date(lib.lastScanAt).toLocaleString()}`}
-          {lib.enrichmentQueue > 0 && ` · ${lib.enrichmentQueue} waiting for details`}
+          {tn("{n} artist", "{n} artists", lib.artists)} · {tn("{n} album", "{n} albums", lib.albums)} ·{" "}
+          {tn("{n} track", "{n} tracks", lib.tracks)}
+          {lib.lastScanAt && ` · ${t("last scanned {}", new Date(lib.lastScanAt).toLocaleString(locale()))}`}
+          {lib.enrichmentQueue > 0 && ` · ${t("{} waiting for details", lib.enrichmentQueue)}`}
         </p>
         {lib.scanning ? (
           <div className="row">
             <span className="muted">
-              Scanning…{" "}
+              {t("Scanning…")}{" "}
               {progress &&
                 (progress.phase === "listing"
-                  ? `${progress.total} files found`
-                  : `${progress.done} of ${progress.total} files read`)}
+                  ? t("{} files found", progress.total)
+                  : t("{} of {} files read", progress.done, progress.total))}
             </span>
             <button className="outline-button" onClick={() => void scan(call(api.cancelLibraryScan))}>
-              Stop
+              {t("Stop")}
             </button>
           </div>
         ) : (
           <div className="row">
             <button className="outline-button" onClick={() => void scan(call(api.libraryScan))}>
-              Scan for changes
+              {t("Scan for changes")}
             </button>
           </div>
         )}
       </Card>
-      <Card title="Music folders">
+      <Card title={t("Music folders")}>
         {folders === null ? (
           <>
             {lib.folders.map((f) => (
               <div key={f.path} className="device">
                 <span className="ellipsis">{f.path}</span>
                 <span className={f.available ? "faint" : "error"}>
-                  {f.available ? plural(f.tracks, "track") : "not reachable"}
+                  {f.available ? tn("{n} track", "{n} tracks", f.tracks) : t("not reachable")}
                 </span>
               </div>
             ))}
@@ -94,24 +95,26 @@ export function Library() {
                 className="outline-button"
                 onClick={() => setFolders(lib.folders.map((f) => f.path).join("\n"))}
               >
-                Change folders
+                {t("Change folders")}
               </button>
             </div>
           </>
         ) : (
           <form className="stack" onSubmit={saveFolders}>
             <p className="note">
-              One folder per line, as the server sees it (e.g.{" "}
-              {lib.pathStyle === "windows" ? "D:\\Music" : "/mnt/music"}).
+              {t(
+                "One folder per line, as the server sees it (e.g. {}).",
+                lib.pathStyle === "windows" ? "D:\\Music" : "/mnt/music",
+              )}
             </p>
             <textarea rows={4} value={folders} onChange={(e) => setFolders(e.target.value)} />
             {error && <p className="note error">{error}</p>}
             <div className="row">
               <button className="outline-button" type="submit">
-                Save and scan
+                {t("Save and scan")}
               </button>
               <button className="outline-button" type="button" onClick={() => setFolders(null)}>
-                Cancel
+                {t("Cancel")}
               </button>
             </div>
           </form>
@@ -156,7 +159,7 @@ export function Users() {
     })
       .then(() => {
         setForm({ username: "", fullName: "", password: "", admin: false });
-        notify("Account created.");
+        notify(t("Account created."));
         return load();
       })
       .catch((err: unknown) => setError(errorMessage(err)));
@@ -164,15 +167,15 @@ export function Users() {
 
   return (
     <>
-      <Card title="Accounts">
+      <Card title={t("Accounts")}>
         {users.map((u) => (
           <div key={u.id} className="device">
             <span>
               {u.fullName || u.username}
               <span className="faint">
                 {u.fullName ? ` · ${u.username}` : ""}
-                {u.admin ? " · admin" : ""}
-                {u.mustChangePassword ? " · must choose a password" : ""}
+                {u.admin ? ` · ${t("admin")}` : ""}
+                {u.mustChangePassword ? ` · ${t("must choose a password")}` : ""}
               </span>
             </span>
             {u.id !== me?.id && (
@@ -182,64 +185,72 @@ export function Users() {
                   onClick={() =>
                     void act(
                       call(api.updateUser, { params: { id: u.id }, body: { admin: !u.admin } }),
-                      u.admin ? `${u.username} is no longer an admin.` : `${u.username} is now an admin.`,
+                      u.admin
+                        ? t("{} is no longer an admin.", u.username)
+                        : t("{} is now an admin.", u.username),
                     )
                   }
                 >
-                  {u.admin ? "Remove admin" : "Make admin"}
+                  {u.admin ? t("Remove admin") : t("Make admin")}
                 </button>
                 <button
                   className="outline-button"
                   onClick={() => {
                     const password = window.prompt(
-                      `A temporary password for ${u.username} (at least 8 characters). They'll choose their own at the next sign-in.`,
+                      t(
+                        "A temporary password for {} (at least 8 characters). They'll choose their own at the next sign-in.",
+                        u.username,
+                      ),
                     );
                     if (password && password.length >= 8) {
                       void act(
                         call(api.updateUser, { params: { id: u.id }, body: { password } }),
-                        `${u.username} was signed out everywhere and must choose a new password.`,
+                        t("{} was signed out everywhere and must choose a new password.", u.username),
                       );
                     }
                   }}
                 >
-                  Reset password
+                  {t("Reset password")}
                 </button>
                 <button
                   className="outline-button"
                   onClick={() => {
                     if (
                       window.confirm(
-                        `Delete ${u.username}, with their playlists and history? This can't be undone.`,
+                        t("Delete {}, with their playlists and history? This can't be undone.", u.username),
                       )
                     ) {
-                      void act(call(api.deleteUser, { params: { id: u.id } }), `${u.username} was deleted.`);
+                      void act(
+                        call(api.deleteUser, { params: { id: u.id } }),
+                        t("{} was deleted.", u.username),
+                      );
                     }
                   }}
                 >
-                  Delete
+                  {t("Delete")}
                 </button>
               </span>
             )}
           </div>
         ))}
       </Card>
-      <Card title="Add an account">
+      <Card title={t("Add an account")}>
         <form className="stack" onSubmit={create}>
           <input
-            placeholder="Username"
+            placeholder={t("Username")}
             autoCapitalize="none"
             value={form.username}
             onChange={(e) => setForm({ ...form, username: e.target.value })}
           />
           <input
-            placeholder="Full name (optional)"
+            placeholder={t("Full name (optional)")}
             value={form.fullName}
             onChange={(e) => setForm({ ...form, fullName: e.target.value })}
           />
           <input
             type="password"
             autoComplete="new-password"
-            placeholder="Password (at least 8 characters)"
+            placeholder={t("Password (at least 8 characters)")}
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
@@ -249,7 +260,7 @@ export function Users() {
               checked={form.admin}
               onChange={(e) => setForm({ ...form, admin: e.target.checked })}
             />
-            Admin (can change the library and the accounts)
+            {t("Admin (can change the library and the accounts)")}
           </label>
           {error && <p className="note error">{error}</p>}
           <div className="row">
@@ -258,7 +269,7 @@ export function Users() {
               type="submit"
               disabled={!form.username.trim() || form.password.length < 8}
             >
-              Add account
+              {t("Add account")}
             </button>
           </div>
         </form>

@@ -389,7 +389,8 @@ jumps the queue):
   Wikidata); photo (Wikimedia Commons, or fanart.tv with a key, which also provides banners).
 
 Settings: `HP_ENRICH` (default `true`), `HP_CONTACT` (sent in the User-Agent as MusicBrainz requests),
-`HP_WIKI_LANG` (biography language, falls back to English), `HP_FANART_KEY`.
+`HP_WIKI_LANG` (biography language, e.g. `it`, falling back to English; after a change, biographies already
+fetched are fetched again in the background), `HP_FANART_KEY`.
 
 ## Scrobbling
 

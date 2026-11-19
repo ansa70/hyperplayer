@@ -4,13 +4,14 @@ import { Icon } from "../components/Icon.tsx";
 import { usePlayer } from "../stores/player.ts";
 import { useSession } from "../stores/session.ts";
 import "../components/menu.css";
+import { msg, t } from "../i18n.ts";
 
 const SCOPES: { key: ShuffleScope; label: string }[] = [
-  { key: "library", label: "Whole library" },
-  { key: "album", label: "This album" },
-  { key: "artist", label: "This artist" },
-  { key: "genre", label: "This genre" },
-  { key: "playlist", label: "This playlist" },
+  { key: "library", label: msg("Whole library") },
+  { key: "album", label: msg("This album") },
+  { key: "artist", label: msg("This artist") },
+  { key: "genre", label: msg("This genre") },
+  { key: "playlist", label: msg("This playlist") },
 ];
 
 /** While shuffling, what from ("Album: Kind of Blue"), as the Rust player shows it. */
@@ -19,9 +20,15 @@ function shuffleLabel(scope: ShuffleScope | null, name: string): string {
     case null:
       return "";
     case "library":
-      return "Whole library";
-    default:
-      return `${scope[0]!.toUpperCase()}${scope.slice(1)}: ${name}`;
+      return t("Whole library");
+    case "album":
+      return t("Album: {}", name);
+    case "artist":
+      return t("Artist: {}", name);
+    case "genre":
+      return t("Genre: {}", name);
+    case "playlist":
+      return t("Playlist: {}", name);
   }
 }
 
@@ -61,7 +68,7 @@ export function ShuffleButton({ large }: { large?: boolean }) {
   const caption = on
     ? shuffleLabel(queue?.shuffleScope ?? null, queue?.origin?.name ?? "")
     : hover
-      ? `Shuffle from: ${SCOPES.find((s) => s.key === scope)?.label ?? ""}`
+      ? t("Shuffle from: {}", t(SCOPES.find((s) => s.key === scope)?.label ?? ""))
       : "";
 
   return (
@@ -78,7 +85,7 @@ export function ShuffleButton({ large }: { large?: boolean }) {
       )}
       <button
         className={`icon-button ${on ? "active" : ""}`}
-        title="Shuffle (right-click to choose what from)"
+        title={t("Shuffle (right-click to choose what from)")}
         onClick={() => void toggleShuffle()}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -89,7 +96,7 @@ export function ShuffleButton({ large }: { large?: boolean }) {
       </button>
       {open && (
         <div className="menu shuffle-menu" role="menu">
-          <div className="caps menu-heading">Shuffle from</div>
+          <div className="caps menu-heading">{t("Shuffle from")}</div>
           {SCOPES.map((s) => (
             <button
               key={s.key}
@@ -98,7 +105,7 @@ export function ShuffleButton({ large }: { large?: boolean }) {
               className={`menu-item ${s.key === scope ? "checked" : ""}`}
               onClick={() => void pick(s.key)}
             >
-              {s.label}
+              {t(s.label)}
               {s.key === scope && <span>✓</span>}
             </button>
           ))}

@@ -225,6 +225,8 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ["artists", "area", "TEXT"],
   ["artists", "active_years", "TEXT"],
   ["artists", "biography_url", "TEXT"],
+  // The HP_WIKI_LANG the biography was fetched for (null: before it was recorded, i.e. "en").
+  ["artists", "biography_lang", "TEXT"],
   ["artists", "mb_genres", "TEXT"],
   ["artists", "links", "TEXT"],
   ["artists", "members", "TEXT"],

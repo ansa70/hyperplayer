@@ -44,8 +44,111 @@ fn main() {
         windows_resources();
     }
 
-    let config = slint_build::CompilerConfiguration::new().with_style("fluent-dark".into());
+    let translations = Path::new(env!("CARGO_MANIFEST_DIR")).join("translations");
+    rust_translations(&translations);
+
+    // One catalog for the whole UI (no per-component contexts), shared with the Rust side.
+    let config = slint_build::CompilerConfiguration::new()
+        .with_style("fluent-dark".into())
+        .with_bundled_translations(&translations)
+        .with_default_translation_context(slint_build::DefaultTranslationContext::None);
     slint_build::compile_with_config("ui/app.slint", config).expect("compiling Slint UI");
+}
+
+/// The catalogs in `translations/<lang>/LC_MESSAGES/hyperplayer.po` as a Rust table, for
+/// the text built in Rust (src/i18n.rs). Untranslated and fuzzy entries are left out.
+fn rust_translations(dir: &Path) {
+    println!("cargo:rerun-if-changed={}", dir.display());
+    let mut languages: Vec<_> = fs::read_dir(dir)
+        .expect("reading translations/")
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().join("LC_MESSAGES/hyperplayer.po").exists())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    languages.sort();
+    let mut code = String::from("pub static CATALOGS: &[(&str, Entries)] = &[\n");
+    for lang in languages {
+        let po = dir.join(&lang).join("LC_MESSAGES/hyperplayer.po");
+        println!("cargo:rerun-if-changed={}", po.display());
+        let text =
+            fs::read_to_string(&po).unwrap_or_else(|e| panic!("reading {}: {e}", po.display()));
+        code += &format!("    ({lang:?}, &[\n");
+        for (msgid, msgstrs) in parse_po(&text) {
+            code += &format!("        ({msgid:?}, &{msgstrs:?}),\n");
+        }
+        code += "    ]),\n";
+    }
+    code += "];\n";
+    fs::write(
+        Path::new(&env::var("OUT_DIR").unwrap()).join("translations.rs"),
+        code,
+    )
+    .unwrap();
+}
+
+/// (msgid, its translations: one, or one per plural form) for each translated entry.
+fn parse_po(text: &str) -> Vec<(String, Vec<String>)> {
+    let mut entries = Vec::new();
+    for block in text.replace("\r\n", "\n").split("\n\n") {
+        let fuzzy = block
+            .lines()
+            .any(|l| l.starts_with("#,") && l.contains("fuzzy"));
+        // Each keyword with its string, continuation lines ("…") joined to the one before.
+        let mut fields: Vec<(&str, String)> = Vec::new();
+        for line in block.lines().map(str::trim) {
+            if line.starts_with('#') || line.is_empty() {
+                continue;
+            }
+            if line.starts_with('"') {
+                if let Some((_, value)) = fields.last_mut() {
+                    *value += &unquote(line);
+                }
+            } else if let Some((key, rest)) = line.split_once(' ') {
+                fields.push((key, unquote(rest.trim())));
+            }
+        }
+        let msgid = fields
+            .iter()
+            .find(|(k, _)| *k == "msgid")
+            .map(|(_, v)| v.clone());
+        let msgstrs: Vec<String> = fields
+            .iter()
+            .filter(|(k, _)| *k == "msgstr" || k.starts_with("msgstr["))
+            .map(|(_, v)| v.clone())
+            .collect();
+        if let Some(id) = msgid
+            && !id.is_empty()
+            && !fuzzy
+            && !msgstrs.is_empty()
+            && msgstrs.iter().all(|s| !s.is_empty())
+        {
+            entries.push((id, msgstrs));
+        }
+    }
+    entries
+}
+
+/// A .po string's text: without its quotes, escapes undone.
+fn unquote(quoted: &str) -> String {
+    let inner = quoted
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .unwrap_or(quoted);
+    let mut out = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some(other) => out.push(other),
+            None => {}
+        }
+    }
+    out
 }
 
 /// An older server leaves out fields added since: a property with a default may be

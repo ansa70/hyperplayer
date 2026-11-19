@@ -5,10 +5,11 @@ import { Cover } from "../components/Cover.tsx";
 import { Icon } from "../components/Icon.tsx";
 import { MenuButton } from "../components/Menu.tsx";
 import { queueAndPlaylistItems } from "../components/trackActions.ts";
-import { plural } from "../format.ts";
 import { usePlayer } from "../stores/player.ts";
 import { useApi } from "../useApi.ts";
 import "./pages.css";
+import { years } from "../roles.ts";
+import { t, tn } from "../i18n.ts";
 
 export function Artist() {
   const { id = "" } = useParams();
@@ -22,11 +23,16 @@ export function Artist() {
       <header className="hero">
         <Cover art={a?.image} size={180} round />
         <div className="hero-text">
-          <div className="caps">Artist</div>
+          <div className="caps">{t("Artist")}</div>
           <h1>{a?.name ?? ""}</h1>
           {a && (
             <div className="muted">
-              {[a.area, a.activeYears, plural(a.albumCount, "album"), plural(a.trackCount, "track")]
+              {[
+                a.area,
+                a.activeYears && years(a.activeYears),
+                tn("{n} album", "{n} albums", a.albumCount),
+                tn("{n} track", "{n} tracks", a.trackCount),
+              ]
                 .filter(Boolean)
                 .join(" · ")}
             </div>
@@ -34,17 +40,17 @@ export function Artist() {
           {a && a.genres.length > 0 && <div className="faint">{a.genres.slice(0, 5).join(" · ")}</div>}
           <div className="hero-actions">
             <button className="primary-button" onClick={() => void play({ kind: "artist", id }, 0, false)}>
-              <Icon name="play" size={16} /> Play
+              <Icon name="play" size={16} /> {t("Play")}
             </button>
             <button className="outline-button" onClick={() => void play({ kind: "artist", id }, 0, true)}>
-              Shuffle
+              {t("Shuffle")}
             </button>
             {a && <MenuButton items={() => queueAndPlaylistItems({ kind: "artist", id }, a.name)} />}
           </div>
         </div>
       </header>
       {a?.biography && <p className="bio muted">{a.biography}</p>}
-      <div className="caps section">Albums</div>
+      <div className="caps section">{t("Albums")}</div>
       <AlbumGrid albums={albums.data ?? []} showArtist={false} />
     </div>
   );

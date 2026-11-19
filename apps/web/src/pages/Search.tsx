@@ -5,12 +5,12 @@ import { AlbumGrid } from "../components/AlbumGrid.tsx";
 import { MenuButton } from "../components/Menu.tsx";
 import { TrackList } from "../components/TrackList.tsx";
 import { queueAndPlaylistItems } from "../components/trackActions.ts";
-import { plural } from "../format.ts";
 import { ArtistRow } from "../layout/Sidebar.tsx";
 import { usePhone } from "../layout/Shell.tsx";
 import { usePlayer } from "../stores/player.ts";
 import { useApi } from "../useApi.ts";
 import "./pages.css";
+import { t, tn } from "../i18n.ts";
 
 /** Artists, albums, tracks and genres matching `?q=`; on phones, with its own search box. */
 export function Search() {
@@ -23,13 +23,13 @@ export function Search() {
         <input
           className="search-input"
           type="search"
-          placeholder="Search artists, albums, tracks"
+          placeholder={t("Search artists, albums, tracks")}
           autoFocus={!q}
           defaultValue={q}
           onChange={(e) => setParams(e.target.value ? { q: e.target.value } : {}, { replace: true })}
         />
       )}
-      {q.trim() ? <Results q={q.trim()} /> : <p className="muted">Type to search the library.</p>}
+      {q.trim() ? <Results q={q.trim()} /> : <p className="muted">{t("Type to search the library.")}</p>}
     </div>
   );
 }
@@ -52,13 +52,13 @@ function Results({ q }: { q: string }) {
     <>
       {data.tracks.length > 0 && (
         <>
-          <div className="caps section">Tracks</div>
+          <div className="caps section">{t("Tracks")}</div>
           <TrackList tracks={data.tracks} onPlay={(i) => void play({ kind: "tracks", trackIds }, i, false)} />
         </>
       )}
       {data.artists.length > 0 && (
         <>
-          <div className="caps section">Artists</div>
+          <div className="caps section">{t("Artists")}</div>
           <div className="search-artists">
             {data.artists.map((a) => (
               <ArtistRow key={a.id} artist={a} />
@@ -68,21 +68,21 @@ function Results({ q }: { q: string }) {
       )}
       {data.albums.length > 0 && (
         <>
-          <div className="caps section">Albums</div>
+          <div className="caps section">{t("Albums")}</div>
           <AlbumGrid albums={data.albums} />
         </>
       )}
       {data.genres.length > 0 && (
         <>
-          <div className="caps section">Genres</div>
+          <div className="caps section">{t("Genres")}</div>
           <div className="genres">
             {data.genres.map((g) => (
               <div key={g.name} className="genre">
                 <button
                   onClick={() => void play({ kind: "genre", name: g.name }, 0, true)}
-                  title="Shuffle this genre"
+                  title={t("Shuffle this genre")}
                 >
-                  {g.name} <span className="faint">{plural(g.trackCount, "track")}</span>
+                  {g.name} <span className="faint">{tn("{n} track", "{n} tracks", g.trackCount)}</span>
                 </button>
                 <MenuButton items={() => queueAndPlaylistItems({ kind: "genre", name: g.name }, g.name)} />
               </div>
@@ -91,7 +91,7 @@ function Results({ q }: { q: string }) {
         </>
       )}
       <p className="faint search-more">
-        Looking for something else? <Link to="/albums">Browse all albums</Link>
+        {t("Looking for something else?")} <Link to="/albums">{t("Browse all albums")}</Link>
       </p>
     </>
   );

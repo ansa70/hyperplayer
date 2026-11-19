@@ -4,6 +4,7 @@ import { saveTrim, suggest } from "../player/trim.ts";
 import { useLibrary } from "../stores/library.ts";
 import { usePlayer } from "../stores/player.ts";
 import { useSession } from "../stores/session.ts";
+import { t } from "../i18n.ts";
 
 /** Tracks whose offer was put off ("Not now") while this page is open. */
 const putOff = new Set<string>();
@@ -21,11 +22,11 @@ export function TrimOffer() {
     saveTrim(track, trim).catch((e: unknown) => notify(errorMessage(e)));
   return (
     <div className="trim-offer">
-      <strong>Skip the silence?</strong>
+      <strong>{t("Skip the silence?")}</strong>
       <p className="muted">{offer.text}</p>
       <div className="trim-offer-buttons">
         <button className="outline-button" onClick={() => void decide({ startMs: null, endMs: null })}>
-          Never for this track
+          {t("Never for this track")}
         </button>
         <button
           className="outline-button"
@@ -34,10 +35,10 @@ export function TrimOffer() {
             rerender((n) => n + 1);
           }}
         >
-          Not now
+          {t("Not now")}
         </button>
         <button className="outline-button" onClick={() => void decide(offer.trim)}>
-          Skip it
+          {t("Skip it")}
         </button>
       </div>
     </div>

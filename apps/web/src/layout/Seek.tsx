@@ -7,6 +7,7 @@ import { useLibrary } from "../stores/library.ts";
 import { usePlayer } from "../stores/player.ts";
 import { useSession } from "../stores/session.ts";
 import "../components/menu.css";
+import { t } from "../i18n.ts";
 
 /** Elapsed time, the waveform seek bar (with the trim menu for admins) and the track's length. */
 export function Seek() {
@@ -49,16 +50,16 @@ export function Seek() {
         />
         {menu && (
           <div className="menu trim-menu" style={{ left: Math.max(0, menu.x - 115) }}>
-            <div className="caps menu-heading">Trim, for everyone · {duration(menu.at * 1000)}</div>
+            <div className="caps menu-heading">{t("Trim, for everyone · {}", duration(menu.at * 1000))}</div>
             <button className="menu-item" onClick={() => pick("start")}>
-              Start the track here
+              {t("Start the track here")}
             </button>
             <button className="menu-item" onClick={() => pick("end")}>
-              End the track here
+              {t("End the track here")}
             </button>
             {trimmed && (
               <button className="menu-item" onClick={() => pick("clear")}>
-                Play the whole track
+                {t("Play the whole track")}
               </button>
             )}
           </div>

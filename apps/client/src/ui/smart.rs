@@ -2,9 +2,12 @@
 
 use std::{num::NonZeroU64, rc::Rc};
 
-use hyperplayer::api::types::{
-    self, SmartField as F, SmartOperator as Op, SmartRule, SmartRules, SmartRulesMatch,
-    SmartRulesOrder,
+use hyperplayer::{
+    api::types::{
+        self, SmartField as F, SmartOperator as Op, SmartRule, SmartRules, SmartRulesMatch,
+        SmartRulesOrder,
+    },
+    tr,
 };
 use slint::{ModelRc, SharedString, VecModel};
 
@@ -64,36 +67,36 @@ fn ops(field: F) -> &'static [Op] {
 /// How an operator reads after its field ("Year before", "Duration longer than").
 fn op_label(field: F, op: Op) -> &'static str {
     match (field, op) {
-        (_, Op::Contains) => "contains",
-        (_, Op::NotContains) => "doesn't contain",
-        (_, Op::Is) => "is",
-        (_, Op::IsNot) => "is not",
-        (_, Op::StartsWith) => "starts with",
-        (F::Year, Op::LessThan) => "before",
-        (F::Year, Op::GreaterThan) => "after",
-        (F::Duration, Op::LessThan) => "shorter than",
-        (F::Duration, Op::GreaterThan) => "longer than",
-        (_, Op::LessThan) => "less than",
-        (_, Op::GreaterThan) => "more than",
-        (_, Op::Between) => "between",
-        (_, Op::InLast) => "in the last",
-        (_, Op::NotInLast) => "not in the last",
-        (_, Op::Never) => "never",
+        (_, Op::Contains) => tr!("contains"),
+        (_, Op::NotContains) => tr!("doesn't contain"),
+        (_, Op::Is) => tr!("is"),
+        (_, Op::IsNot) => tr!("is not"),
+        (_, Op::StartsWith) => tr!("starts with"),
+        (F::Year, Op::LessThan) => tr!("before"),
+        (F::Year, Op::GreaterThan) => tr!("after"),
+        (F::Duration, Op::LessThan) => tr!("shorter than"),
+        (F::Duration, Op::GreaterThan) => tr!("longer than"),
+        (_, Op::LessThan) => tr!("less than"),
+        (_, Op::GreaterThan) => tr!("more than"),
+        (_, Op::Between) => tr!("between"),
+        (_, Op::InLast) => tr!("in the last"),
+        (_, Op::NotInLast) => tr!("not in the last"),
+        (_, Op::Never) => tr!("never"),
     }
 }
 
 /// What to type for a field's value.
 fn hint(field: F) -> &'static str {
     match field {
-        F::Title | F::Artist | F::Album => "name",
-        F::Genre => "genre, e.g. Jazz",
-        F::Format => "e.g. FLAC",
-        F::Year => "e.g. 1975",
-        F::Duration => "seconds or m:ss",
-        F::SampleRate => "kHz, e.g. 96",
-        F::Plays => "times",
-        F::Lossless => "yes or no",
-        F::LastPlayed | F::Added => "days",
+        F::Title | F::Artist | F::Album => tr!("name"),
+        F::Genre => tr!("genre, e.g. Jazz"),
+        F::Format => tr!("e.g. FLAC"),
+        F::Year => tr!("e.g. 1975"),
+        F::Duration => tr!("seconds or m:ss"),
+        F::SampleRate => tr!("kHz, e.g. 96"),
+        F::Plays => tr!("times"),
+        F::Lossless => tr!("yes or no"),
+        F::LastPlayed | F::Added => tr!("days"),
     }
 }
 
@@ -139,13 +142,16 @@ pub struct Editing {
 /// A smart playlist template from the sidebar's "+": created, then opened to be filled in.
 pub fn template(kind: &str) -> Option<(&'static str, SmartRules)> {
     Some(match kind {
-        "random" => ("Random mix", rules(vec![], SmartRulesOrder::Random, 50)),
+        "random" => (
+            tr!("Random mix"),
+            rules(vec![], SmartRulesOrder::Random, 50),
+        ),
         "artist" => (
-            "Artist mix",
+            tr!("Artist mix"),
             rules(vec![rule(F::Artist, Op::Is)], SmartRulesOrder::Random, 100),
         ),
         "albums" => (
-            "Album mix",
+            tr!("Album mix"),
             rules(
                 vec![rule(F::Album, Op::Contains)],
                 SmartRulesOrder::Album,
@@ -153,11 +159,11 @@ pub fn template(kind: &str) -> Option<(&'static str, SmartRules)> {
             ),
         ),
         "genre" => (
-            "Genre mix",
+            tr!("Genre mix"),
             rules(vec![rule(F::Genre, Op::Is)], SmartRulesOrder::Random, 100),
         ),
         "custom" => (
-            "Smart playlist",
+            tr!("Smart playlist"),
             rules(
                 vec![rule(F::Title, Op::Contains)],
                 SmartRulesOrder::Random,
@@ -194,7 +200,7 @@ pub fn show(app: &mut App, ui: &AppWindow, p: &types::Playlist, fresh: bool) {
             .iter()
             .any(|r| r.value.is_empty() && r.op != Op::Never);
         let hint = if blank {
-            "Fill in the rules, then apply them."
+            tr!("Fill in the rules, then apply them.")
         } else {
             ""
         };
@@ -383,7 +389,7 @@ pub fn save_copy() {
             .collect();
         Some((
             app.api.clone(),
-            library::fresh_name(app, &format!("{} (saved)", p.name)),
+            library::fresh_name(app, &tr!("{} (saved)", p.name)),
             tracks,
         ))
     }) else {

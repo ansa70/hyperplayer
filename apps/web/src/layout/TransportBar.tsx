@@ -7,6 +7,7 @@ import { usePlayer } from "../stores/player.ts";
 import { Chips, useStreamInfo } from "./Chips.tsx";
 import { Controls } from "./Controls.tsx";
 import { Seek } from "./Seek.tsx";
+import { t } from "../i18n.ts";
 
 /** The desktop player bar along the bottom of the window. */
 export function TransportBar() {
@@ -44,8 +45,8 @@ export function TransportBar() {
         <Chips />
         <div className={`ellipsis transport-info ${error ? "error" : "faint"}`}>{error || info}</div>
         <div className="transport-pages">
-          <PageToggle path="/lyrics" icon="lyrics" title="Lyrics" />
-          <PageToggle path="/queue" icon="queue" title="Queue" />
+          <PageToggle path="/lyrics" icon="lyrics" title={t("Lyrics")} closeTitle={t("Close lyrics")} />
+          <PageToggle path="/queue" icon="queue" title={t("Queue")} closeTitle={t("Close the queue")} />
         </div>
       </div>
     </footer>
@@ -53,14 +54,24 @@ export function TransportBar() {
 }
 
 /** Opens a page (lyrics, the queue), or closes it when it's open, as in the Rust player. */
-function PageToggle({ path, icon, title }: { path: string; icon: IconName; title: string }) {
+function PageToggle({
+  path,
+  icon,
+  title,
+  closeTitle,
+}: {
+  path: string;
+  icon: IconName;
+  title: string;
+  closeTitle: string;
+}) {
   const open = useLocation().pathname === path;
   const navigate = useNavigate();
   const back = useBack();
   return (
     <button
       className={`icon-button ${open ? "active" : ""}`}
-      title={open ? `Close ${title.toLowerCase()}` : title}
+      title={open ? closeTitle : title}
       onClick={() => (open ? back() : void navigate(path))}
     >
       <Icon name={icon} size={18} />

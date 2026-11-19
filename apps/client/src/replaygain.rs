@@ -68,14 +68,15 @@ impl Applied {
 
     /// Short description for the player, e.g. "RG −6.4 dB album".
     pub fn label(&self) -> String {
-        let basis = match self.basis {
-            Basis::Track => "track",
-            Basis::Album => "album",
-            Basis::None => return String::new(),
-        };
         let sign = if self.db < 0.0 { "−" } else { "+" };
-        let limited = if self.limited { ", peak-limited" } else { "" };
-        format!("RG {sign}{:.1} dB {basis}{limited}", self.db.abs())
+        let gain = format!("{sign}{:.1}", self.db.abs());
+        match (self.basis, self.limited) {
+            (Basis::None, _) => String::new(),
+            (Basis::Track, false) => crate::tr!("RG {} dB track", gain),
+            (Basis::Track, true) => crate::tr!("RG {} dB track, peak-limited", gain),
+            (Basis::Album, false) => crate::tr!("RG {} dB album", gain),
+            (Basis::Album, true) => crate::tr!("RG {} dB album, peak-limited", gain),
+        }
     }
 }
 

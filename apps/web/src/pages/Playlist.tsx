@@ -9,10 +9,11 @@ import { SmartEditor } from "../components/SmartEditor.tsx";
 import { freshName } from "../player/smart.ts";
 import { TrackList, type Row } from "../components/TrackList.tsx";
 import { queueAndPlaylistItems } from "../components/trackActions.ts";
-import { duration, plural } from "../format.ts";
+import { duration } from "../format.ts";
 import { useLibrary } from "../stores/library.ts";
 import { usePlayer } from "../stores/player.ts";
 import "./pages.css";
+import { t, tn } from "../i18n.ts";
 
 /** The playlist as shown: a smart one's rules may pick differently each time, so it plays what's on screen. */
 function shown(p: PlaylistData): TrackSource {
@@ -65,15 +66,17 @@ export function Playlist() {
     void play(shown(p), p.entries.slice(0, i).filter((e) => e.track).length, false);
   const tracks =
     p.matching !== null && p.matching > p.trackCount
-      ? `Smart · ${plural(p.trackCount, "track")} of ${p.matching} matching`
-      : `${p.rules ? "Smart · " : ""}${plural(p.trackCount, "track")}`;
+      ? tn("Smart · {n} track of {} matching", "Smart · {n} tracks of {} matching", p.trackCount, p.matching)
+      : p.rules
+        ? tn("Smart · {n} track", "Smart · {n} tracks", p.trackCount)
+        : tn("{n} track", "{n} tracks", p.trackCount);
 
   return (
     <div className="page">
       <header className="hero">
         <Mosaic covers={p.covers} size={200} />
         <div className="hero-text">
-          <div className="caps">{p.rules ? "Smart playlist" : "Playlist"}</div>
+          <div className="caps">{p.rules ? t("Smart playlist") : t("Playlist")}</div>
           {renaming === null ? (
             <h1>{p.name}</h1>
           ) : (
@@ -100,26 +103,26 @@ export function Playlist() {
           </div>
           <div className="hero-actions">
             <button className="primary-button" disabled={p.trackCount === 0} onClick={() => playFrom(0)}>
-              <Icon name="play" size={16} /> Play
+              <Icon name="play" size={16} /> {t("Play")}
             </button>
             <button
               className="outline-button"
               disabled={p.trackCount === 0}
               onClick={() => void play(shown(p), 0, true, "playlist")}
             >
-              Shuffle
+              {t("Shuffle")}
             </button>
             <MenuButton
               items={() => [
                 ...queueAndPlaylistItems(shown(p), p.name).filter(
-                  (item) => item.label !== "Add to playlist" || !p.rules,
+                  (item) => item.label !== t("Add to playlist") || !p.rules,
                 ),
-                { label: "Rename", onSelect: () => setRenaming(p.name) },
+                { label: t("Rename"), onSelect: () => setRenaming(p.name) },
                 {
-                  label: "Delete playlist",
+                  label: t("Delete playlist"),
                   danger: true,
                   onSelect: () => {
-                    if (!window.confirm(`Delete “${p.name}”? This can't be undone.`)) return;
+                    if (!window.confirm(t("Delete “{}”? This can't be undone.", p.name))) return;
                     call(api.deletePlaylist, { params: { id } })
                       .then(() => {
                         void loadPlaylists();
@@ -140,7 +143,7 @@ export function Playlist() {
           onChanged={changed}
           onSaveCopy={() => {
             const name = freshName(
-              `${p.name} (saved)`,
+              t("{} (saved)", p.name),
               useLibrary.getState().playlists.map((x) => x.name),
             );
             const trackIds = p.entries.flatMap((e) => (e.track ? [e.track.id] : []));
@@ -152,7 +155,7 @@ export function Playlist() {
         />
       )}
       {p.entries.length === 0 && !p.rules && (
-        <p className="muted">Empty. Add tracks with the ⋯ menu next to any track or album.</p>
+        <p className="muted">{t("Empty. Add tracks with the ⋯ menu next to any track or album.")}</p>
       )}
       <TrackList
         rows={rows}
@@ -164,7 +167,7 @@ export function Playlist() {
             ...(i > 0
               ? [
                   {
-                    label: "Move up",
+                    label: t("Move up"),
                     onSelect: () =>
                       void edit(() =>
                         call(api.movePlaylistEntry, { params: { id, entryId }, body: { toIndex: i - 1 } }),
@@ -175,7 +178,7 @@ export function Playlist() {
             ...(i < p.entries.length - 1
               ? [
                   {
-                    label: "Move down",
+                    label: t("Move down"),
                     onSelect: () =>
                       void edit(() =>
                         call(api.movePlaylistEntry, { params: { id, entryId }, body: { toIndex: i + 1 } }),
@@ -184,7 +187,7 @@ export function Playlist() {
                 ]
               : []),
             {
-              label: "Remove from playlist",
+              label: t("Remove from playlist"),
               danger: true,
               onSelect: () => void edit(() => call(api.removeFromPlaylist, { params: { id, entryId } })),
             },

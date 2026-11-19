@@ -53,9 +53,9 @@ impl Mode {
 
     pub fn label(self) -> &'static str {
         match self {
-            Mode::Auto => "AUTO",
-            Mode::Original => "ORIGINAL",
-            Mode::DataSaver => "DATA SAVER",
+            Mode::Auto => crate::tr!("AUTO"),
+            Mode::Original => crate::tr!("ORIGINAL"),
+            Mode::DataSaver => crate::tr!("DATA SAVER"),
         }
     }
 }
@@ -112,8 +112,10 @@ impl Quality {
 
     pub fn label(self, track: &Track) -> String {
         match self {
-            Quality::Original => format!("Original {}", track.format.codec.to_uppercase()),
-            Quality::Flac => "FLAC (transcoded)".into(),
+            Quality::Original => {
+                crate::tr!("Original {}", track.format.codec.to_uppercase())
+            }
+            Quality::Flac => crate::tr!("FLAC (transcoded)").into(),
             Quality::Vorbis(k) => format!("Vorbis {k} kbit/s"),
         }
     }

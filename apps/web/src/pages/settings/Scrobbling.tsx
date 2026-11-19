@@ -2,15 +2,16 @@ import type { ScrobbleAccount, ScrobbleSettings } from "@hyperplayer/schemas";
 import { useEffect, useRef, useState } from "react";
 import { api, call, errorMessage, HttpError } from "../../api.ts";
 import { Card } from "./Card.tsx";
+import { locale, t } from "../../i18n.ts";
 
 /** How often, and how long, to check whether Last.fm access was allowed. */
 const LASTFM_POLL = 3000;
 const LASTFM_WAIT = 15 * 60_000;
 
 function status(a: ScrobbleAccount): string {
-  const parts = [`Connected as ${a.username ?? "?"}`];
-  if (a.pending > 0) parts.push(`${a.pending} waiting to be sent`);
-  if (a.lastSubmittedAt) parts.push(`last sent ${new Date(a.lastSubmittedAt).toLocaleString()}`);
+  const parts = [t("Connected as {}", a.username ?? "?")];
+  if (a.pending > 0) parts.push(t("{} waiting to be sent", a.pending));
+  if (a.lastSubmittedAt) parts.push(t("last sent {}", new Date(a.lastSubmittedAt).toLocaleString(locale())));
   return parts.join(" · ");
 }
 
@@ -76,11 +77,11 @@ export function Scrobbling() {
     }
     if (attempt.current === mine) {
       setFmWaiting(null);
-      setFmError("Last.fm access wasn't allowed in time. Try again.");
+      setFmError(t("Last.fm access wasn't allowed in time. Try again."));
     }
   };
 
-  if (!settings) return <p className="muted">Loading…</p>;
+  if (!settings) return <p className="muted">{t("Loading…")}</p>;
   const { listenbrainz: lb, lastfm: fm } = settings;
   return (
     <>
@@ -94,14 +95,14 @@ export function Scrobbling() {
                 className="outline-button"
                 onClick={() => void call(api.disconnectListenBrainz).then(setSettings)}
               >
-                Disconnect
+                {t("Disconnect")}
               </button>
             </div>
           </>
         ) : (
           <>
             <p className="note">
-              Sends what you listen to to ListenBrainz. Paste your user token from{" "}
+              {t("Sends what you listen to to ListenBrainz. Paste your user token from")}{" "}
               <a href="https://listenbrainz.org/settings/" target="_blank" rel="noreferrer">
                 listenbrainz.org/settings
               </a>
@@ -116,12 +117,12 @@ export function Scrobbling() {
             >
               <input
                 value={token}
-                placeholder="User token"
+                placeholder={t("User token")}
                 autoComplete="off"
                 onChange={(e) => setToken(e.target.value)}
               />
               <button className="outline-button" type="submit" disabled={!token.trim()}>
-                Connect
+                {t("Connect")}
               </button>
             </form>
             {lbError && <p className="note error">{lbError}</p>}
@@ -130,7 +131,9 @@ export function Scrobbling() {
       </Card>
       <Card title="Last.fm">
         {!fm.available ? (
-          <p className="note">This server isn't set up for Last.fm (it needs a Last.fm API account).</p>
+          <p className="note">
+            {t("This server isn't set up for Last.fm (it needs a Last.fm API account).")}
+          </p>
         ) : fm.connected ? (
           <>
             <p className="note">{status(fm)}</p>
@@ -140,16 +143,16 @@ export function Scrobbling() {
                 className="outline-button"
                 onClick={() => void call(api.disconnectLastfm).then(setSettings)}
               >
-                Disconnect
+                {t("Disconnect")}
               </button>
             </div>
           </>
         ) : fmWaiting ? (
           <>
             <p className="note">
-              Allow HyperPlayer on the Last.fm page that opened, then come back here.{" "}
+              {t("Allow HyperPlayer on the Last.fm page that opened, then come back here.")}{" "}
               <a href={fmWaiting} target="_blank" rel="noreferrer">
-                Open it again
+                {t("Open it again")}
               </a>
             </p>
             <div className="row">
@@ -160,16 +163,16 @@ export function Scrobbling() {
                   setFmWaiting(null);
                 }}
               >
-                Cancel
+                {t("Cancel")}
               </button>
             </div>
           </>
         ) : (
           <>
-            <p className="note">Sends what you listen to to your Last.fm account.</p>
+            <p className="note">{t("Sends what you listen to to your Last.fm account.")}</p>
             <div className="row">
               <button className="outline-button" onClick={() => void connectFm()}>
-                Connect to Last.fm
+                {t("Connect to Last.fm")}
               </button>
             </div>
             {fmError && <p className="note error">{fmError}</p>}

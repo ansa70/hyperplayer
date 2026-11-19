@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useSession } from "../stores/session.ts";
 import "./Login.css";
+import { t } from "../i18n.ts";
 
 /** Signing in, and replacing a default password before anything else. */
 export function Login() {
@@ -33,21 +34,21 @@ export function Login() {
             </p>
             <input
               type="password"
-              placeholder="Current password"
+              placeholder={t("Current password")}
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
             <input
               type="password"
-              placeholder="New password"
+              placeholder={t("New password")}
               autoComplete="new-password"
               value={next}
               onChange={(e) => setNext(e.target.value)}
             />
             <input
               type="password"
-              placeholder="New password again"
+              placeholder={t("New password again")}
               autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
@@ -56,7 +57,7 @@ export function Login() {
         ) : (
           <>
             <input
-              placeholder="Username"
+              placeholder={t("Username")}
               autoComplete="username"
               autoCapitalize="none"
               autoFocus
@@ -65,25 +66,25 @@ export function Login() {
             />
             <input
               type="password"
-              placeholder="Password"
+              placeholder={t("Password")}
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
             {defaultAdmin && (
-              <p className="faint">First start: the admin's default password is “hyperplayer”.</p>
+              <p className="faint">{t("First start: the admin's default password is “hyperplayer”.")}</p>
             )}
           </>
         )}
-        {(error || mismatch) && <p className="login-error">{mismatch ? "The passwords differ" : error}</p>}
+        {(error || mismatch) && <p className="login-error">{mismatch ? t("The passwords differ") : error}</p>}
         <button
           className="primary-button"
           type="submit"
           disabled={busy || (changing ? next.length < 8 || next !== confirm : !username || !password)}
         >
-          {busy ? "Please wait…" : changing ? "Save password" : "Sign in"}
+          {busy ? t("Please wait…") : changing ? t("Save password") : t("Sign in")}
         </button>
-        {serverVersion && <p className="faint login-version">Server {serverVersion}</p>}
+        {serverVersion && <p className="faint login-version">{t("Server {}", serverVersion)}</p>}
       </form>
     </div>
   );

@@ -12,6 +12,7 @@ use std::{
 use hyperplayer::{
     api::Api,
     engine::{self, Engine, Launch},
+    tr,
 };
 
 use super::{account, playback, with_app};
@@ -54,7 +55,7 @@ pub fn available() -> bool {
 pub fn start() {
     if launch().is_none() {
         account::show_choice(Some(
-            "This copy of HyperPlayer can only connect to a server: it has no library of its own."
+            tr!("This copy of HyperPlayer can only connect to a server: it has no library of its own.")
                 .into(),
         ));
         return;
@@ -86,7 +87,7 @@ fn open() {
     let Some(launch) = launch() else { return };
     let (device_id, device_name, music) = with_app(|app| {
         if let Some(ui) = app.ui.upgrade() {
-            ui.set_status("Opening your music library…".into());
+            ui.set_status(tr!("Opening your music library…").into());
         }
         account::show_opening_local(app);
         let music = Some(&app.settings.music_folder)
@@ -113,8 +114,9 @@ fn open() {
             }
             Err(e) => {
                 eprintln!("{e:#}");
-                account::show_choice(Some(format!(
-                    "Your music library couldn't be opened: {e:#}"
+                account::show_choice(Some(tr!(
+                    "Your music library couldn't be opened: {}",
+                    format!("{e:#}")
                 )));
             }
         });
@@ -151,9 +153,10 @@ fn connected(url: String, token: String) {
         let me = api.me();
         let _ = slint::invoke_from_event_loop(move || match me {
             Ok(me) => account::signed_in_locally(&me.user),
-            Err(e) => {
-                account::show_choice(Some(format!("Your music library isn't answering: {e:#}")))
-            }
+            Err(e) => account::show_choice(Some(tr!(
+                "Your music library isn't answering: {}",
+                format!("{e:#}")
+            ))),
         });
     });
 }
@@ -186,7 +189,7 @@ fn watch(generation: u64, device_id: String, device_name: String, music: Option<
                 let _ = slint::invoke_from_event_loop(|| {
                     playback::stop();
                     account::show_choice(Some(
-                        "Your music library keeps stopping. Its log (engine.log, next to HyperPlayer's) says why.".into(),
+                        tr!("Your music library keeps stopping. Its log (engine.log, next to HyperPlayer's) says why.").into(),
                     ));
                 });
                 return;

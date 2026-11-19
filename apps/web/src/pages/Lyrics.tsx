@@ -4,11 +4,12 @@ import { BackButton } from "../components/BackButton.tsx";
 import { usePlayer } from "../stores/player.ts";
 import { useApi } from "../useApi.ts";
 import "./pages.css";
+import { t } from "../i18n.ts";
 
 /** The playing track's lyrics; synced ones follow the music, and a line seeks there when tapped. */
 export function Lyrics() {
   const track = usePlayer((s) => s.track);
-  if (!track) return <div className="page muted">Nothing playing.</div>;
+  if (!track) return <div className="page muted">{t("Nothing playing.")}</div>;
   return <TrackLyrics key={track.id} trackId={track.id} title={track.title} artist={track.artistName} />;
 }
 
@@ -30,17 +31,17 @@ function TrackLyrics({ trackId, title, artist }: { trackId: string; title: strin
   return (
     <div className="page lyrics">
       <div className="page-head">
-        <div className="caps">Lyrics</div>
-        <BackButton title="Close lyrics" />
+        <div className="caps">{t("Lyrics")}</div>
+        <BackButton title={t("Close lyrics")} />
       </div>
       <h1>{title}</h1>
       <div className="muted lyrics-artist">{artist}</div>
       {loading ? (
-        <p className="faint">Looking for lyrics…</p>
+        <p className="faint">{t("Looking for lyrics…")}</p>
       ) : data?.instrumental ? (
-        <p className="muted">Instrumental.</p>
+        <p className="muted">{t("Instrumental.")}</p>
       ) : lines.length === 0 ? (
-        <p className="muted">No lyrics found for this track.</p>
+        <p className="muted">{t("No lyrics found for this track.")}</p>
       ) : (
         <div className={`lyrics-lines ${synced ? "synced" : ""}`}>
           {lines.map((l, i) =>
@@ -66,10 +67,10 @@ function TrackLyrics({ trackId, title, artist }: { trackId: string; title: strin
       {data && data.source !== "none" && (
         <p className="faint lyrics-source">
           {data.source === "lrclib"
-            ? "From LRCLIB"
+            ? t("From LRCLIB")
             : data.source === "file"
-              ? "From a .lrc file"
-              : "From the file's tags"}
+              ? t("From a .lrc file")
+              : t("From the file's tags")}
         </p>
       )}
     </div>

@@ -1,6 +1,7 @@
 // ReplayGain, as the Rust player applies it (apps/client/src/replaygain.rs).
 
 import type { Preferences, ReplayGain } from "@hyperplayer/schemas";
+import { t } from "../i18n.ts";
 
 export type RgMode = Preferences["replayGain"];
 
@@ -46,6 +47,8 @@ export function compute(rg: ReplayGain, mode: RgMode, inAlbumOrder: boolean, pre
 /** E.g. "RG −6.4 dB track", or nothing when no gain applies. */
 export function label(a: Applied): string {
   if (!a.basis) return "";
-  const sign = a.db < 0 ? "−" : "+";
-  return `RG ${sign}${Math.abs(a.db).toFixed(1)} dB ${a.basis}${a.limited ? ", peak-limited" : ""}`;
+  const gain = `${a.db < 0 ? "−" : "+"}${Math.abs(a.db).toFixed(1)}`;
+  if (a.basis === "track")
+    return a.limited ? t("RG {} dB track, peak-limited", gain) : t("RG {} dB track", gain);
+  return a.limited ? t("RG {} dB album, peak-limited", gain) : t("RG {} dB album", gain);
 }

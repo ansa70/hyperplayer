@@ -2,12 +2,15 @@
 
 use std::{rc::Rc, time::Duration};
 
-use hyperplayer::api::types::{self, TrackSource};
+use hyperplayer::{
+    api::types::{self, TrackSource},
+    tr, trn,
+};
 use slint::{Image, Model, ModelRc, SharedString, Timer, VecModel};
 
 use super::{
     AddItem, App, Page, PlaylistItem, PlaylistView, TrackItem, background, current_track,
-    models::{fmt_duration, load_image, plural},
+    models::{fmt_duration, load_image},
     playback::{Then, play_from, queue_op, repeat_mode},
     set_status, with_app,
 };
@@ -90,13 +93,15 @@ fn show_playlist(app: &mut App, p: types::Playlist, open: bool) {
     let same = previous_cover.id == p.id.as_str();
     let tracks = match p.matching {
         Some(all) if all > p.track_count => {
-            format!(
-                "Smart · {} of {all} matching",
-                plural(p.track_count, "track")
+            trn!(
+                "Smart · {n} track of {} matching",
+                "Smart · {n} tracks of {} matching",
+                p.track_count,
+                all
             )
         }
-        Some(_) => format!("Smart · {}", plural(p.track_count, "track")),
-        None => plural(p.track_count, "track"),
+        Some(_) => trn!("Smart · {n} track", "Smart · {n} tracks", p.track_count),
+        None => trn!("{n} track", "{n} tracks", p.track_count),
     };
     ui.set_playlist(PlaylistView {
         id: p.id.to_string().into(),
@@ -219,7 +224,7 @@ fn show_add_results(ui: &super::AppWindow, results: Option<&types::SearchResults
                     format!(
                         "{}{year} · {}",
                         a.artist_name,
-                        plural(a.track_count, "track")
+                        trn!("{n} track", "{n} tracks", a.track_count)
                     ),
                 )
             })
@@ -228,13 +233,25 @@ fn show_add_results(ui: &super::AppWindow, results: Option<&types::SearchResults
     ui.set_playlist_add_artists(model(
         r.artists
             .iter()
-            .map(|a| item(&a.id, &a.name, plural(a.track_count, "track")))
+            .map(|a| {
+                item(
+                    &a.id,
+                    &a.name,
+                    trn!("{n} track", "{n} tracks", a.track_count),
+                )
+            })
             .collect(),
     ));
     ui.set_playlist_add_genres(model(
         r.genres
             .iter()
-            .map(|g| item(&g.name, &g.name, plural(g.track_count, "track")))
+            .map(|g| {
+                item(
+                    &g.name,
+                    &g.name,
+                    trn!("{n} track", "{n} tracks", g.track_count),
+                )
+            })
             .collect(),
     ));
     ui.set_playlist_add_pending(false);
@@ -263,7 +280,13 @@ pub fn playlist_add(kind: SharedString, id: SharedString, title: SharedString) {
             with_app(|app| {
                 if let Some(ui) = app.ui.upgrade() {
                     ui.set_playlist_add_message(
-                        format!("Added “{title}”: {}", plural(added, "track")).into(),
+                        trn!(
+                            "Added “{}”: {n} track",
+                            "Added “{}”: {n} tracks",
+                            added,
+                            title
+                        )
+                        .into(),
                     );
                 }
             });
@@ -312,7 +335,7 @@ pub fn fresh_name(app: &App, base: &str) -> String {
 /// The sidebar's "+": an empty playlist, or a smart one from a template (see smart.rs).
 pub fn new_playlist(kind: SharedString) {
     let smart = super::smart::template(&kind);
-    let base = smart.as_ref().map_or("New playlist", |(name, _)| name);
+    let base = smart.as_ref().map_or(tr!("New playlist"), |(name, _)| name);
     let (api, name) = with_app(|app| (app.api.clone(), fresh_name(app, base)));
     background(
         move || match smart {
@@ -509,10 +532,11 @@ fn run_action(list: &str, index: i32, action: &str, playlist_id: &str, target: T
             with_app(|app| {
                 set_status(
                     app,
-                    &format!(
-                        "{} “{what}”",
-                        if next { "Playing next:" } else { "Queued:" }
-                    ),
+                    &if next {
+                        tr!("Playing next: “{}”", what)
+                    } else {
+                        tr!("Queued: “{}”", what)
+                    },
                 )
             });
         }
@@ -522,7 +546,7 @@ fn run_action(list: &str, index: i32, action: &str, playlist_id: &str, target: T
             background(
                 move || api.add_to_playlist(&pid, source),
                 |p| {
-                    with_app(|app| set_status(app, &format!("Added to “{}”", p.name)));
+                    with_app(|app| set_status(app, &tr!("Added to “{}”", p.name)));
                     playlist_changed(p, false);
                 },
             );
@@ -595,11 +619,11 @@ pub fn sync_queue_ui(app: &mut App) {
     ui.set_shuffle_label(
         match q.shuffle_scope {
             None => String::new(),
-            Some(types::ShuffleScope::Library) => "Whole library".into(),
-            Some(types::ShuffleScope::Album) => format!("Album: {name}"),
-            Some(types::ShuffleScope::Artist) => format!("Artist: {name}"),
-            Some(types::ShuffleScope::Genre) => format!("Genre: {name}"),
-            Some(types::ShuffleScope::Playlist) => format!("Playlist: {name}"),
+            Some(types::ShuffleScope::Library) => tr!("Whole library").into(),
+            Some(types::ShuffleScope::Album) => tr!("Album: {}", name),
+            Some(types::ShuffleScope::Artist) => tr!("Artist: {}", name),
+            Some(types::ShuffleScope::Genre) => tr!("Genre: {}", name),
+            Some(types::ShuffleScope::Playlist) => tr!("Playlist: {}", name),
         }
         .into(),
     );

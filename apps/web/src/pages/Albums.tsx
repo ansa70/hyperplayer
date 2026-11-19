@@ -4,13 +4,14 @@ import { api, call } from "../api.ts";
 import { AlbumGrid } from "../components/AlbumGrid.tsx";
 import { Segmented } from "../components/Segmented.tsx";
 import "./pages.css";
+import { msg, t } from "../i18n.ts";
 
 type Sort = "artist" | "title" | "year" | "added";
 const SORTS: { key: Sort; label: string }[] = [
-  { key: "artist", label: "Artist" },
-  { key: "title", label: "Title" },
-  { key: "year", label: "Year" },
-  { key: "added", label: "Recently added" },
+  { key: "artist", label: msg("Artist") },
+  { key: "title", label: msg("Title") },
+  { key: "year", label: msg("Year") },
+  { key: "added", label: msg("Recently added") },
 ];
 const PAGE = 120;
 
@@ -49,8 +50,12 @@ export function Albums() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Albums</h1>
-        <Segmented value={sort} options={SORTS} onPick={(k) => setSort(k as Sort)} />
+        <h1>{t("Albums")}</h1>
+        <Segmented
+          value={sort}
+          options={SORTS.map((s) => ({ ...s, label: t(s.label) }))}
+          onPick={(k) => setSort(k as Sort)}
+        />
       </div>
       <AlbumGrid albums={albums} />
       <div ref={end} className="sentinel" />

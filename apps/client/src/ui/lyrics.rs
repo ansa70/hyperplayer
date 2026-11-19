@@ -2,7 +2,7 @@
 
 use std::{thread, time::Duration};
 
-use hyperplayer::api::types;
+use hyperplayer::{api::types, tr};
 use slint::{ModelRc, SharedString, VecModel};
 
 use super::{App, AppWindow, LyricsState, Page, current_track, playback, with_app};
@@ -53,9 +53,9 @@ fn show(ui: &AppWindow, lyrics: &types::Lyrics) {
         _ => LyricsState::Plain,
     };
     let source = match lyrics.source {
-        types::LyricsSource::Lrclib => "Lyrics from LRCLIB",
-        types::LyricsSource::File => "Lyrics from a .lrc file",
-        types::LyricsSource::Tags => "Lyrics from the file's tags",
+        types::LyricsSource::Lrclib => tr!("Lyrics from LRCLIB"),
+        types::LyricsSource::File => tr!("Lyrics from a .lrc file"),
+        types::LyricsSource::Tags => tr!("Lyrics from the file's tags"),
         types::LyricsSource::None => "",
     };
     show_state(ui, state, &lyrics.lines, source);

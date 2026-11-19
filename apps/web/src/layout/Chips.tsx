@@ -1,8 +1,13 @@
 import { NEXT_MODE } from "../player/replaygain.ts";
 import { usePlayer } from "../stores/player.ts";
 import { useSession } from "../stores/session.ts";
+import { msg, t } from "../i18n.ts";
 
-const QUALITY_LABEL = { auto: "AUTO", original: "ORIGINAL", "data-saver": "DATA SAVER" } as const;
+const QUALITY_LABEL = {
+  auto: msg("AUTO"),
+  original: msg("ORIGINAL"),
+  "data-saver": msg("DATA SAVER"),
+} as const;
 const NEXT_QUALITY = { auto: "original", original: "data-saver", "data-saver": "auto" } as const;
 
 /** The player's ReplayGain and quality chips: each cycles its mode (saved to the account). */
@@ -13,17 +18,17 @@ export function Chips() {
     <div className="chips">
       <button
         className="chip"
-        title="Volume levelling (ReplayGain)"
+        title={t("Volume levelling (ReplayGain)")}
         onClick={() => void update({ replayGain: NEXT_MODE[rgMode] })}
       >
         RG {rgMode.toUpperCase()}
       </button>
       <button
         className="chip"
-        title="Streaming quality"
+        title={t("Streaming quality")}
         onClick={() => void update({ quality: NEXT_QUALITY[mode] })}
       >
-        {QUALITY_LABEL[mode]}
+        {t(QUALITY_LABEL[mode])}
       </button>
     </div>
   );

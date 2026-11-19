@@ -7,6 +7,7 @@ import { duration } from "../format.ts";
 import { useLibrary } from "../stores/library.ts";
 import { usePlayer } from "../stores/player.ts";
 import "./pages.css";
+import { t } from "../i18n.ts";
 
 /** What's playing and what comes next; tap an entry to play it. */
 export function Queue() {
@@ -19,18 +20,18 @@ export function Queue() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Queue</h1>
+        <h1>{t("Queue")}</h1>
         <div className="row-actions">
           {entries.length > 0 && (
             <button className="outline-button" onClick={() => void update(call(api.clearQueue))}>
-              Clear
+              {t("Clear")}
             </button>
           )}
-          <BackButton title="Close the queue" />
+          <BackButton title={t("Close the queue")} />
         </div>
       </div>
       {queue?.origin?.name && <div className="muted section">Playing from {queue.origin.name}</div>}
-      {entries.length === 0 && <p className="muted">The queue is empty. Play an album to start.</p>}
+      {entries.length === 0 && <p className="muted">{t("The queue is empty. Play an album to start.")}</p>}
       <div className="queue">
         {entries.map((e, i) => (
           <div
@@ -54,7 +55,7 @@ export function Queue() {
               <MenuButton
                 items={() => [
                   {
-                    label: "Remove from queue",
+                    label: t("Remove from queue"),
                     onSelect: () =>
                       void update(call(api.removeFromQueue, { params: { entryId: e.entryId } })),
                   },
