@@ -25,6 +25,7 @@
   </Dependencies>
   <Resources>
     <Resource Language="en-us" />
+    <Resource Language="it-it" />
   </Resources>
   <Applications>
     <Application Id="HyperPlayer" Executable="hyperplayer.exe" EntryPoint="Windows.FullTrustApplication">
