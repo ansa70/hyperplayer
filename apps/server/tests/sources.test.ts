@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -365,7 +366,10 @@ test("a file that can't be read plays from the server's copy", async () => {
   expect(played.rawPayload.equals(readFileSync(join(s.lib, "Band/Album/1.wav")))).toBe(true);
 });
 
-test("a file that can't be read has the server's copy's waveform", async () => {
+// Waveforms are computed with ffmpeg, which CI's runner doesn't have (as in waveform.test.ts).
+const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
+
+test.skipIf(!hasFfmpeg)("a file that can't be read has the server's copy's waveform", async () => {
   const s = await server();
   const e = await engine();
   const path = put(e.lib, "Band/Album/1.wav", { INAM: "One", IART: "Band", IPRD: "Album", ITRK: "1" }, 31);
