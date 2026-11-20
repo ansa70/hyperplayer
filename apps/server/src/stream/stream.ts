@@ -108,19 +108,29 @@ export function vorbisQuality(kbps: number): number {
 
 export class TranscodeError extends Error {}
 
+export interface TranscodeInput {
+  /** Options for the input, before `-i` (a live stream's reconnecting, say). */
+  inputArgs?: string[];
+  /** Fails when ffmpeg has produced nothing by then (a live input that never starts). */
+  firstBytesMs?: number;
+}
+
 /**
- * Transcodes `path` on the fly. Resolves once ffmpeg has produced its first
- * bytes, so a failing encoder becomes an error response rather than an empty
- * 200. The process is killed via `kill` (e.g. when the client disconnects).
+ * Transcodes `input` (a file, an address ffmpeg reads itself, or a stream piped to it)
+ * on the fly. Resolves once ffmpeg has produced its first bytes, so a failing encoder
+ * becomes an error response rather than an empty 200. The process is killed via `kill`
+ * (e.g. when the client disconnects).
  */
 export async function transcode(
   ffmpeg: string,
-  path: string,
+  input: string | Readable,
   format: Exclude<StreamFormat, "original">,
   bitrateKbps?: number,
   startSeconds?: number,
+  opts: TranscodeInput = {},
 ): Promise<{ stream: Readable; mime: string; kill: () => void }> {
   const spec = TRANSCODE[format];
+  const piped = typeof input !== "string";
   const proc = spawn(
     ffmpeg,
     [
@@ -129,16 +139,26 @@ export async function transcode(
       "error",
       // Before -i: fast input seek, so resuming mid-track starts immediately.
       ...(startSeconds ? ["-ss", startSeconds.toFixed(3)] : []),
+      ...(opts.inputArgs ?? []),
       "-i",
-      path,
+      piped ? "pipe:0" : input,
       "-map",
       "0:a:0",
       "-vn",
       ...spec.args(bitrateKbps ?? spec.defaultKbps),
       "pipe:1",
     ],
-    { stdio: ["ignore", "pipe", "pipe"] },
+    { stdio: ["pipe", "pipe", "pipe"] },
   );
+  if (piped) {
+    // ffmpeg gone (killed, or failed): what's still coming isn't wanted.
+    proc.stdin.on("error", () => input.destroy());
+    proc.once("close", () => input.destroy());
+    input.on("error", () => proc.stdin.destroy());
+    input.pipe(proc.stdin);
+  } else {
+    proc.stdin.end();
+  }
   let stderr = "";
   proc.stderr.on("data", (d: Buffer) => {
     stderr += d.toString();
@@ -146,7 +166,9 @@ export async function transcode(
   });
   const kill = () => proc.kill("SIGKILL");
   await new Promise<void>((resolve, reject) => {
+    let timer: NodeJS.Timeout | undefined;
     const cleanup = () => {
+      clearTimeout(timer);
       proc.stdout.off("readable", onReadable);
       proc.off("error", onError);
       proc.off("close", onClose);
@@ -168,6 +190,7 @@ export async function transcode(
     proc.stdout.on("readable", onReadable);
     proc.once("error", onError);
     proc.once("close", onClose);
+    if (opts.firstBytesMs) timer = setTimeout(() => fail("nothing came in time"), opts.firstBytesMs);
   });
   return { stream: proc.stdout, mime: spec.mime, kill };
 }

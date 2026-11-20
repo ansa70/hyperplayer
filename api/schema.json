@@ -3219,6 +3219,266 @@
         "fingerprint"
       ],
       "additionalProperties": false
+    },
+    "RadioStationId": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f-]{36}|custom-[0-9a-f]{16})$"
+    },
+    "RadioStation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/RadioStationId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "streamUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "homepage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hasLogo": {
+          "type": "boolean"
+        },
+        "country": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "countryCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "codec": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bitrate": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clicks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "custom": {
+          "type": "boolean"
+        },
+        "favourite": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "streamUrl",
+        "homepage",
+        "hasLogo",
+        "country",
+        "countryCode",
+        "languages",
+        "tags",
+        "codec",
+        "bitrate",
+        "clicks",
+        "custom",
+        "favourite"
+      ],
+      "additionalProperties": false
+    },
+    "RadioStationPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RadioStation"
+          }
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "more": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "items",
+        "offset",
+        "limit",
+        "more"
+      ],
+      "additionalProperties": false
+    },
+    "RadioStationList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RadioStation"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "RadioOrder": {
+      "type": "string",
+      "enum": [
+        "popular",
+        "trending",
+        "votes",
+        "name"
+      ]
+    },
+    "RadioFacet": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "stations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "value",
+        "label",
+        "stations"
+      ],
+      "additionalProperties": false
+    },
+    "RadioFacets": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RadioFacet"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "AddRadioStation": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "streamUrl": {
+          "type": "string",
+          "maxLength": 2000,
+          "format": "uri"
+        },
+        "homepage": {
+          "default": null,
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 2000,
+              "format": "uri"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "streamUrl",
+        "homepage"
+      ],
+      "additionalProperties": false
+    },
+    "RadioNowPlaying": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artist": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "song": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "artist",
+        "song"
+      ],
+      "additionalProperties": false
+    },
+    "RadioCodec": {
+      "type": "string",
+      "enum": [
+        "mp3",
+        "aac"
+      ]
     }
   }
 }

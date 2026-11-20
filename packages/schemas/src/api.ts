@@ -62,6 +62,17 @@ import {
   UserList,
 } from "./auth.ts";
 import { AddSource, SyncPage, SyncQuery } from "./sources.ts";
+import {
+  AddRadioStation,
+  RadioCodec,
+  RadioFacets,
+  RadioNowPlaying,
+  RadioOrder,
+  RadioStation,
+  RadioStationId,
+  RadioStationList,
+  RadioStationPage,
+} from "./radio.ts";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -131,6 +142,7 @@ const IdParams = z.object({ id: Id });
 const EntryParams = z.object({ id: Id, entryId: Id });
 const QueueEntryParams = z.object({ entryId: Id });
 const DeviceParams = z.object({ id: DeviceId });
+const StationParams = z.object({ id: RadioStationId });
 
 export const Pagination = z.object({
   offset: z.coerce.number().int().nonnegative().default(0),
@@ -760,6 +772,130 @@ export const api = {
     params: IdParams,
     query: NoQuery,
     response: Ok,
+  }),
+  // ------------------------------------------------------------------- radio
+  searchRadio: json({
+    method: "GET",
+    path: "/api/radio/stations",
+    summary:
+      "Search the Radio Browser directory (any of the filters, or none for the top stations); working stations only",
+    params: NoParams,
+    query: z.object({
+      /** Part of the station's name. */
+      q: z.string().trim().max(200).optional(),
+      /** ISO 3166-1 alpha-2 code. */
+      country: z
+        .string()
+        .regex(/^[A-Za-z]{2}$/)
+        .transform((c) => c.toUpperCase())
+        .optional(),
+      language: z.string().trim().min(1).max(100).optional(),
+      tag: z.string().trim().min(1).max(100).optional(),
+      order: RadioOrder.default("popular"),
+      offset: z.coerce.number().int().nonnegative().max(10_000).default(0),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
+    }),
+    response: RadioStationPage,
+  }),
+  getRadioStation: json({
+    method: "GET",
+    path: "/api/radio/stations/{id}",
+    summary: "A station: from the directory, or one the caller added",
+    params: StationParams,
+    query: NoQuery,
+    response: RadioStation,
+  }),
+  addRadioStation: json({
+    method: "POST",
+    path: "/api/radio/stations",
+    summary: "Add a station by its stream address; it's the caller's only, and among their favourites",
+    params: NoParams,
+    query: NoQuery,
+    body: AddRadioStation,
+    response: RadioStation,
+  }),
+  radioCountries: json({
+    method: "GET",
+    path: "/api/radio/countries",
+    summary: "Countries with stations in the directory",
+    params: NoParams,
+    query: NoQuery,
+    response: RadioFacets,
+  }),
+  radioLanguages: json({
+    method: "GET",
+    path: "/api/radio/languages",
+    summary: "Languages of the directory's stations",
+    params: NoParams,
+    query: NoQuery,
+    response: RadioFacets,
+  }),
+  radioTags: json({
+    method: "GET",
+    path: "/api/radio/tags",
+    summary: "The directory's most used tags (genres, mostly)",
+    params: NoParams,
+    query: z.object({ limit: z.coerce.number().int().min(1).max(1000).default(200) }),
+    response: RadioFacets,
+  }),
+  listRadioFavourites: json({
+    method: "GET",
+    path: "/api/radio/favourites",
+    summary: "The caller's favourite stations, the ones they added included, in the order they were added",
+    params: NoParams,
+    query: NoQuery,
+    response: RadioStationList,
+  }),
+  addRadioFavourite: json({
+    method: "PUT",
+    path: "/api/radio/favourites/{id}",
+    summary: "Add a directory station to the caller's favourites",
+    params: StationParams,
+    query: NoQuery,
+    response: RadioStation,
+  }),
+  removeRadioFavourite: json({
+    method: "DELETE",
+    path: "/api/radio/favourites/{id}",
+    summary: "Take a station out of the caller's favourites (one they added is deleted)",
+    params: StationParams,
+    query: NoQuery,
+    response: Ok,
+  }),
+  radioStream: binary({
+    method: "GET",
+    path: "/api/radio/stations/{id}/stream",
+    summary:
+      "A station's live audio: as the station sends it when that's one of the `direct` types, else transcoded to `format`",
+    params: StationParams,
+    query: z.object({
+      /** Comma-separated stream types the player plays as they come; empty: always transcode. */
+      direct: z
+        .string()
+        .default("mp3,aac")
+        .transform((v) => v.split(",").filter(Boolean))
+        .pipe(z.array(RadioCodec)),
+      format: z.enum(["mp3", "aac", "opus", "vorbis"]).default("mp3"),
+      /** In kbit/s, for a transcode. */
+      bitrate: z.coerce.number().int().min(32).max(320).default(192),
+    }),
+    contentTypes: ["audio/*"],
+  }),
+  radioNowPlaying: json({
+    method: "GET",
+    path: "/api/radio/stations/{id}/now-playing",
+    summary: "The song a station is playing (known while it's being listened to through this server)",
+    params: StationParams,
+    query: NoQuery,
+    response: RadioNowPlaying,
+  }),
+  radioLogo: binary({
+    method: "GET",
+    path: "/api/radio/stations/{id}/logo",
+    summary: "A station's logo, fetched from the station's site and cached, as WebP",
+    params: StationParams,
+    query: z.object({ size: z.coerce.number().int().min(16).max(512).default(128) }),
+    contentTypes: ["image/webp"],
   }),
   stream: binary({
     method: "GET",

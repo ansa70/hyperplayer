@@ -28,6 +28,7 @@ import { Scanner } from "./library/scanner.ts";
 import { LibraryFolders } from "./library/folders.ts";
 import { LibraryWatcher } from "./library/watcher.ts";
 import { Waveforms } from "./library/waveform.ts";
+import { Radio } from "./radio/radio.ts";
 import { Sources } from "./sources/sources.ts";
 import { syncPage } from "./sources/sync.ts";
 import {
@@ -89,6 +90,12 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   });
   app.addHook("onClose", async () => scrobbler.close());
   const history = new History(db, catalog, scrobbler);
+  const radio = new Radio(db, {
+    userAgent: `HyperPlayer/${SERVER_VERSION}`,
+    dataDir: config.dataDir,
+    ffmpeg: config.ffmpeg,
+    fetch: opts.fetch,
+  });
   /**
    * Where a track's audio comes from when not this computer's file: a server's track, or
    * a server's copy of this computer's file when that can't be read (an unmounted share).
@@ -440,6 +447,35 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
   route.json(api.advanceQueue, ({ auth: a, body }) => queues.advance(who(a), body.auto));
   route.json(api.rewindQueue, ({ auth: a }) => queues.back(who(a)));
   route.json(api.jumpInQueue, ({ auth: a, body }) => queues.jump(who(a), body.entryId));
+
+  // ----------------------------------------------------------------- radio
+  route.json(api.searchRadio, ({ auth: a, query }) => radio.search(a.user.id, query));
+  route.json(api.getRadioStation, ({ auth: a, params }) => radio.station(a.user.id, params.id));
+  route.json(api.addRadioStation, ({ auth: a, body }) => radio.add(a.user.id, body));
+  route.json(api.radioCountries, () => radio.countries());
+  route.json(api.radioLanguages, () => radio.languages());
+  route.json(api.radioTags, ({ query }) => radio.tags(query.limit));
+  route.json(api.listRadioFavourites, ({ auth: a }) => radio.favourites(a.user.id));
+  route.json(api.addRadioFavourite, ({ auth: a, params }) => radio.addFavourite(a.user.id, params.id));
+  route.json(
+    api.removeRadioFavourite,
+    ({ auth: a, params }) => (radio.removeFavourite(a.user.id, params.id), ok),
+  );
+  route.json(api.radioNowPlaying, ({ auth: a, params }) => radio.nowPlaying(a.user.id, params.id));
+  route.binary(api.radioStream, async ({ auth: a, params, query, request, reply }) => {
+    const stop = new AbortController();
+    request.raw.on("close", () => stop.abort());
+    const live = await radio.stream(a.user.id, params.id, query, stop.signal);
+    return reply.header("Content-Type", live.mime).header("Cache-Control", "no-store").send(live.stream);
+  });
+  route.binary(api.radioLogo, async ({ auth: a, params, query, reply }) => {
+    const logo = await radio.logo(a.user.id, params.id, query.size);
+    if (!logo) throw notFound("Logo");
+    return reply
+      .header("Content-Type", "image/webp")
+      .header("Cache-Control", "private, max-age=86400")
+      .send(logo);
+  });
 
   route.binary(api.stream, async ({ params, query, request, reply }) => {
     const track = catalog.trackPath(params.id);

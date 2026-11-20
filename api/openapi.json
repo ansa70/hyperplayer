@@ -3146,6 +3146,658 @@
         }
       }
     },
+    "/api/radio/stations": {
+      "get": {
+        "operationId": "searchRadio",
+        "summary": "Search the Radio Browser directory (any of the filters, or none for the top stations); working stations only",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z]{2}$"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "popular",
+              "type": "string",
+              "enum": [
+                "popular",
+                "trending",
+                "votes",
+                "name"
+              ]
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search the Radio Browser directory (any of the filters, or none for the top stations); working stations only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioStationPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addRadioStation",
+        "summary": "Add a station by its stream address; it's the caller's only, and among their favourites",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddRadioStation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Add a station by its stream address; it's the caller's only, and among their favourites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioStation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/radio/stations/{id}": {
+      "get": {
+        "operationId": "getRadioStation",
+        "summary": "A station: from the directory, or one the caller added",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f-]{36}|custom-[0-9a-f]{16})$"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A station: from the directory, or one the caller added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioStation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/radio/countries": {
+      "get": {
+        "operationId": "radioCountries",
+        "summary": "Countries with stations in the directory",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Countries with stations in the directory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioFacets"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/radio/languages": {
+      "get": {
+        "operationId": "radioLanguages",
+        "summary": "Languages of the directory's stations",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Languages of the directory's stations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioFacets"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/radio/tags": {
+      "get": {
+        "operationId": "radioTags",
+        "summary": "The directory's most used tags (genres, mostly)",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The directory's most used tags (genres, mostly)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioFacets"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/radio/favourites": {
+      "get": {
+        "operationId": "listRadioFavourites",
+        "summary": "The caller's favourite stations, the ones they added included, in the order they were added",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's favourite stations, the ones they added included, in the order they were added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioStationList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/radio/favourites/{id}": {
+      "put": {
+        "operationId": "addRadioFavourite",
+        "summary": "Add a directory station to the caller's favourites",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f-]{36}|custom-[0-9a-f]{16})$"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Add a directory station to the caller's favourites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioStation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeRadioFavourite",
+        "summary": "Take a station out of the caller's favourites (one they added is deleted)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f-]{36}|custom-[0-9a-f]{16})$"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Take a station out of the caller's favourites (one they added is deleted)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/radio/stations/{id}/stream": {
+      "get": {
+        "operationId": "radioStream",
+        "summary": "A station's live audio: as the station sends it when that's one of the `direct` types, else transcoded to `format`",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f-]{36}|custom-[0-9a-f]{16})$"
+            }
+          },
+          {
+            "name": "direct",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "mp3,aac",
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "mp3",
+              "type": "string",
+              "enum": [
+                "mp3",
+                "aac",
+                "opus",
+                "vorbis"
+              ]
+            }
+          },
+          {
+            "name": "bitrate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 192,
+              "type": "integer",
+              "minimum": 32,
+              "maximum": 320
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A station's live audio: as the station sends it when that's one of the `direct` types, else transcoded to `format`",
+            "content": {
+              "audio/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content (range request)"
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/radio/stations/{id}/now-playing": {
+      "get": {
+        "operationId": "radioNowPlaying",
+        "summary": "The song a station is playing (known while it's being listened to through this server)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f-]{36}|custom-[0-9a-f]{16})$"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The song a station is playing (known while it's being listened to through this server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioNowPlaying"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/radio/stations/{id}/logo": {
+      "get": {
+        "operationId": "radioLogo",
+        "summary": "A station's logo, fetched from the station's site and cached, as WebP",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f-]{36}|custom-[0-9a-f]{16})$"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 128,
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 512
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A station's logo, fetched from the station's site and cached, as WebP",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content (range request)"
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/stream/{id}": {
       "get": {
         "operationId": "stream",
@@ -6258,6 +6910,241 @@
           "fingerprint"
         ],
         "additionalProperties": false
+      },
+      "RadioStationId": {
+        "type": "string",
+        "pattern": "^(?:[0-9a-f-]{36}|custom-[0-9a-f]{16})$"
+      },
+      "RadioStation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RadioStationId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "streamUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "homepage": {
+            "nullable": true,
+            "type": "string"
+          },
+          "hasLogo": {
+            "type": "boolean"
+          },
+          "country": {
+            "nullable": true,
+            "type": "string"
+          },
+          "countryCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "codec": {
+            "nullable": true,
+            "type": "string"
+          },
+          "bitrate": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "clicks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "custom": {
+            "type": "boolean"
+          },
+          "favourite": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "streamUrl",
+          "homepage",
+          "hasLogo",
+          "country",
+          "countryCode",
+          "languages",
+          "tags",
+          "codec",
+          "bitrate",
+          "clicks",
+          "custom",
+          "favourite"
+        ],
+        "additionalProperties": false
+      },
+      "RadioStationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RadioStation"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "offset",
+          "limit",
+          "more"
+        ],
+        "additionalProperties": false
+      },
+      "RadioStationList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RadioStation"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "RadioOrder": {
+        "type": "string",
+        "enum": [
+          "popular",
+          "trending",
+          "votes",
+          "name"
+        ]
+      },
+      "RadioFacet": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "stations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "value",
+          "label",
+          "stations"
+        ],
+        "additionalProperties": false
+      },
+      "RadioFacets": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RadioFacet"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "AddRadioStation": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "streamUrl": {
+            "type": "string",
+            "maxLength": 2000,
+            "format": "uri"
+          },
+          "homepage": {
+            "default": null,
+            "nullable": true,
+            "type": "string",
+            "maxLength": 2000,
+            "format": "uri"
+          }
+        },
+        "required": [
+          "name",
+          "streamUrl",
+          "homepage"
+        ],
+        "additionalProperties": false
+      },
+      "RadioNowPlaying": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "nullable": true,
+            "type": "string"
+          },
+          "artist": {
+            "nullable": true,
+            "type": "string"
+          },
+          "song": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "artist",
+          "song"
+        ],
+        "additionalProperties": false
+      },
+      "RadioCodec": {
+        "type": "string",
+        "enum": [
+          "mp3",
+          "aac"
+        ]
       }
     }
   }

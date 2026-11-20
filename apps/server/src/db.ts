@@ -205,6 +205,16 @@ CREATE TABLE IF NOT EXISTS scrobble_accounts (
   PRIMARY KEY (user_id, service)
 );
 
+-- A user's favourite radio stations, with what they were when last seen (the directory may
+-- be unreachable, and a station added by its address exists only here).
+CREATE TABLE IF NOT EXISTS radio_favourites (
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  station_id TEXT NOT NULL,
+  station    TEXT NOT NULL,             -- JSON, see StationRecord in radio/radio.ts
+  added_at   TEXT NOT NULL,
+  PRIMARY KEY (user_id, station_id)
+);
+
 -- Listens waiting to be sent; a row is deleted once the service has it.
 CREATE TABLE IF NOT EXISTS scrobbles (
   user_id         TEXT NOT NULL,
