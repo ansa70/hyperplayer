@@ -524,4 +524,38 @@ export const it: Record<string, Translation> = {
   "sound effects": "effetti sonori",
   loops: "loop",
   samples: "campionamenti",
+
+  // Radio (the same words as the Rust player's).
+  Radio: "Radio",
+  "On the radio": "In radio",
+  "Connecting…": "Connessione…",
+  Stopped: "Ferma",
+  LIVE: "IN DIRETTA",
+  "Back to the queue": "Torna alla coda",
+  "Station's website": "Sito della stazione",
+  "Added by you": "Aggiunta da te",
+  "Remove from favourites": "Togli dai preferiti",
+  "Add to favourites": "Aggiungi ai preferiti",
+  "Give the station a name and an address starting with http:// or https://.":
+    "Dai un nome alla stazione e un indirizzo che inizi con http:// o https://.",
+  "{} was added to your favourites.": "{} è stata aggiunta ai tuoi preferiti.",
+  "A station that isn't in the directory: its stream's address (or a .pls / .m3u playlist of it). Only you will see it.":
+    "Una stazione che non è nell'elenco: l'indirizzo del suo stream (o di una sua playlist .pls / .m3u). La vedrai solo tu.",
+  Name: "Nome",
+  Add: "Aggiungi",
+  "The radio directory can't be reached right now. Your favourites still play.":
+    "L'elenco delle radio non è raggiungibile in questo momento. I tuoi preferiti si possono ascoltare comunque.",
+  "No stations match.": "Nessuna stazione corrisponde.",
+  "Add a station…": "Aggiungi una stazione…",
+  Favourites: "Preferiti",
+  Stations: "Stazioni",
+  "Search stations by name": "Cerca stazioni per nome",
+  "All countries": "Tutti i paesi",
+  "All genres": "Tutti i generi",
+  Popular: "Più ascoltate",
+  Trending: "Di tendenza",
+  "More stations": "Altre stazioni",
+  "Stations come from radio-browser.info, a free directory anyone can add to.":
+    "Le stazioni vengono da radio-browser.info, un elenco libero a cui chiunque può aggiungerne.",
+  "{} stopped sending audio.": "{} ha smesso di trasmettere.",
 };

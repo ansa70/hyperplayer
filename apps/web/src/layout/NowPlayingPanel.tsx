@@ -7,6 +7,8 @@ import { Spectrum } from "../components/Spectrum.tsx";
 import { usePlayer } from "../stores/player.ts";
 import { t } from "../i18n.ts";
 import { roles, years } from "../roles.ts";
+import { useRadio } from "../stores/radio.ts";
+import { RadioPanel } from "./Radio.tsx";
 
 /** How often, and how many times, to ask again while the server is still looking details up. */
 const POLL_EVERY = 2000;
@@ -57,6 +59,8 @@ function artistMeta(np: NowPlaying): string {
 export function NowPlayingPanel() {
   const track = usePlayer((s) => s.track);
   const np = useNowPlaying();
+  const live = useRadio((s) => s.live !== null);
+  if (live) return <RadioPanel />;
   if (!track) {
     return (
       <aside className="now-playing">

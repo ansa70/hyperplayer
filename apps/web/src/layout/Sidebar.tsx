@@ -140,6 +140,9 @@ export function Sidebar() {
         <NavLink to="/history" className="nav-row">
           <Icon name="history" size={18} /> {t("History")}
         </NavLink>
+        <NavLink to="/radio" className="nav-row">
+          <Icon name="radio" size={18} /> {t("Radio")}
+        </NavLink>
         {uploadsOn && (
           <NavLink to="/uploads" className="nav-row">
             <Icon name="upload" size={18} /> {t("Uploads")}

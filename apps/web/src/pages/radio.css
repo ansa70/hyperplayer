@@ -1,0 +1,137 @@
+.radio-heading {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 24px 0 10px;
+}
+.stations {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.station-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.station-row:hover {
+  background: var(--surface-hi);
+}
+.station-row.playing .station-name,
+.station-playing {
+  color: var(--accent);
+}
+.station-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.station-name {
+  font-weight: 600;
+}
+.station-text .muted {
+  font-size: 12px;
+}
+.station-logo {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16%;
+  background: var(--surface-hi);
+  overflow: hidden;
+}
+.station-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.icon-button.star.on {
+  color: var(--accent);
+}
+.icon-button.star.on svg {
+  fill: currentColor;
+}
+.radio-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0 12px;
+}
+.radio-filters select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-hi);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 8px;
+  max-width: 240px;
+}
+.radio-more {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+}
+.radio-credit {
+  font-size: 12px;
+  margin-top: 24px;
+}
+.add-station {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 4px 16px 16px;
+  margin-bottom: 8px;
+}
+.add-station-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.add-station-fields input {
+  flex: 1 1 200px;
+}
+.add-station .error {
+  margin-bottom: 0;
+}
+
+/* The station in the Now Playing panel, the bar and the phone's player. */
+.live-text {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-align: center;
+}
+.station-logo.now-playing-cover,
+.station-logo.sheet-cover {
+  background: var(--surface);
+}
+.radio-panel-name {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.radio-panel-name > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.radio-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.accent-link {
+  color: var(--accent);
+}
+/* A station has fewer buttons than a track: they sit together in the middle. */
+.controls.radio-controls,
+.controls.large.radio-controls {
+  justify-content: center;
+  gap: 24px;
+}

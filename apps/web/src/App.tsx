@@ -11,11 +11,13 @@ import { Login } from "./pages/Login.tsx";
 import { Playlist } from "./pages/Playlist.tsx";
 import { Playlists } from "./pages/Playlists.tsx";
 import { Queue } from "./pages/Queue.tsx";
+import { Radio } from "./pages/Radio.tsx";
 import { Search } from "./pages/Search.tsx";
 import { Settings } from "./pages/Settings.tsx";
 import { Uploads } from "./pages/Uploads.tsx";
 import { useLibrary } from "./stores/library.ts";
 import { usePlayer } from "./stores/player.ts";
+import { useRadio } from "./stores/radio.ts";
 import { useSession } from "./stores/session.ts";
 import { useLanguage } from "./i18n.ts";
 
@@ -35,7 +37,10 @@ export function App() {
       void usePlayer.getState().loadQueue();
       void useLibrary.getState().loadPlaylists();
       void useLibrary.getState().loadUploads();
-    } else if (status === "signed-out") usePlayer.getState().stop();
+    } else if (status === "signed-out") {
+      useRadio.getState().leave();
+      usePlayer.getState().stop();
+    }
   }, [status]);
 
   useEffect(() => {
@@ -59,6 +64,7 @@ export function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="lyrics" element={<Lyrics />} />
           <Route path="history" element={<History />} />
+          <Route path="radio" element={<Radio />} />
           <Route path="uploads" element={<Uploads />} />
           <Route path="*" element={<Home />} />
         </Route>

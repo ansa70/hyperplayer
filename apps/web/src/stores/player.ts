@@ -17,6 +17,7 @@ import { canFade, fade, prepareOutput, setLevel, stopFade } from "../player/outp
 import { chooseStream, type Mode } from "../player/quality.ts";
 import { compute, label, UNITY, type Applied, type RgMode } from "../player/replaygain.ts";
 import { t } from "../i18n.ts";
+import { radioElement, radioHooks } from "../player/radioElement.ts";
 
 interface PlayerState {
   queue: QueueState | null;
@@ -104,6 +105,7 @@ function applyLevels() {
     gains[slot] = l ? compute(l.track.replayGain, rgMode, inAlbumOrder(), preamp) : UNITY;
     setLevel(e, volume, gains[slot]!.linear);
   });
+  if (radioElement) setLevel(radioElement, volume, 1);
   usePlayer.setState({ rgLabel: label(gains[active]!) });
 }
 let lastSaved = 0;
@@ -551,9 +553,10 @@ elements.forEach((e, slot) => {
 // element. The first tap or key unlocks both, so later starts (after a request) play.
 if (typeof document !== "undefined") {
   const unlock = () => {
-    prepareOutput(elements);
+    const all = radioElement ? [...elements, radioElement] : elements;
+    prepareOutput(all);
     applyLevels();
-    for (const e of elements) {
+    for (const e of all) {
       if (e.src) continue;
       e.src = SILENCE;
       e.play()
@@ -572,8 +575,15 @@ if (typeof document !== "undefined") {
 
 // ------------------------------------------------------------- media session
 
+/** Shows the queue's track in the system's media controls again (after a station). */
+export function restoreMediaMetadata() {
+  const track = usePlayer.getState().track;
+  if (track) mediaMetadata(track);
+  else if ("mediaSession" in navigator) navigator.mediaSession.metadata = null;
+}
+
 function mediaMetadata(track: Track) {
-  if (!("mediaSession" in navigator)) return;
+  if (!("mediaSession" in navigator) || radioHooks.live()) return;
   navigator.mediaSession.metadata = new MediaMetadata({
     title: track.title,
     artist: track.artistName,
@@ -606,11 +616,12 @@ function mediaPosition(position: number, track: Track) {
 if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
   const p = () => usePlayer.getState();
   const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
-    ["play", () => p().toggle()],
-    ["pause", () => p().toggle()],
-    ["nexttrack", () => void p().next()],
-    ["previoustrack", () => void p().previous()],
-    ["seekto", (d) => d.seekTime !== undefined && p().seek(d.seekTime)],
+    // A station takes play and pause; it has no next, previous or position.
+    ["play", () => (radioHooks.live() ? radioHooks.toggle() : p().toggle())],
+    ["pause", () => (radioHooks.live() ? radioHooks.toggle() : p().toggle())],
+    ["nexttrack", () => radioHooks.live() || void p().next()],
+    ["previoustrack", () => radioHooks.live() || void p().previous()],
+    ["seekto", (d) => !radioHooks.live() && d.seekTime !== undefined && p().seek(d.seekTime)],
   ];
   for (const [action, handler] of handlers) {
     try {

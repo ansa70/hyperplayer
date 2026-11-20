@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { getAnalyser } from "../player/output.ts";
 import { usePlayer } from "../stores/player.ts";
 import { useSession } from "../stores/session.ts";
+import { useRadio } from "../stores/radio.ts";
 
 // As the Rust player's (apps/client/src/spectrum.rs): 28 bands spaced evenly in pitch
 // from 40 Hz to 16 kHz, each its loudest bin, from −75 to −15 dB, quick to rise and
@@ -15,7 +16,9 @@ const TOP_DB = -15;
 /** The live spectrum under the cover; nothing where the browser's audio isn't routed through Web Audio. */
 export function Spectrum({ height = 44 }: { height?: number }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const playing = usePlayer((s) => s.playing);
+  const trackPlaying = usePlayer((s) => s.playing);
+  const radioPlaying = useRadio((s) => s.playing);
+  const playing = trackPlaying || radioPlaying;
   const enabled = useSession((s) => s.preferences?.visualizer ?? true);
 
   useEffect(() => {
