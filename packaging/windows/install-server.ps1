@@ -1,12 +1,13 @@
-# Installs or updates the HyperPlayer server on Windows, as the installer's Server component
-# does: the "HyperPlayer" service (hyperplayer-service.exe) with its own Node.js, sharp and
-# ffmpeg, settings in %ProgramData%\HyperPlayer\server.env and its data next to them.
+# Installs or updates the HyperPlayer server on Windows (also one put in place by the NSIS
+# installer of 0.6.0 and earlier): the "HyperPlayer" service (hyperplayer-service.exe) with
+# its own Node.js, sharp and ffmpeg, settings in %ProgramData%\HyperPlayer\server.env and
+# its data next to them.
 #
 # In an administrator PowerShell (right-click Start, Terminal (Admin)):
 #
 #   irm https://github.com/ansa70/hyperplayer/releases/download/v<version>/install-server.ps1 | iex
 #
-# It asks for the settings, as the installer's pages do. Unattended, pass them instead
+# It asks for the settings. Unattended, pass them instead
 # (-Library, or -KeepSettings for an update, and nothing is asked):
 #
 #   & ([scriptblock]::Create((irm <url>))) -Library 'D:\Music;\\nas\Music' -Tls off

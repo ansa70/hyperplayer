@@ -1,7 +1,6 @@
 # Builds the release downloads with the scripts in packaging/: the Linux bundle (with the
-# player's .deb and Flatpak), the Windows installer and the macOS disk images (Apple
-# Silicon and Intel, each built on its own kind of Mac), and for Windows also the server
-# alone with its install script (install-server.ps1). The player's Microsoft Store
+# player's .deb and Flatpak), the macOS disk images (Apple Silicon and Intel, each built
+# on its own kind of Mac) and the Windows server with its install script (install-server.ps1). The player's Microsoft Store
 # package (store-msix) is a run artifact only, to upload to Partner Center by hand. The
 # server's Docker image is built from the Linux bundle and, for a tag, pushed to
 # ghcr.io/<owner>/hyperplayer (the version and latest); compose.yaml, which uses it, goes
@@ -12,8 +11,8 @@
 # (Actions → Release → Run workflow), it only builds them, as the run's artifacts.
 #
 # Windows files are signed through SignPath Foundation once the repository variable
-# SIGNPATH_ORGANIZATION_ID and the secret SIGNPATH_API_TOKEN are set: our programs first,
-# then the installer built from them (artifact configurations in packaging/windows/signpath).
+# SIGNPATH_ORGANIZATION_ID and the secret SIGNPATH_API_TOKEN are set: our programs, before
+# they're packed (artifact configuration in packaging/windows/signpath).
 # A tag uses the release-signing policy, which waits for an approval in SignPath for
 # each request; a run by hand uses test-signing (a test certificate, no approval).
 name: Release
@@ -121,7 +120,7 @@ jobs:
           tool: cargo-xwin
 
       - name: Install system packages
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang lld llvm nsis zip unzip
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang lld llvm zip unzip
 
       - run: packaging/windows/build.sh stage
 
@@ -133,7 +132,6 @@ jobs:
           name: windows-programs-unsigned
           path: |
             release/windows/hyperplayer.exe
-            release/windows/uninstall.exe
             release/windows/server/hyperplayer-service.exe
           if-no-files-found: error
 
@@ -165,42 +163,12 @@ jobs:
             release/windows/server
           if-no-files-found: error
 
-      - run: packaging/windows/build.sh installer
-
-      - name: Upload the installer to sign
-        id: installer
-        if: env.SIGN == 'true'
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          path: release/hyperplayer-${{ env.VERSION }}-windows-x64-setup.exe
-          archive: false
-          if-no-files-found: error
-
-      - name: Sign the installer
-        if: env.SIGN == 'true'
-        uses: signpath/github-action-submit-signing-request@v3.0
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: hyperplayer
-          signing-policy-slug: ${{ env.SIGNING_POLICY }}
-          artifact-configuration-slug: installer
-          github-artifact-id: ${{ steps.installer.outputs.artifact-id }}
-          parameters: |
-            version: "${{ env.VERSION }}"
-          wait-for-completion-timeout-in-seconds: 3600
-          output-artifact-directory: release/signed-installer
-          skip-decompress: true
-
-      - name: Use the signed installer
-        if: env.SIGN == 'true'
-        run: mv release/signed-installer/hyperplayer-"$VERSION"-windows-x64-setup.exe release/
+      - run: packaging/windows/build.sh package
 
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: release-windows
           path: |
-            release/hyperplayer-${{ env.VERSION }}-windows-x64-setup.exe
             release/hyperplayer-${{ env.VERSION }}-windows-x64-server.zip
             release/install-server.ps1
           if-no-files-found: error

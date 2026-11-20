@@ -32,7 +32,7 @@ HyperPlayer is in beta (0.6.0).
 | Platform                                        | Download                                                                                                                                                                                                                                          |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Linux (x86-64)                                  | [Server and player](https://github.com/ansa70/hyperplayer/releases/download/v0.6.0/hyperplayer-0.6.0-linux-x64.tar.gz) · [Player only (Flatpak)](https://github.com/ansa70/hyperplayer/releases/download/v0.6.0/hyperplayer-0.6.0-x86_64.flatpak) |
-| Windows 10 and 11 (x64)                         | [Player (Microsoft Store)](https://apps.microsoft.com/detail/9MZB5KGB92RD) · [Server](#windows) · [Installer](https://github.com/ansa70/hyperplayer/releases/download/v0.6.0/hyperplayer-0.6.0-windows-x64-setup.exe)                             |
+| Windows 10 and 11 (x64)                         | [Player (Microsoft Store)](https://apps.microsoft.com/detail/9MZB5KGB92RD) · [Server](#the-server-on-windows)                                                                                                                                     |
 | macOS 11 or newer (player only, not tested yet) | [Apple silicon](https://github.com/ansa70/hyperplayer/releases/download/v0.6.0/hyperplayer-0.6.0-macos-arm64.dmg) · [Intel](https://github.com/ansa70/hyperplayer/releases/download/v0.6.0/hyperplayer-0.6.0-macos-x64.dmg)                       |
 
 Checksums and earlier versions are on the [releases page](https://github.com/ansa70/hyperplayer/releases).
@@ -43,16 +43,14 @@ Each release has these downloads:
 
 - `hyperplayer-<version>-linux-x64.tar.gz`: the server and the player for Linux (x86-64).
 - `hyperplayer-<version>-x86_64.flatpak`: the player alone, as a Flatpak for any Linux distribution.
-- `hyperplayer-<version>-windows-x64-setup.exe`: the player and the server for Windows 10 and 11 (x64).
-- `install-server.ps1` and `hyperplayer-<version>-windows-x64-server.zip`: the server alone for Windows,
-  installed by the script (see below).
 - `compose.yaml`: the server in Docker, from the image `ghcr.io/ansa70/hyperplayer` (see below, for
   Windows; on Linux the installer sets up Docker for you).
+- `install-server.ps1` and `hyperplayer-<version>-windows-x64-server.zip`: the server as a Windows service,
+  installed by the script (see below).
 - `hyperplayer-<version>-macos-arm64.dmg` and `-macos-x64.dmg`: the player for macOS 11 or newer, on Apple
   silicon and Intel Macs.
 
-On Windows the player comes from the [Microsoft Store](https://apps.microsoft.com/detail/9MZB5KGB92RD)
-instead.
+On Windows the player comes from the [Microsoft Store](https://apps.microsoft.com/detail/9MZB5KGB92RD).
 
 There are two ways to use HyperPlayer:
 
@@ -115,10 +113,12 @@ for one, has stopped the server's Windows service). A server, in Docker or as a 
 library shared by several devices or the household; a standalone player can still bring a server's music
 in later.
 
-#### The server in Docker
+#### The server on Windows
 
-The easiest way to run the server on Windows is in a Docker container: nothing is installed in Windows
-itself (no service, nothing for an antivirus to stop), and updating is one command.
+The server runs either in Docker (recommended) or as a Windows service.
+
+**In Docker**, nothing is installed in Windows itself (no service, nothing for an antivirus to stop), and
+updating is one command:
 
 1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/). In its settings, turn on
    **Start Docker Desktop when you sign in to your computer**: the server runs while Docker Desktop does,
@@ -140,15 +140,10 @@ network is set to **Private** in Windows. After changing `compose.yaml`, run `do
 To update, in the same folder: `docker compose pull`, then `docker compose up -d`. To remove it:
 `docker compose down` (add `--volumes` to delete the server's data too).
 
-#### The server as a Windows service
-
-> [!WARNING]
-> The script is new and hasn't been tested yet. Until it has, use Docker or the installer below.
-
-Without Docker, the server runs as the "HyperPlayer server" service, which starts with Windows. Some
-antivirus programs stop it; if yours does, use Docker or a standalone player instead. A
-PowerShell script installs it; open an administrator PowerShell (right-click **Start**, **Terminal
-(Admin)**) and run:
+**As a Windows service**, without Docker, the server runs as the "HyperPlayer server" service, which
+starts with Windows. Some antivirus programs stop it; if yours does, use Docker or a standalone player
+instead. A PowerShell script installs it; open an administrator PowerShell (right-click **Start**,
+**Terminal (Admin)**) and run:
 
 ```powershell
 irm https://github.com/ansa70/hyperplayer/releases/download/v0.6.0/install-server.ps1 | iex
@@ -172,14 +167,10 @@ opened for private and domain networks). The server's settings are in
 next to them. To remove it, use **Settings → Apps → Installed apps** (_HyperPlayer server_), or run the
 script with `-Uninstall`.
 
-#### The installer
-
-`hyperplayer-<version>-windows-x64-setup.exe` installs the player, which plays the music on this PC by
-itself, and, if you tick **Server (Windows service)**, the server too, asking the same questions as the
-script. It isn't signed, so Windows SmartScreen warns about it: click **More info**, then
-**Run anyway**. It needs administrator rights. To upgrade, run the new installer: it offers to keep the
-server's settings. To remove HyperPlayer, use **Settings → Apps → Installed apps**; it asks before deleting
-the server's data.
+Up to 0.6.0 there was also a Windows installer (`setup.exe`) with the player and the server; it isn't
+made any more. To move off it, remove _HyperPlayer_ in **Settings → Apps → Installed apps** (answer **No**
+when it asks whether to delete the server's data), then get the player from the Store and, if you had the
+server, run the script above: it finds the kept settings and library.
 
 ### macOS
 
@@ -290,12 +281,12 @@ and `install.sh`.
   `/etc/hyperplayer` and `/opt/hyperplayer/compose.yaml`, readable by root only. Docker in an unprivileged
   Proxmox LXC can't mount SMB: mount the share on the Proxmox host and pass the folder in instead.
 
-`packaging/windows/build.sh` cross-compiles the Windows release from Linux (needs `clang lld llvm nsis`,
-the `x86_64-pc-windows-msvc` Rust target and `cargo install cargo-xwin`; the C runtime is linked in, so
-nothing else is needed on the PC) and builds `release/hyperplayer-<version>-windows-x64-setup.exe` with
-NSIS (`build.sh stage` builds the programs and the uninstaller, `build.sh installer` packs them; releases
-sign in between), and the server alone for `packaging/windows/install-server.ps1`. The player's Microsoft
-Store package is made from the same `hyperplayer.exe` by `packaging/windows/build-msix.ps1`, on Windows.
+`packaging/windows/build.sh` cross-compiles the Windows release from Linux (needs `clang lld llvm`, the
+`x86_64-pc-windows-msvc` Rust target and `cargo install cargo-xwin`; the C runtime is linked in, so nothing
+else is needed on the PC): the player and the server (`build.sh stage`), then the server's zip for
+`packaging/windows/install-server.ps1` (`build.sh package`; releases sign in between). The player's
+Microsoft Store package is made from that `hyperplayer.exe` by `packaging/windows/build-msix.ps1`, on
+Windows.
 The server is bundled with Windows builds of Node.js, sharp and ffmpeg, and run as a service by
 `apps/winservice` (`hyperplayer-service.exe`), which also connects the network shares with the saved
 credentials; settings and data are in `%ProgramData%\HyperPlayer`, readable only by administrators and the

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- SignPath artifact configuration "programs": the release workflow's first signing
-     request, our own programs before they go into the installer. The bundled Node.js
+<!-- SignPath artifact configuration "programs": the release workflow's signing request,
+     our own programs before they're packed. The bundled Node.js
      (signed by its makers), FFmpeg and sharp aren't sent. -->
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
   <parameters>
@@ -8,9 +8,6 @@
   </parameters>
   <zip-file>
     <pe-file path="hyperplayer.exe" product-name="HyperPlayer" product-version="${version}">
-      <authenticode-sign />
-    </pe-file>
-    <pe-file path="uninstall.exe" product-name="HyperPlayer" product-version="${version}">
       <authenticode-sign />
     </pe-file>
     <pe-file path="server/hyperplayer-service.exe" product-name="HyperPlayer" product-version="${version}">
