@@ -18,6 +18,7 @@ use types::{
     Artist, ArtistPage, AuthStatus, ConnectLastfm, ConnectListenBrainz, CreatePlaylist, DeviceList,
     HistoryStats, Jump, LastfmAuthorization, LibraryStatus, ListenPage, Lyrics, Me, MoveEntry,
     NowPlaying, Ok as OkResponse, PlayingNow, Playlist, PlaylistList, Preferences, QueueState,
+    RadioFacets, RadioNowPlaying, RadioOrder, RadioStation, RadioStationList, RadioStationPage,
     RecordListen, RepeatMode, ScrobbleSettings, SearchResults, Session, SetQueue, ShuffleScope,
     Track, TrackSource, TrackTrim, UpdatePlaylist, UpdateQueue, User, UserList, Waveform,
 };
@@ -634,6 +635,77 @@ impl Api {
                 .map_err(|e| anyhow::anyhow!("invalid entry id: {e}"))?,
         };
         self.send(Method::POST, "/api/queue/jump", Some(&body))
+    }
+
+    // ----------------------------------------------------------------- radio
+
+    /// A page of the directory's stations; empty filters are left out.
+    pub fn radio_search(
+        &self,
+        query: &str,
+        country: &str,
+        tag: &str,
+        order: RadioOrder,
+        offset: usize,
+        limit: usize,
+    ) -> Result<RadioStationPage> {
+        let mut path = format!("/api/radio/stations?order={order}&offset={offset}&limit={limit}");
+        for (key, value) in [("q", query), ("country", country), ("tag", tag)] {
+            if !value.is_empty() {
+                path.push_str(&format!("&{key}={}", url_encode(value)));
+            }
+        }
+        self.get(&path)
+    }
+
+    pub fn radio_station(&self, id: &str) -> Result<RadioStation> {
+        self.get(&format!("/api/radio/stations/{id}"))
+    }
+
+    /// Adds a station by its stream address (the caller's only, among their favourites).
+    pub fn add_radio_station(&self, name: &str, stream_url: &str) -> Result<RadioStation> {
+        let body = serde_json::json!({ "name": name, "streamUrl": stream_url });
+        self.send(Method::POST, "/api/radio/stations", Some(&body))
+    }
+
+    pub fn radio_countries(&self) -> Result<RadioFacets> {
+        self.get("/api/radio/countries")
+    }
+
+    pub fn radio_tags(&self, limit: usize) -> Result<RadioFacets> {
+        self.get(&format!("/api/radio/tags?limit={limit}"))
+    }
+
+    pub fn radio_favourites(&self) -> Result<RadioStationList> {
+        self.get("/api/radio/favourites")
+    }
+
+    pub fn add_radio_favourite(&self, id: &str) -> Result<RadioStation> {
+        self.send::<_, ()>(Method::PUT, &format!("/api/radio/favourites/{id}"), None)
+    }
+
+    /// Takes a station out of the favourites (one the caller added is deleted).
+    pub fn remove_radio_favourite(&self, id: &str) -> Result<()> {
+        self.send::<OkResponse, ()>(Method::DELETE, &format!("/api/radio/favourites/{id}"), None)
+            .map(|_| ())
+    }
+
+    pub fn radio_now_playing(&self, id: &str) -> Result<RadioNowPlaying> {
+        self.get(&format!("/api/radio/stations/{id}/now-playing"))
+    }
+
+    pub fn radio_logo(&self, id: &str, size: u32) -> Result<Vec<u8>> {
+        self.bytes(&format!("/api/radio/stations/{id}/logo?size={size}"))
+    }
+
+    /// A station's live audio: MP3 as the station sends it, anything else transcoded to
+    /// MP3 at `kbps` (the AAC decoder doesn't do HE-AAC, which many stations send).
+    pub fn radio_stream_url(&self, id: &str, direct: bool, kbps: u32) -> String {
+        let direct = if direct { "mp3" } else { "" };
+        format!(
+            "{}/api/radio/stations/{id}/stream?direct={direct}&format=mp3&bitrate={kbps}",
+            self.base
+        )
     }
 
     pub fn stream_client(&self) -> reqwest::blocking::Client {

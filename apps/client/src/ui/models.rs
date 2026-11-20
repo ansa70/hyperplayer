@@ -118,7 +118,10 @@ pub fn spawn_image_worker() -> mpsc::Sender<ImageJob> {
 fn decode(api: &Api, job: &ImageJob) -> anyhow::Result<SharedPixelBuffer<Rgba8Pixel>> {
     // Backdrops only need a tiny source: blurred and upscaled by the renderer they look smooth.
     let fetch_size = if job.blur { 64 } else { job.size };
-    let bytes = api.artwork(&job.artwork_id, fetch_size)?;
+    let bytes = match job.artwork_id.strip_prefix(RADIO_LOGO) {
+        Some(station) => api.radio_logo(station, fetch_size)?,
+        None => api.artwork(&job.artwork_id, fetch_size)?,
+    };
     let mut img = image::load_from_memory(&bytes)?;
     if job.blur {
         img = img.resize(48, 48, FilterType::Triangle).blur(5.0);
@@ -133,6 +136,29 @@ fn decode(api: &Api, job: &ImageJob) -> anyhow::Result<SharedPixelBuffer<Rgba8Pi
         rgba.width(),
         rgba.height(),
     ))
+}
+
+/// Marks a job's id as a radio station's (its logo), not an artwork's.
+const RADIO_LOGO: &str = "radio:";
+
+/// A station's logo, when it has one.
+pub fn load_radio_logo(
+    app: &App,
+    station: &types::RadioStation,
+    size: u32,
+    apply: ApplyImage,
+    wanted: Option<Box<dyn Fn() -> bool + Send>>,
+) {
+    if station.has_logo {
+        let _ = app.images.send(ImageJob {
+            api: app.api.clone(),
+            artwork_id: format!("{RADIO_LOGO}{}", *station.id),
+            size,
+            blur: false,
+            apply,
+            wanted,
+        });
+    }
 }
 
 pub fn load_image(

@@ -9,7 +9,7 @@ use hyperplayer::{
 use slint::{Image, Model, ModelRc, SharedString, Timer, VecModel};
 
 use super::{
-    AddItem, App, Page, PlaylistItem, PlaylistView, TrackItem, background, current_track,
+    AddItem, App, Page, PlaylistItem, PlaylistView, TrackItem, background,
     models::{fmt_duration, load_image},
     playback::{Then, play_from, queue_op, repeat_mode},
     set_status, with_app,
@@ -72,7 +72,7 @@ fn show_playlist(app: &mut App, p: types::Playlist, open: bool) {
     if !open && !shown {
         return;
     }
-    let playing = current_track(app).map(|t| t.id.to_string());
+    let playing = super::playing_track(app).map(|t| t.id.to_string());
     let rows: Vec<TrackItem> = p
         .entries
         .iter()

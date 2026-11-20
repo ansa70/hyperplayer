@@ -12,6 +12,7 @@ mod local;
 mod lyrics;
 mod models;
 mod playback;
+mod radio;
 mod settings;
 mod smart;
 mod trim;
@@ -114,6 +115,8 @@ pub struct App {
     /// The signed-in user is an admin: they may change the library (e.g. trim tracks).
     admin: bool,
     trim: trim::Trimming,
+    /// The Radio page and the station playing, if one is.
+    radio: radio::Radio,
 }
 
 thread_local! {
@@ -175,6 +178,11 @@ fn current_entry(app: &App) -> Option<&types::QueueEntry> {
 
 fn current_track(app: &App) -> Option<&types::Track> {
     current_entry(app).map(|e| &e.track)
+}
+
+/// The track to mark as playing in lists: the queue's current one, unless a station plays.
+fn playing_track(app: &App) -> Option<&types::Track> {
+    current_track(app).filter(|_| !radio::is_live(app))
 }
 
 fn current_entry_id(app: &App) -> Option<String> {
@@ -272,6 +280,7 @@ pub fn apply_language(setting: &str) {
     if settings_open {
         settings::load();
     }
+    radio::relabel();
 }
 
 /// Sets the language for both the Slint UI (once it exists) and the text built in Rust.
@@ -373,6 +382,7 @@ pub fn run() -> anyhow::Result<()> {
             crossfade: playback::Crossfade::default(),
             admin: false,
             trim: trim::Trimming::default(),
+            radio: radio::Radio::default(),
         })
     });
     ui.set_status(tr!("Connecting to {}…", server).into());
@@ -406,6 +416,15 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_show_history(history::toggle_page);
     ui.on_show_albums(albums::toggle_page);
     ui.on_show_settings(settings::toggle_page);
+    ui.on_show_radio(radio::toggle_page);
+    ui.on_radio_search_changed(radio::search_changed);
+    ui.on_radio_filter(radio::set_filters);
+    ui.on_radio_load_more(radio::load_more);
+    ui.on_radio_play(radio::play);
+    ui.on_radio_favourite(radio::set_favourite);
+    ui.on_radio_add(radio::add_station);
+    ui.on_radio_back_to_queue(radio::back_to_queue);
+    ui.on_radio_open_homepage(radio::open_homepage);
     settings::init(&ui);
     window::init(&ui, system_title_bar);
     visuals::init(&ui);

@@ -153,7 +153,7 @@ pub fn search_changed(text: SharedString) {
                         },
                         |ui| ui.get_search_albums(),
                     ));
-                    let playing = current_track(app).map(|t| t.id.to_string());
+                    let playing = super::playing_track(app).map(|t| t.id.to_string());
                     ui.set_search_tracks(search_track_model(&results.tracks, playing.as_deref()));
                     app.search_tracks = results.tracks;
                     ui.set_page(Page::Search);
@@ -244,7 +244,7 @@ pub fn select_album(id: SharedString) {
         move |album| {
             with_app(|app| {
                 let Some(ui) = app.ui.upgrade() else { return };
-                let playing = current_track(app).map(|t| t.id.to_string());
+                let playing = super::playing_track(app).map(|t| t.id.to_string());
                 ui.set_album(AlbumView {
                     id: id.clone(),
                     title: album.title.clone().into(),
@@ -303,8 +303,10 @@ pub fn show_now_playing(app: &mut App, np: types::NowPlaying) {
     let Some(ui) = app.ui.upgrade() else { return };
     let t = &np.track;
     let track_id: SharedString = (*t.id).clone().into();
-    // Ignore responses for a track that is no longer playing.
-    if current_track(app).map(|q| q.id.as_str()) != Some(t.id.as_str()) {
+    // Ignore responses for a track that is no longer playing (or while a station plays).
+    if current_track(app).map(|q| q.id.as_str()) != Some(t.id.as_str())
+        || super::radio::is_live(app)
+    {
         return;
     }
     let previous = ui.get_np();

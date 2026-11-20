@@ -11,7 +11,7 @@ use hyperplayer::{api::types, tr, trn};
 use slint::{Model, ModelRc, VecModel};
 
 use super::{
-    App, AppWindow, Page, TrackItem, background, current_track,
+    App, AppWindow, Page, TrackItem, background,
     models::{artist_model, fmt_duration},
     with_app,
 };
@@ -183,7 +183,7 @@ fn show(app: &mut App, stats: types::HistoryStats, recent: types::ListenPage) {
     }
     ui.set_history_artists(model);
 
-    let playing = current_track(app).map(|t| t.id.to_string());
+    let playing = super::playing_track(app).map(|t| t.id.to_string());
     let row = |i: usize, t: &types::Track, detail: String| TrackItem {
         number: (i + 1).to_string().into(),
         title: t.title.clone().into(),
@@ -214,7 +214,7 @@ fn show(app: &mut App, stats: types::HistoryStats, recent: types::ListenPage) {
 
 /// Marks the playing track in the History page's lists.
 pub fn refresh_playing(app: &App, ui: &AppWindow) {
-    let playing = current_track(app).map(|t| t.id.as_str());
+    let playing = super::playing_track(app).map(|t| t.id.as_str());
     for (model, tracks) in [
         (ui.get_history_top(), &app.history_top),
         (ui.get_history_recent(), &app.history_recent),

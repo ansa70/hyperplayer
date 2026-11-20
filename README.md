@@ -17,6 +17,9 @@ anywhere, and to any browser, phones included.
   device to the next.
 - **While it plays:** synced lyrics, a waveform seek bar, a live spectrum, colours taken from the cover,
   and the desktop's media keys and controls.
+- **Internet radio:** tens of thousands of free stations from the [Radio Browser](https://www.radio-browser.info)
+  directory, by country, language and genre, with favourites and the song playing. Stations not listed can
+  be added by their address. The server relays them, so any format plays (in the desktop player for now).
 - **Listening history** with your most played tracks and artists, and scrobbling to ListenBrainz and
   Last.fm (including "now playing").
 - **In the browser too:** the server serves a web player at its address, laid out like the desktop

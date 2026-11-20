@@ -503,7 +503,7 @@ fn disconnect_lastfm() {
     );
 }
 
-fn open_in_browser(url: &str) {
+pub(super) fn open_in_browser(url: &str) {
     let mut command = if cfg!(target_os = "windows") {
         // Not `cmd /C start`: cmd would cut the URL at its first `&`.
         let mut c = Command::new("rundll32");

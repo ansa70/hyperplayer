@@ -117,3 +117,40 @@ pub fn open(
         });
     }
 }
+
+/// A station's live stream, opened and decoding.
+pub struct OpenedLive {
+    pub source: BufferedSource,
+    pub pipeline: PipelineHandle,
+    pub stream: StreamHandle,
+}
+
+/// Audio buffered before a station starts playing: about 4 s at 128 kbit/s.
+const LIVE_PREBUFFER: u64 = 64 * 1024;
+const LIVE_TIMEOUT: Duration = Duration::from_secs(25);
+
+/// Starts a station's live audio, as MP3 (`direct`: the station's own when it's MP3;
+/// anything else transcoded by the server at `kbps`). A live stream has no end, no
+/// length and can't seek.
+pub fn open_live(api: &Api, station_id: &str, direct: bool, kbps: u32) -> Result<OpenedLive> {
+    let url = api.radio_stream_url(station_id, direct, kbps);
+    let (reader, stream) = RemoteStream::open(api.stream_client(), url, false);
+    let stats = stream.wait_for(LIVE_PREBUFFER, LIVE_TIMEOUT)?;
+    if stats.downloaded == 0 {
+        stream.cancel();
+        anyhow::bail!("the station sent nothing");
+    }
+    let decoder = Decoder::builder()
+        .with_data(reader)
+        .with_seekable(false)
+        .with_hint("mp3")
+        .with_mime_type("audio/mpeg")
+        .build()
+        .context("decoding the station's audio")?;
+    let (source, pipeline) = pipeline::spawn(decoder);
+    Ok(OpenedLive {
+        source,
+        pipeline,
+        stream,
+    })
+}

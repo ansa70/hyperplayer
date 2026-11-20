@@ -87,7 +87,10 @@ pub fn start(hwnd: Option<*mut std::ffi::c_void>) -> Option<Desktop> {
 }
 
 fn is_playing() -> bool {
-    with_app(|app| app.session.is_some() && app.audio.as_ref().is_some_and(|a| !a.is_paused()))
+    with_app(|app| {
+        super::radio::is_playing(app)
+            || (app.session.is_some() && app.audio.as_ref().is_some_and(|a| !a.is_paused()))
+    })
 }
 
 fn handle(event: MediaControlEvent) {
@@ -124,6 +127,12 @@ fn signed(dir: SeekDirection, by: Duration) -> f64 {
 
 /// Called from the playback tick: publishes what changed since last time.
 pub fn sync(app: &mut App) {
+    if let Some((key, title, station, playing)) = super::radio::desktop_info(app) {
+        if let Some(desktop) = app.desktop.as_mut() {
+            sync_radio(desktop, key, &title, &station, playing);
+        }
+        return;
+    }
     let track = current_track(app).cloned();
     let playing = app.session.is_some() && app.audio.as_ref().is_some_and(|a| !a.is_paused());
     let position = app
@@ -194,6 +203,32 @@ pub fn sync(app: &mut App) {
         let _ = desktop.controls.set_playback(playback);
         desktop.state = state;
         desktop.published = (position, Instant::now());
+    }
+}
+
+/// A station: its song (or name) as the title, no length, no position.
+fn sync_radio(desktop: &mut Desktop, key: String, title: &str, station: &str, playing: bool) {
+    if desktop.track.as_deref() != Some(key.as_str()) {
+        desktop.track = Some(key);
+        let _ = desktop.controls.set_metadata(MediaMetadata {
+            title: Some(title),
+            artist: Some(station),
+            album: None,
+            cover_url: None,
+            duration: None,
+        });
+    }
+    let state = if playing {
+        State::Playing
+    } else {
+        State::Paused
+    };
+    if state != desktop.state {
+        let _ = desktop.controls.set_playback(match state {
+            State::Playing => MediaPlayback::Playing { progress: None },
+            _ => MediaPlayback::Paused { progress: None },
+        });
+        desktop.state = state;
     }
 }
 

@@ -56,7 +56,11 @@ fn frame(app: &mut App) {
         ui.set_visualizer(on);
     }
     let playing = app.audio.as_ref().is_some_and(|a| !a.is_paused());
-    let pipeline = app.session.as_ref().map(|s| &s.pipeline);
+    let pipeline = app
+        .session
+        .as_ref()
+        .map(|s| &s.pipeline)
+        .or_else(|| super::radio::pipeline(&app.radio));
     if let Some(p) = pipeline {
         // Recording costs the audio thread a little: only while someone looks.
         p.set_tap(on);

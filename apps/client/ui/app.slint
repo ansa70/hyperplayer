@@ -51,6 +51,19 @@ export struct TrackItem {
     available: bool,
 }
 
+/// A radio station in the Radio page's lists.
+export struct StationItem {
+    id: string,
+    name: string,
+    /// Country, genres, format.
+    detail: string,
+    logo: image,
+    favourite: bool,
+    playing: bool,
+    /// Added by the user from its address.
+    custom: bool,
+}
+
 export struct PlaylistItem {
     id: string,
     name: string,
@@ -137,7 +150,7 @@ export struct LoginState {
     can-go-back: bool,
 }
 
-export enum Page { welcome, artist, album, search, playlist, queue, lyrics, history, albums, settings }
+export enum Page { welcome, artist, album, search, playlist, queue, lyrics, history, albums, settings, radio }
 export enum LyricsState { loading, none, instrumental, plain, synced }
 
 export enum RepeatMode { off, all, one }
@@ -159,6 +172,12 @@ global Icons {
     // Lucide "user".
     out property <string> user: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M8 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0";
     out property <string> more: "M12 12h.01 M19 12h.01 M5 12h.01";
+    // Lucide "radio".
+    out property <string> radio: "M4.9 19.1C1 15.2 1 8.8 4.9 4.9 M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5 M10 12a2 2 0 1 0 4 0a2 2 0 1 0-4 0 M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5 M19.1 4.9C23 8.8 23 15.1 19.1 19";
+    // Lucide "star".
+    out property <string> star: "M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z";
+    // Lucide "undo-2".
+    out property <string> back: "M9 14 4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11";
     out property <string> settings: "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0";
     out property <string> switch-library: "M8 3L4 7l4 4 M4 7h16 M16 21l4-4-4-4 M20 17H4";
     out property <string> sign-out: "M16 17l5-5-5-5 M21 12H9 M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4";
@@ -711,6 +730,8 @@ component Sidebar inherits Rectangle {
     callback show-history();
     in property <bool> albums-open;
     callback show-albums();
+    in property <bool> radio-open;
+    callback show-radio();
     in property <bool> settings-open;
     callback show-settings();
     in property <string> selected-id;
@@ -774,6 +795,12 @@ component Sidebar inherits Rectangle {
                 text: @tr("History");
                 active: root.history-open;
                 clicked => { root.show-history(); }
+            }
+            NavRow {
+                icon: Icons.radio;
+                text: @tr("Radio");
+                active: root.radio-open;
+                clicked => { root.show-radio(); }
             }
             HorizontalLayout {
                 Text { text: @tr("PLAYLISTS"); color: Theme.faint; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; vertical-alignment: center; }
@@ -1358,6 +1385,213 @@ component Segmented inherits HorizontalLayout {
     }
 }
 
+/// A station's logo, or the radio icon while it has none.
+component StationLogo inherits Rectangle {
+    in property <image> source;
+    in property <length> size: 40px;
+    width: size;
+    height: size;
+    border-radius: size / 6;
+    background: Theme.surface-hi;
+    clip: true;
+    Path {
+        width: root.size * 0.5;
+        height: root.size * 0.5;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: Icons.radio;
+        fill: transparent;
+        stroke: Theme.faint;
+        stroke-width: 1.6px;
+        visible: root.source.width == 0;
+    }
+    Image { width: parent.width; height: parent.height; source: root.source; image-fit: contain; }
+}
+
+/// A star that adds to or takes out of the favourites.
+component FavouriteStar inherits Rectangle {
+    in property <bool> on;
+    in property <length> size: 28px;
+    callback toggled(bool);
+    width: size;
+    height: size;
+    border-radius: size / 2;
+    background: star-ta.has-hover ? Theme.surface-hi : transparent;
+    Path {
+        width: root.size * 0.6;
+        height: root.size * 0.6;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: Icons.star;
+        fill: root.on ? Theme.accent : transparent;
+        stroke: root.on ? Theme.accent : (star-ta.has-hover ? Theme.text : Theme.faint);
+        stroke-width: 1.8px;
+        stroke-line-join: round;
+    }
+    star-ta := TouchArea { mouse-cursor: pointer; clicked => { root.toggled(!root.on); } }
+}
+
+component StationRow inherits Rectangle {
+    in property <StationItem> station;
+    callback play();
+    callback favourite(bool);
+    height: 52px;
+    border-radius: 8px;
+    background: row-ta.has-hover ? Theme.surface-hi : transparent;
+    row-ta := TouchArea { mouse-cursor: pointer; clicked => { root.play(); } }
+    HorizontalLayout {
+        padding: 6px;
+        padding-right: 10px;
+        spacing: 12px;
+        StationLogo { source: station.logo; }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Text {
+                text: station.name;
+                color: station.playing ? Theme.accent : Theme.text;
+                font-size: 14px;
+                font-weight: 600;
+                overflow: elide;
+            }
+            Text { text: station.detail; color: Theme.muted; font-size: 11px; overflow: elide; }
+        }
+        if station.playing: Text { text: "♪"; color: Theme.accent; vertical-alignment: center; }
+        VerticalLayout {
+            alignment: center;
+            FavouriteStar { on: station.favourite; toggled(on) => { root.favourite(on); } }
+        }
+    }
+}
+
+component RadioPage inherits Rectangle {
+    in property <[StationItem]> favourites;
+    in property <[StationItem]> stations;
+    in property <[string]> countries;
+    in property <int> country;
+    in property <[string]> tags;
+    in property <int> tag;
+    in property <int> order;
+    in property <bool> more;
+    in property <bool> loading;
+    in property <string> message;
+    in-out property <bool> adding;
+    in-out property <string> add-name;
+    in-out property <string> add-url;
+    callback search-changed(string);
+    callback filter(int, int, int);
+    callback load-more();
+    callback play(string);
+    callback favourite(string, bool);
+    callback add(string, string);
+    Rectangle {
+        radio-scroll := ScrollView {
+            vertical-scrollbar-policy: always-off;
+            VerticalLayout {
+                alignment: start;
+                padding: 28px;
+                spacing: 16px;
+                HorizontalLayout {
+                    spacing: 12px;
+                    Text { text: @tr("Radio"); color: Theme.text; font-size: 28px; font-weight: 800; vertical-alignment: center; horizontal-stretch: 1; }
+                    VerticalLayout {
+                        alignment: center;
+                        OutlineButton {
+                            text: root.adding ? @tr("Cancel") : @tr("Add a station…");
+                            clicked => { root.adding = !root.adding; }
+                        }
+                    }
+                }
+                if root.adding: Rectangle {
+                    border-radius: Theme.radius;
+                    background: Theme.surface.with-alpha(0.8);
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 10px;
+                        Text {
+                            text: @tr("A station that isn't in the directory: its stream's address (or a .pls / .m3u playlist of it). Only you will see it.");
+                            color: Theme.muted;
+                            font-size: 12px;
+                            wrap: word-wrap;
+                        }
+                        HorizontalLayout {
+                            spacing: 10px;
+                            LineEdit { width: 220px; placeholder-text: @tr("Name"); text <=> root.add-name; }
+                            LineEdit { horizontal-stretch: 1; placeholder-text: "https://…"; text <=> root.add-url; accepted => { root.add(root.add-name, root.add-url); } }
+                            VerticalLayout {
+                                alignment: center;
+                                OutlineButton { text: @tr("Add"); clicked => { root.add(root.add-name, root.add-url); } }
+                            }
+                        }
+                    }
+                }
+                if root.favourites.length > 0: Text { text: @tr("Favourites"); color: Theme.text; font-size: 18px; font-weight: 700; }
+                if root.favourites.length > 0: VerticalLayout {
+                    spacing: 2px;
+                    for s in root.favourites: StationRow {
+                        station: s;
+                        play => { root.play(s.id); }
+                        favourite(on) => { root.favourite(s.id, on); }
+                    }
+                }
+                Text { text: @tr("Stations"); color: Theme.text; font-size: 18px; font-weight: 700; }
+                LineEdit {
+                    placeholder-text: @tr("Search stations by name");
+                    edited(text) => { root.search-changed(text); }
+                }
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    ComboBox {
+                        width: 220px;
+                        model: root.countries;
+                        current-index: root.country;
+                        selected => { root.filter(self.current-index, root.tag, root.order); }
+                    }
+                    ComboBox {
+                        width: 170px;
+                        model: root.tags;
+                        current-index: root.tag;
+                        selected => { root.filter(root.country, self.current-index, root.order); }
+                    }
+                    Segmented {
+                        options: [{ key: "0", label: @tr("Popular") }, { key: "1", label: @tr("Trending") }];
+                        selected: root.order == 1 ? "1" : "0";
+                        pick(key) => { root.filter(root.country, root.tag, key == "1" ? 1 : 0); }
+                    }
+                }
+                if root.message != "": Text { text: root.message; color: Theme.muted; font-size: 13px; wrap: word-wrap; }
+                VerticalLayout {
+                    spacing: 2px;
+                    for s in root.stations: StationRow {
+                        station: s;
+                        play => { root.play(s.id); }
+                        favourite(on) => { root.favourite(s.id, on); }
+                    }
+                }
+                if root.loading: Text { text: @tr("Loading…"); color: Theme.faint; font-size: 13px; }
+                if root.more && !root.loading: HorizontalLayout {
+                    alignment: center;
+                    OutlineButton { text: @tr("More stations"); clicked => { root.load-more(); } }
+                }
+                Text {
+                    text: @tr("Stations come from radio-browser.info, a free directory anyone can add to.");
+                    color: Theme.faint;
+                    font-size: 11px;
+                    wrap: word-wrap;
+                }
+            }
+        }
+        AccentScrollBar {
+            x: parent.width - self.width;
+            height: parent.height;
+            visible-height: radio-scroll.visible-height;
+            content-height: radio-scroll.content-height;
+            content-y <=> radio-scroll.content-y;
+        }
+    }
+}
+
 /// One kind of result in the playlist page's search, each with a button to add it.
 component AddSection inherits VerticalLayout {
     in property <string> heading;
@@ -1914,6 +2148,86 @@ component NowPlayingPanel inherits Rectangle {
     }
 }
 
+/// The Now Playing panel while a station plays.
+component RadioNowPanel inherits Rectangle {
+    in property <[float]> spectrum;
+    in property <bool> visualizer;
+    in property <StationItem> station;
+    in property <string> song;
+    in property <string> status;
+    in property <string> place;
+    in property <string> genres;
+    in property <string> homepage;
+    in property <bool> can-go-back;
+    callback favourite(string, bool);
+    callback open-homepage();
+    callback back-to-queue();
+    background: Theme.panel;
+    clip: true;
+    radio-np-scroll := ScrollView {
+        vertical-scrollbar-policy: always-off;
+        VerticalLayout {
+            alignment: start;
+            padding: 22px;
+            spacing: 14px;
+            Text { text: @tr("ON THE RADIO"); color: Theme.art-muted; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+            StationLogo {
+                source: root.station.logo;
+                size: root.width - 44px;
+                background: Theme.surface;
+            }
+            if root.visualizer: Rectangle {
+                height: 44px;
+                property <length> step: self.width / max(1, root.spectrum.length);
+                for level[i] in root.spectrum: Rectangle {
+                    x: i * parent.step + parent.step * 0.15;
+                    width: parent.step * 0.7;
+                    height: max(2px, level * parent.height);
+                    y: parent.height - self.height;
+                    border-radius: 2px;
+                    background: @linear-gradient(0deg, Theme.accent.with-alpha(0.55) 0%, Theme.accent 100%);
+                }
+            }
+            VerticalLayout {
+                spacing: 2px;
+                if root.song != "": Text { text: root.song; color: Theme.art-text; font-size: 20px; font-weight: 800; wrap: word-wrap; }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: root.station.name;
+                        color: Theme.art-text;
+                        font-size: root.song != "" ? 15px : 22px;
+                        font-weight: root.song != "" ? 600 : 800;
+                        wrap: word-wrap;
+                        horizontal-stretch: 1;
+                    }
+                    VerticalLayout {
+                        alignment: start;
+                        FavouriteStar { on: root.station.favourite; toggled(on) => { root.favourite(root.station.id, on); } }
+                    }
+                }
+            }
+            HorizontalLayout {
+                alignment: start;
+                spacing: 10px;
+                VerticalLayout {
+                    alignment: center;
+                    Chip { text: root.status; accent: Theme.accent; }
+                }
+                if root.can-go-back: OutlineButton { text: @tr("Back to the queue"); clicked => { root.back-to-queue(); } }
+            }
+            if root.place != "": Text { text: root.place; color: Theme.art-muted; font-size: 12px; wrap: word-wrap; }
+            if root.genres != "": Text { text: root.genres; color: Theme.art-muted; font-size: 12px; wrap: word-wrap; }
+            if root.homepage != "": Text {
+                text: @tr("Station's website");
+                color: home-ta.has-hover ? Theme.accent.brighter(0.4) : Theme.accent;
+                font-size: 13px;
+                home-ta := TouchArea { mouse-cursor: pointer; clicked => { root.open-homepage(); } }
+            }
+        }
+    }
+}
+
 component LyricsPage inherits Rectangle {
     in property <string> title;
     in property <string> artist;
@@ -2154,6 +2468,11 @@ component TransportBar inherits Rectangle {
     callback seek(float);
     callback volume-changed(float);
     callback cycle-quality-mode();
+    /// A station plays: no seeking, no queue buttons; `live-text` instead of the seek bar.
+    in property <bool> live;
+    in property <string> live-text;
+    in property <bool> can-go-back;
+    callback back-to-queue();
     changed position => {
         if !seek-bar.dragging {
             seek-bar.value = root.position;
@@ -2188,7 +2507,11 @@ component TransportBar inherits Rectangle {
             HorizontalLayout {
                 alignment: center;
                 spacing: 12px;
+                if root.live && root.can-go-back: IconButton { commands: Icons.back; clicked => { root.back-to-queue(); } }
+                if root.live: IconButton { commands: root.playing ? Icons.pause : Icons.play; filled: true; primary: true; size: 40px; clicked => { root.toggle(); } }
                 shuffle-button := ToggleIcon {
+                    visible: !root.live;
+                    width: root.live ? 0 : 36px;
                     commands: Icons.shuffle;
                     active: root.shuffle;
                     accent: root.accent;
@@ -2205,11 +2528,11 @@ component TransportBar inherits Rectangle {
                     caption-width: self.x - 10px;
                     caption-clicked => { shuffle-menu.show(); }
                 }
-                IconButton { commands: Icons.replay; clicked => { root.seek(0); } }
-                IconButton { commands: Icons.previous; filled: true; clicked => { root.prev(); } }
-                IconButton { commands: root.playing ? Icons.pause : Icons.play; filled: true; primary: true; size: 40px; clicked => { root.toggle(); } }
-                IconButton { commands: Icons.next; filled: true; clicked => { root.next(); } }
-                ToggleIcon {
+                if !root.live: IconButton { commands: Icons.replay; clicked => { root.seek(0); } }
+                if !root.live: IconButton { commands: Icons.previous; filled: true; clicked => { root.prev(); } }
+                if !root.live: IconButton { commands: root.playing ? Icons.pause : Icons.play; filled: true; primary: true; size: 40px; clicked => { root.toggle(); } }
+                if !root.live: IconButton { commands: Icons.next; filled: true; clicked => { root.next(); } }
+                if !root.live: ToggleIcon {
                     commands: root.repeat == RepeatMode.one ? Icons.repeat-one : Icons.repeat;
                     active: root.repeat != RepeatMode.off;
                     accent: root.accent;
@@ -2223,36 +2546,49 @@ component TransportBar inherits Rectangle {
                     pick(scope) => { root.set-shuffle-scope(scope); }
                 }
             }
-            HorizontalLayout {
-                spacing: 10px;
-                Text { text: root.position-text; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
-                if root.waveform-ready: WaveformBar {
-                    points: root.waveform;
-                    position: root.position;
-                    duration: root.duration;
-                    trim-start: root.trim-start;
-                    trim-end: root.trim-end;
-                    can-trim: root.can-trim;
-                    seek(v) => { root.seek(v); }
-                    trim(kind, at) => { root.trim(kind, at); }
-                }
-                // The plain bar until the waveform has arrived (it's computed on first play).
-                seek-bar := Slider {
-                    visible: !root.waveform-ready;
-                    width: root.waveform-ready ? 0 : self.preferred-width;
-                    horizontal-stretch: root.waveform-ready ? 0 : 1;
-                    // Dragging assigns `value`, which would break a `value: root.position`
-                    // binding for good: the position is pushed in below instead.
-                    property <bool> dragging;
-                    minimum: 0;
-                    maximum: max(1, root.duration);
-                    changed(v) => { self.dragging = true; }
-                    released(v) => {
-                        self.dragging = false;
-                        root.seek(v);
+            Rectangle {
+                // While a station plays, its state and time take the seek bar's place.
+                HorizontalLayout {
+                    spacing: 10px;
+                    visible: !root.live;
+                    Text { text: root.position-text; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
+                    if root.waveform-ready: WaveformBar {
+                        points: root.waveform;
+                        position: root.position;
+                        duration: root.duration;
+                        trim-start: root.trim-start;
+                        trim-end: root.trim-end;
+                        can-trim: root.can-trim;
+                        seek(v) => { root.seek(v); }
+                        trim(kind, at) => { root.trim(kind, at); }
                     }
+                    // The plain bar until the waveform has arrived (it's computed on first play).
+                    seek-bar := Slider {
+                        visible: !root.waveform-ready;
+                        width: root.waveform-ready ? 0 : self.preferred-width;
+                        horizontal-stretch: root.waveform-ready ? 0 : 1;
+                        // Dragging assigns `value`, which would break a `value: root.position`
+                        // binding for good: the position is pushed in below instead.
+                        property <bool> dragging;
+                        minimum: 0;
+                        maximum: max(1, root.duration);
+                        changed(v) => { self.dragging = true; }
+                        released(v) => {
+                            self.dragging = false;
+                            root.seek(v);
+                        }
+                    }
+                    Text { text: root.duration-text; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
                 }
-                Text { text: root.duration-text; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
+                if root.live: Text {
+                    text: root.live-text + "  ·  " + root.position-text;
+                    color: Theme.accent;
+                    font-size: 11px;
+                    font-weight: 700;
+                    letter-spacing: 1px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
             }
         }
         VerticalLayout {
@@ -3677,6 +4013,37 @@ export component AppWindow inherits Window {
     in property <[AlbumRow]> albums-rows;
     property <int> albums-reset;
     public function albums-scroll-to-top() { root.albums-reset += 1; }
+    callback show-radio();
+    in property <[StationItem]> radio-favourites;
+    in property <[StationItem]> radio-stations;
+    in property <[string]> radio-countries;
+    in property <int> radio-country;
+    in property <[string]> radio-tags;
+    in property <int> radio-tag;
+    in property <int> radio-order;
+    in property <bool> radio-more;
+    in property <bool> radio-loading;
+    in property <string> radio-message;
+    in-out property <bool> radio-adding;
+    in-out property <string> radio-add-name;
+    in-out property <string> radio-add-url;
+    callback radio-search-changed(string);
+    callback radio-filter(int, int, int);
+    callback radio-load-more();
+    callback radio-play(string);
+    callback radio-favourite(string, bool);
+    callback radio-add(string, string);
+    /// A station is the current thing (playing, paused or connecting).
+    in property <bool> radio-live;
+    in property <string> radio-live-text;
+    in property <bool> radio-can-go-back;
+    in property <StationItem> radio-now;
+    in property <string> radio-song;
+    in property <string> radio-place;
+    in property <string> radio-genres;
+    in property <string> radio-homepage;
+    callback radio-back-to-queue();
+    callback radio-open-homepage();
     callback play-history-track(string, int);
     in property <bool> history-loaded;
     in property <string> history-summary;
@@ -3765,6 +4132,7 @@ export component AppWindow inherits Window {
                 else if root.page == Page.lyrics { root.show-lyrics(); }
                 else if root.page == Page.history { root.show-history(); }
                 else if root.page == Page.albums { root.show-albums(); }
+                else if root.page == Page.radio { root.show-radio(); }
                 else if root.page == Page.settings { root.show-settings(); }
                 keys.focus();
                 return accept;
@@ -3834,6 +4202,8 @@ export component AppWindow inherits Window {
                     show-history => { root.show-history(); }
                     albums-open: root.page == Page.albums;
                     show-albums => { root.show-albums(); }
+                    radio-open: root.page == Page.radio;
+                    show-radio => { root.show-radio(); }
                     settings-open: root.page == Page.settings;
                     show-settings => { root.show-settings(); }
                 }
@@ -3904,6 +4274,27 @@ export component AppWindow inherits Window {
                         save-copy => { root.smart-save-copy(); }
                     }
                     if root.page == Page.settings: SettingsPage { }
+                    if root.page == Page.radio: RadioPage {
+                        favourites: root.radio-favourites;
+                        stations: root.radio-stations;
+                        countries: root.radio-countries;
+                        country: root.radio-country;
+                        tags: root.radio-tags;
+                        tag: root.radio-tag;
+                        order: root.radio-order;
+                        more: root.radio-more;
+                        loading: root.radio-loading;
+                        message: root.radio-message;
+                        adding <=> root.radio-adding;
+                        add-name <=> root.radio-add-name;
+                        add-url <=> root.radio-add-url;
+                        search-changed(text) => { root.radio-search-changed(text); }
+                        filter(c, t, o) => { root.radio-filter(c, t, o); }
+                        load-more => { root.radio-load-more(); }
+                        play(id) => { root.radio-play(id); }
+                        favourite(id, on) => { root.radio-favourite(id, on); }
+                        add(name, url) => { root.radio-add(name, url); }
+                    }
                     if root.page == Page.albums: AlbumsPage {
                         summary: root.albums-summary;
                         sort: root.albums-sort;
@@ -3953,7 +4344,22 @@ export component AppWindow inherits Window {
                         track-action(i, kind, id) => { root.track-action("album", i, kind, id); }
                     }
                 }
-                NowPlayingPanel {
+                if root.radio-live: RadioNowPanel {
+                    width: 360px;
+                    spectrum: root.spectrum;
+                    visualizer: root.visualizer;
+                    station: root.radio-now;
+                    song: root.radio-song;
+                    status: root.radio-live-text;
+                    place: root.radio-place;
+                    genres: root.radio-genres;
+                    homepage: root.radio-homepage;
+                    can-go-back: root.radio-can-go-back;
+                    favourite(id, on) => { root.radio-favourite(id, on); }
+                    open-homepage => { root.radio-open-homepage(); }
+                    back-to-queue => { root.radio-back-to-queue(); }
+                }
+                if !root.radio-live: NowPlayingPanel {
                     width: 360px;
                     np: root.np;
                     spectrum: root.spectrum;
@@ -4000,6 +4406,10 @@ export component AppWindow inherits Window {
                 show-queue => { root.show-queue(); }
                 lyrics-open: root.page == Page.lyrics;
                 show-lyrics => { root.show-lyrics(); }
+                live: root.radio-live;
+                live-text: root.radio-live-text;
+                can-go-back: root.radio-can-go-back;
+                back-to-queue => { root.radio-back-to-queue(); }
             }
         }
         }

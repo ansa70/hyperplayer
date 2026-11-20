@@ -178,6 +178,8 @@ pub fn queue_op(
 
 /// Starts the queue's current track at `start`, or stops when nothing is current.
 pub fn play_current(start: Duration) {
+    // A track from the queue takes over from a station.
+    super::radio::leave();
     let Some(track) = with_app(|app| current_track(app).cloned()) else {
         stop();
         return;
@@ -204,6 +206,8 @@ pub fn play_current(start: Duration) {
 }
 
 pub fn stop() {
+    // Signing out or switching library stops a station too.
+    super::radio::leave();
     with_app(|app| {
         cancel_preload(app);
         app.session = None;
@@ -225,10 +229,17 @@ pub fn play_from(source: types::TrackSource, start: usize, shuffle: Option<bool>
 }
 
 pub fn next(auto: bool) {
+    // A station has no next: "back to the queue" leads there.
+    if with_app(|app| super::radio::is_live(app)) {
+        return;
+    }
     queue_op(Then::Play, move |api| api.advance_queue(auto));
 }
 
 pub fn previous() {
+    if with_app(|app| super::radio::is_live(app)) {
+        return;
+    }
     // Like most players: restart the track unless we're at its very beginning.
     let restart = with_app(|app| {
         app.session
@@ -273,6 +284,9 @@ pub fn cycle_repeat() {
 
 /// Play/pause; with nothing loaded, resumes the saved queue or plays the album on screen.
 pub fn toggle_play() {
+    if super::radio::toggle() {
+        return;
+    }
     enum Do {
         Toggled,
         /// From the saved position.
@@ -596,6 +610,10 @@ pub fn update_stream_info(app: &App) {
     super::settings::show_preferences(app, &ui);
     ui.set_quality_mode(app.mode.label().into());
     ui.set_replaygain_mode(format!("RG {}", app.rg_mode.name().to_uppercase()).into());
+    // A station shows its own (see radio.rs).
+    if super::radio::is_live(app) {
+        return;
+    }
     let info = match &app.session {
         Some(s) => {
             let mut parts = vec![s.quality.label(&s.track)];
@@ -716,12 +734,21 @@ fn show(source: Option<Source>) {
 pub fn refresh_playing_marks() {
     with_app(|app| {
         let Some(ui) = app.ui.upgrade() else { return };
-        let playing = current_track(app).map(|t| t.id.to_string());
+        // While a station plays, no track is.
+        let playing = super::playing_track(app).map(|t| t.id.to_string());
         ui.set_album_tracks(track_model(&app.album_tracks, playing.as_deref()));
         ui.set_search_tracks(search_track_model(&app.search_tracks, playing.as_deref()));
         super::library::refresh_playlist_playing(app, &ui, playing.as_deref());
         super::history::refresh_playing(app, &ui);
     });
+}
+
+/// What the tick found to do after it returns the app.
+enum Switch {
+    /// The track's stream changes quality.
+    Quality(Box<(types::Track, Quality, Duration)>),
+    /// The station's stream stopped: connect again.
+    Reconnect,
 }
 
 /// Saving more often than this while playing would only add load; pausing and quitting save immediately.
@@ -737,6 +764,14 @@ pub fn tick() {
         }
         let paused = app.audio.as_ref().is_none_or(|a| a.is_paused());
         super::window::sync(&ui);
+        if super::radio::is_live(app) {
+            ui.set_playing(super::radio::is_playing(app));
+            super::desktop::sync(app);
+            return (
+                false,
+                super::radio::tick(app, &ui).then_some(Switch::Reconnect),
+            );
+        }
         super::trim::show(app);
         ui.set_playing((app.session.is_some() && !paused) || app.loading);
         super::desktop::sync(app);
@@ -762,9 +797,12 @@ pub fn tick() {
         if switch.is_none() {
             maybe_preload(app);
         }
-        (finished, switch)
+        (finished, switch.map(|s| Switch::Quality(Box::new(s))))
     });
-    if let Some((track, quality, at)) = switch {
+    if let Some(Switch::Reconnect) = switch {
+        super::radio::reconnect();
+    } else if let Some(Switch::Quality(change)) = switch {
+        let (track, quality, at) = *change;
         start_stream(track, quality, at, true);
     } else if finished && !promote_preload() {
         // Close the output until the next track (if any) starts.

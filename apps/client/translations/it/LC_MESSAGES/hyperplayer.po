@@ -85,9 +85,17 @@ msgstr "{} di silenzio all'inizio di questo brano."
 msgid "{} Skip it whenever it plays, for everyone? Right-click the waveform to change it later."
 msgstr "{} Saltarlo sempre, per tutti? Clicca col tasto destro sulla forma d'onda per cambiarlo in seguito."
 
+#: src/ui/radio.rs
+msgid "{} stopped sending audio."
+msgstr "{} ha smesso di trasmettere."
+
 #: ui/app.slint
 msgid "{} uses its own (self-signed) certificate, which this computer can't check by itself. Trust it only if this fingerprint matches the one the server shows in its log or the installer printed."
 msgstr "{} usa un proprio certificato (autofirmato), che questo computer non può verificare da solo. Consideralo attendibile solo se questa impronta corrisponde a quella che il server mostra nel suo log o che l'installer ha stampato."
+
+#: src/ui/radio.rs
+msgid "{} was added to your favourites."
+msgstr "{} è stata aggiunta ai tuoi preferiti."
 
 #: src/ui/albums.rs src/ui/browse.rs src/ui/models.rs src/ui/settings.rs
 msgid "{n} album"
@@ -168,6 +176,10 @@ msgid "A server, at home or elsewhere, keeps the library, queue and playlists fo
 msgstr "Un server, a casa o altrove, conserva la libreria, la coda e le playlist per tutti i tuoi dispositivi."
 
 #: ui/app.slint
+msgid "A station that isn't in the directory: its stream's address (or a .pls / .m3u playlist of it). Only you will see it."
+msgstr "Una stazione che non è nell'elenco: l'indirizzo del suo stream (o di una sua playlist .pls / .m3u). La vedrai solo tu."
+
+#: ui/app.slint
 msgid "About {}"
 msgstr "Su {}"
 
@@ -192,12 +204,20 @@ msgid "acoustic guitar"
 msgstr "chitarra acustica"
 
 #: ui/app.slint
+msgid "Add"
+msgstr "Aggiungi"
+
+#: ui/app.slint
 msgid "Add a folder…"
 msgstr "Aggiungi una cartella…"
 
 #: src/ui/settings.rs
 msgid "Add a music folder"
 msgstr "Aggiungi una cartella musicale"
+
+#: ui/app.slint
+msgid "Add a station…"
+msgstr "Aggiungi una stazione…"
 
 #: ui/app.slint
 msgid "Add a user"
@@ -236,6 +256,10 @@ msgid "Added “{}”: {n} track"
 msgid_plural "Added “{}”: {n} tracks"
 msgstr[0] "Aggiunto “{}”: {n} brano"
 msgstr[1] "Aggiunto “{}”: {n} brani"
+
+#: src/ui/radio.rs
+msgid "Added by you"
+msgstr "Aggiunta da te"
 
 #: src/ui/library.rs
 msgid "Added to “{}”"
@@ -284,6 +308,14 @@ msgstr "Album"
 #: ui/app.slint
 msgid "ALBUMS"
 msgstr "ALBUM"
+
+#: src/ui/radio.rs
+msgid "All countries"
+msgstr "Tutti i paesi"
+
+#: src/ui/radio.rs
+msgid "All genres"
+msgstr "Tutti i generi"
 
 #: ui/app.slint
 msgid "all rules"
@@ -409,6 +441,10 @@ msgstr "Indietro"
 msgid "Back to my library"
 msgstr "Torna alla mia libreria"
 
+#: ui/app.slint
+msgid "Back to the queue"
+msgstr "Torna alla coda"
+
 #: src/roles.rs
 msgid "background vocals"
 msgstr "cori"
@@ -489,7 +525,7 @@ msgstr "Per genere"
 msgid "Cancel"
 msgstr "Annulla"
 
-#: src/ui/playback.rs
+#: src/ui/playback.rs src/ui/radio.rs
 msgid "Cannot play {}: {}"
 msgstr "Impossibile riprodurre {}: {}"
 
@@ -620,6 +656,10 @@ msgstr "Collegato come {}"
 #: src/ui/mod.rs
 msgid "Connecting to {}…"
 msgstr "Collegamento a {}…"
+
+#: src/ui/radio.rs
+msgid "Connecting…"
+msgstr "Connessione…"
 
 #: src/ui/smart.rs
 msgid "contains"
@@ -842,6 +882,10 @@ msgid "Fades each track into the next instead of playing them back to back. Trac
 msgstr "Sfuma ogni brano nel successivo invece di riprodurli uno dopo l'altro. I brani con frequenze di campionamento diverse cambiano comunque senza dissolvenza, così ognuno suona alla propria frequenza."
 
 #: ui/app.slint
+msgid "Favourites"
+msgstr "Preferiti"
+
+#: ui/app.slint
 msgid "Fetching biography…"
 msgstr "Recupero della biografia…"
 
@@ -936,6 +980,10 @@ msgstr "Genere: {}"
 #: ui/app.slint
 msgid "GENRES"
 msgstr "GENERI"
+
+#: src/ui/radio.rs
+msgid "Give the station a name and an address starting with http:// or https://."
+msgstr "Dai un nome alla stazione e un indirizzo che inizi con http:// o https://."
 
 #: src/roles.rs
 msgid "glockenspiel"
@@ -1113,7 +1161,11 @@ msgstr "note di copertina"
 msgid "listener"
 msgstr "ascoltatore"
 
-#: src/ui/albums.rs
+#: src/ui/radio.rs
+msgid "LIVE"
+msgstr "IN DIRETTA"
+
+#: src/ui/albums.rs ui/app.slint
 msgid "Loading…"
 msgstr "Caricamento…"
 
@@ -1229,6 +1281,10 @@ msgstr "Puoi aggiungere altre cartelle in seguito, nelle Impostazioni."
 msgid "More from {}"
 msgstr "Altro di {}"
 
+#: ui/app.slint
+msgid "More stations"
+msgstr "Altre stazioni"
+
 #: src/ui/smart.rs
 msgid "more than"
 msgstr "più di"
@@ -1269,6 +1325,10 @@ msgstr "Silenzia"
 msgid "name"
 msgstr "nome"
 
+#: ui/app.slint
+msgid "Name"
+msgstr "Nome"
+
 #: src/ui/smart.rs
 msgid "never"
 msgstr "mai"
@@ -1297,7 +1357,7 @@ msgstr "Nuova playlist…"
 msgid "NEXT UP"
 msgstr "A SEGUIRE"
 
-#: src/ui/playback.rs
+#: src/ui/playback.rs src/ui/radio.rs
 msgid "No audio output device"
 msgstr "Nessun dispositivo di uscita audio"
 
@@ -1320,6 +1380,10 @@ msgstr "Nessun testo trovato per questo brano"
 #: ui/app.slint
 msgid "No rules yet: any track in the library can be picked."
 msgstr "Ancora nessuna regola: può essere scelto qualsiasi brano della libreria."
+
+#: src/ui/radio.rs
+msgid "No stations match."
+msgstr "Nessuna stazione corrisponde."
 
 #: ui/app.slint
 msgid "No tracks match these rules."
@@ -1372,6 +1436,10 @@ msgstr "oboe"
 #: ui/app.slint
 msgid "Off"
 msgstr "Disattivato"
+
+#: ui/app.slint
+msgid "ON THE RADIO"
+msgstr "IN RADIO"
 
 #: ui/app.slint
 msgid "Open Last.fm again"
@@ -1542,6 +1610,10 @@ msgid "Please wait…"
 msgstr "Attendi…"
 
 #: ui/app.slint
+msgid "Popular"
+msgstr "Più ascoltate"
+
+#: ui/app.slint
 msgid "Pre-amp"
 msgstr "Pre-amplificazione"
 
@@ -1576,6 +1648,10 @@ msgstr "Coda"
 #: src/ui/library.rs
 msgid "Queued: “{}”"
 msgstr "In coda: “{}”"
+
+#: src/ui/radio.rs ui/app.slint
+msgid "Radio"
+msgstr "Radio"
 
 #: ui/app.slint
 msgid "Random"
@@ -1754,6 +1830,10 @@ msgid "Search artists, albums, tracks   ( / )"
 msgstr "Cerca artisti, album, brani   ( / )"
 
 #: ui/app.slint
+msgid "Search stations by name"
+msgstr "Cerca stazioni per nome"
+
+#: ui/app.slint
 msgid "Searching…"
 msgstr "Ricerca…"
 
@@ -1929,6 +2009,18 @@ msgstr "Inizia il brano qui"
 msgid "starts with"
 msgstr "inizia con"
 
+#: ui/app.slint
+msgid "Station's website"
+msgstr "Sito della stazione"
+
+#: ui/app.slint
+msgid "Stations"
+msgstr "Stazioni"
+
+#: ui/app.slint
+msgid "Stations come from radio-browser.info, a free directory anyone can add to."
+msgstr "Le stazioni vengono da radio-browser.info, un elenco libero a cui chiunque può aggiungerne."
+
 #: src/roles.rs
 msgid "steel guitar"
 msgstr "steel guitar"
@@ -1940,6 +2032,10 @@ msgstr "steel drum"
 #: ui/app.slint
 msgid "Stop scan"
 msgstr "Ferma la scansione"
+
+#: src/ui/radio.rs
+msgid "Stopped"
+msgstr "Ferma"
 
 #: ui/app.slint
 msgid "Streaming quality"
@@ -2001,6 +2097,10 @@ msgstr "La nuova password deve avere almeno 8 caratteri."
 msgid "The new passwords don't match."
 msgstr "Le nuove password non coincidono."
 
+#: src/ui/radio.rs
+msgid "The radio directory can't be reached right now. Your favourites still play."
+msgstr "L'elenco delle radio non è raggiungibile in questo momento. I tuoi preferiti si possono ascoltare comunque."
+
 #: ui/app.slint
 msgid "The server also rescans every few minutes and watches folders where the filesystem allows. Folders set here replace HP_LIBRARY's, until HP_LIBRARY itself is changed (e.g. by the installer). In Docker, only folders mounted into the container can be found."
 msgstr "Il server riesamina anche ogni pochi minuti e osserva le cartelle dove il filesystem lo consente. Le cartelle impostate qui sostituiscono quelle di HP_LIBRARY, finché HP_LIBRARY stessa non cambia (ad es. con l'installer). In Docker si trovano solo le cartelle montate nel container."
@@ -2053,6 +2153,10 @@ msgstr "Questo aiuto"
 msgid "This playlist"
 msgstr "Questa playlist"
 
+#: src/ui/radio.rs
+msgid "This server doesn't offer radio yet: it needs HyperPlayer 0.7 or newer."
+msgstr "Questo server non offre ancora la radio: serve HyperPlayer 0.7 o successivo."
+
 #: ui/app.slint
 msgid "This server isn't set up for Last.fm yet: its admin needs a Last.fm API account (last.fm/api/account/create) and to start the server with HP_LASTFM_API_KEY and HP_LASTFM_SECRET."
 msgstr "Questo server non è ancora configurato per Last.fm: il suo amministratore deve creare un account API Last.fm (last.fm/api/account/create) e avviare il server con HP_LASTFM_API_KEY e HP_LASTFM_SECRET."
@@ -2100,6 +2204,10 @@ msgstr "brani (max 500)"
 #: ui/app.slint
 msgid "Tracks matching"
 msgstr "Brani che soddisfano"
+
+#: ui/app.slint
+msgid "Trending"
+msgstr "Di tendenza"
 
 #: src/roles.rs
 msgid "triangle"
