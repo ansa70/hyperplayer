@@ -149,6 +149,23 @@ export function SmartEditor({
         <span>{t("tracks")}</span>
       </div>
       <div className="smart-line">
+        <span>{t("Include at least")}</span>
+        <input
+          className="smart-limit"
+          type="number"
+          min={0}
+          max={MAX_LIMIT}
+          value={rules.minFavourites}
+          onChange={(e) =>
+            change((r) => ({
+              ...r,
+              minFavourites: Math.min(MAX_LIMIT, Math.max(0, Math.floor(Number(e.target.value)) || 0)),
+            }))
+          }
+        />
+        <span>{t("favourites (among the tracks matching the rules)")}</span>
+      </div>
+      <div className="smart-line">
         <button className="primary-button" disabled={!dirty} onClick={() => void apply()}>
           {t("Apply")}
         </button>

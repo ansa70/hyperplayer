@@ -32,6 +32,9 @@ export function Home() {
       <Link to="/albums" className="nav-row">
         <Icon name="albums" size={18} /> {t("All albums")}
       </Link>
+      <Link to="/favourites" className="nav-row">
+        <Icon name="star" size={18} /> {t("Favourites")}
+      </Link>
       <Link to="/history" className="nav-row">
         <Icon name="history" size={18} /> {t("History")}
       </Link>

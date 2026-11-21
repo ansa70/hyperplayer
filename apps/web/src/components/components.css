@@ -76,7 +76,20 @@
   text-decoration: underline;
 }
 .track-duration {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-variant-numeric: tabular-nums;
+}
+.track-mark {
+  display: inline-flex;
+  color: var(--muted);
+}
+.track-mark.favourite {
+  color: var(--accent);
+}
+.track-mark.favourite path {
+  fill: currentColor;
 }
 .track.playing .track-title > .ellipsis:first-child,
 .track.playing .track-number {

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Playlist, PlaylistList, QueueState, type RepeatMode } from "@hyperplayer/schemas";
+import { Playlist, PlaylistList, QueueState, Track, TrackList, type RepeatMode } from "@hyperplayer/schemas";
 import { afterEach, beforeEach, expect, test } from "vite-plus/test";
 import { buildApp } from "../src/app.ts";
 import { authed, setupAdmin, testConfig, wav } from "./helpers.ts";
@@ -442,4 +442,69 @@ test("a playlist's Shuffle draws from that playlist, as the shuffle button's pla
   await playAlbum(0);
   q = await update({ shuffle: true });
   expect(q).toMatchObject({ shuffleScope: "library", origin: { name: "Library" } });
+});
+
+// ------------------------------------------------------------ track marks
+
+const mark = (id: string, marks: { favourite?: boolean; shuffleExcluded?: boolean }) =>
+  call("PUT", `/api/tracks/${id}/marks`, Track, marks);
+const albumTracks = async () =>
+  ((await inject(`/api/albums/${await albumId()}`)).json() as { tracks: Track[] }).tracks;
+
+test("marks: favourites and shuffle exclusions are each user's own, and show on tracks", async () => {
+  const [one, two, three] = await albumTracks();
+  expect(one).toMatchObject({ favourite: false, shuffleExcluded: false });
+  expect(await mark(one!.id, { favourite: true })).toMatchObject({ favourite: true, shuffleExcluded: false });
+  await mark(three!.id, { favourite: true });
+  await mark(two!.id, { shuffleExcluded: true });
+  // Marking again changes nothing; a mark left out stays as it is.
+  expect(await mark(one!.id, { favourite: true, shuffleExcluded: undefined })).toMatchObject({
+    favourite: true,
+  });
+
+  const tracks = await albumTracks();
+  expect(tracks.map((t) => [t.favourite, t.shuffleExcluded]).slice(0, 3)).toEqual([
+    [true, false],
+    [false, true],
+    [true, false],
+  ]);
+  // The latest first.
+  expect((await call("GET", "/api/favourites", TrackList)).map((t) => t.title)).toEqual(["Three", "One"]);
+  expect((await call("GET", "/api/shuffle-exclusions", TrackList)).map((t) => t.title)).toEqual(["Two"]);
+
+  await mark(one!.id, { favourite: false });
+  expect((await call("GET", "/api/favourites", TrackList)).map((t) => t.title)).toEqual(["Three"]);
+  expect((await inject({ method: "PUT", url: "/api/tracks/nope/marks", payload: {} })).statusCode).toBe(404);
+
+  // Another user sees none of them.
+  await inject({
+    method: "POST",
+    url: "/api/users",
+    payload: { username: "bob", password: "bob's password" },
+  });
+  const login = await ctx.app.inject({
+    method: "POST",
+    url: "/api/auth/login",
+    payload: { username: "bob", password: "bob's password", deviceName: "Bob's" },
+  });
+  const bob = authed(ctx.app, (login.json() as { token: string }).token);
+  expect((await bob("/api/favourites")).json()).toEqual([]);
+  const seen = ((await bob(`/api/albums/${await albumId()}`)).json() as { tracks: Track[] }).tracks;
+  expect(seen.some((t) => t.favourite || t.shuffleExcluded)).toBe(false);
+});
+
+test("shuffle button: the whole library leaves out excluded tracks, other scopes don't", async () => {
+  await addAlbum("Quartet", "Jazz Album", JAZZ, "Jazz");
+  const tracks = await albumTracks();
+  for (const t of tracks.filter((t) => ["Two", "Four"].includes(t.title)))
+    await mark(t.id, { shuffleExcluded: true });
+  await playAlbum(0);
+  let q = await update({ shuffle: true });
+  expect(q.shuffleScope).toBe("library");
+  expect([...order(q)].sort()).toEqual(["One", "Three", "Five", "Six", ...JAZZ].sort());
+
+  await update({ shuffle: false });
+  await setScope("album");
+  q = await update({ shuffle: true });
+  expect([...order(q)].sort()).toEqual([...ALBUM].sort());
 });

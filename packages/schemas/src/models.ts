@@ -195,7 +195,22 @@ export const Track = named(
      * silence it finds; `{ startMs: null, endMs: null }` means play it all, don't ask.
      */
     trim: TrackTrim.nullable().default(null),
+    /** Among the requesting user's favourites. */
+    favourite: z.boolean().default(false),
+    /** Left out when the requesting user's shuffle button draws from the whole library. */
+    shuffleExcluded: z.boolean().default(false),
   }),
+);
+
+export const TrackList = named("TrackList", z.array(Track));
+
+export const TrackMarks = named(
+  "TrackMarks",
+  z.object({
+    favourite: z.boolean().optional(),
+    shuffleExcluded: z.boolean().optional(),
+  }),
+  "The caller's marks on a track; one left out stays as it is.",
 );
 
 export const Album = named(

@@ -145,7 +145,7 @@ msgid_plural "{n} playlists"
 msgstr[0] "{n} playlist"
 msgstr[1] "{n} playlist"
 
-#: src/ui/browse.rs src/ui/library.rs src/ui/models.rs src/ui/settings.rs
+#: src/ui/browse.rs src/ui/library.rs src/ui/marks.rs src/ui/models.rs src/ui/settings.rs
 msgid "{n} track"
 msgid_plural "{n} tracks"
 msgstr[0] "{n} brano"
@@ -232,6 +232,10 @@ msgid "Add server"
 msgstr "Aggiungi server"
 
 #: ui/app.slint
+msgid "Add to favourites"
+msgstr "Aggiungi ai preferiti"
+
+#: ui/app.slint
 msgid "ADD TO PLAYLIST"
 msgstr "AGGIUNGI ALLA PLAYLIST"
 
@@ -268,6 +272,10 @@ msgstr "Aggiunto a “{}”"
 #: ui/app.slint
 msgid "Added to every ReplayGain adjustment; boosts are still limited so peaks never clip."
 msgstr "Si somma a ogni correzione ReplayGain; gli aumenti restano limitati perché i picchi non saturino mai."
+
+#: src/ui/marks.rs
+msgid "Added to favourites: “{}”"
+msgstr "Aggiunto ai preferiti: “{}”"
 
 #: src/roles.rs
 msgid "additional {}"
@@ -436,6 +444,10 @@ msgstr "n. {}"
 #: ui/app.slint
 msgid "Back"
 msgstr "Indietro"
+
+#: src/ui/marks.rs
+msgid "Back in the library shuffle: “{}”"
+msgstr "Di nuovo nella riproduzione casuale della libreria: “{}”"
 
 #: ui/app.slint
 msgid "Back to my library"
@@ -882,8 +894,16 @@ msgid "Fades each track into the next instead of playing them back to back. Trac
 msgstr "Sfuma ogni brano nel successivo invece di riprodurli uno dopo l'altro. I brani con frequenze di campionamento diverse cambiano comunque senza dissolvenza, così ognuno suona alla propria frequenza."
 
 #: ui/app.slint
+msgid "Favourite"
+msgstr "Preferito"
+
+#: ui/app.slint
 msgid "Favourites"
 msgstr "Preferiti"
+
+#: ui/app.slint
+msgid "favourites (among the tracks matching the rules)"
+msgstr "preferiti (tra i brani che rispettano le regole)"
 
 #: ui/app.slint
 msgid "Fetching biography…"
@@ -1074,6 +1094,14 @@ msgid "in the last"
 msgstr "negli ultimi"
 
 #: ui/app.slint
+msgid "Include at least"
+msgstr "Includi almeno"
+
+#: ui/app.slint
+msgid "Include in library shuffle"
+msgstr "Includi nella riproduzione casuale della libreria"
+
+#: ui/app.slint
 msgid "Instrumental"
 msgstr "Strumentale"
 
@@ -1134,8 +1162,20 @@ msgid "lead vocals"
 msgstr "voce solista"
 
 #: ui/app.slint
+msgid "Leave out of library shuffle"
+msgstr "Escludi dalla riproduzione casuale della libreria"
+
+#: ui/app.slint
 msgid "Leave search / close"
 msgstr "Esci dalla ricerca / chiudi"
+
+#: src/ui/marks.rs
+msgid "Left out of the library shuffle: “{}”"
+msgstr "Escluso dalla riproduzione casuale della libreria: “{}”"
+
+#: ui/app.slint
+msgid "Left out of the whole-library shuffle"
+msgstr "Esclusi dalla riproduzione casuale di tutta la libreria"
 
 #: ui/app.slint
 msgid "Length"
@@ -1370,6 +1410,10 @@ msgid "No credits found for this track."
 msgstr "Nessun credito trovato per questo brano."
 
 #: ui/app.slint
+msgid "No favourites yet. Right-click a track (or use its ⋯ menu) and pick Add to favourites."
+msgstr "Ancora nessun preferito. Fai clic destro su un brano (o usa il suo menu ⋯) e scegli Aggiungi ai preferiti."
+
+#: ui/app.slint
 msgid "No folder chosen yet"
 msgstr "Nessuna cartella ancora scelta"
 
@@ -1384,6 +1428,10 @@ msgstr "Ancora nessuna regola: può essere scelto qualsiasi brano della libreria
 #: src/ui/radio.rs
 msgid "No stations match."
 msgstr "Nessuna stazione corrisponde."
+
+#: ui/app.slint
+msgid "No tracks are left out."
+msgstr "Nessun brano escluso."
 
 #: ui/app.slint
 msgid "No tracks match these rules."
@@ -1714,12 +1762,20 @@ msgid "Remove admin"
 msgstr "Togli amministratore"
 
 #: ui/app.slint
+msgid "Remove from favourites"
+msgstr "Togli dai preferiti"
+
+#: ui/app.slint
 msgid "Remove from queue"
 msgstr "Rimuovi dalla coda"
 
 #: ui/app.slint
 msgid "Remove from this playlist"
 msgstr "Rimuovi da questa playlist"
+
+#: src/ui/marks.rs
+msgid "Removed from favourites: “{}”"
+msgstr "Tolto dai preferiti: “{}”"
 
 #: ui/app.slint
 msgid "Removing a folder takes its tracks out of the library. Playlists keep them, and find them again if the folder comes back."
@@ -1896,6 +1952,10 @@ msgstr "più breve di"
 #: ui/app.slint
 msgid "Show the live spectrum under the cover"
 msgstr "Mostra lo spettro in tempo reale sotto la copertina"
+
+#: ui/app.slint
+msgid "Shuffle"
+msgstr "Casuale"
 
 #: ui/app.slint
 msgid "Shuffle / repeat"
@@ -2116,6 +2176,10 @@ msgstr "Il server riesamina la libreria ogni pochi minuti, così la nuova musica
 #: ui/app.slint
 msgid "The server uses a certificate of its own rather than one from a known authority, as home servers usually do. Its fingerprint should match the one in the server's log:"
 msgstr "Il server usa un proprio certificato invece di uno di un'autorità nota, come fanno di solito i server domestici. La sua impronta dovrebbe corrispondere a quella nel log del server:"
+
+#: ui/app.slint
+msgid "The shuffle button skips these tracks when it draws from the whole library; they still play from their album, a playlist or a search, and when shuffling an album, artist or genre. Right-click a track (or use its ⋯ menu) to leave it out or bring it back."
+msgstr "Il pulsante di riproduzione casuale salta questi brani quando pesca da tutta la libreria; si possono comunque ascoltare dal loro album, da una playlist o da una ricerca, e nella riproduzione casuale di un album, artista o genere. Fai clic destro su un brano (o usa il suo menu ⋯) per escluderlo o reincluderlo."
 
 #: src/ui/account.rs
 msgid "The two passwords don't match."

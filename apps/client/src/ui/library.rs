@@ -78,6 +78,12 @@ fn show_playlist(app: &mut App, p: types::Playlist, open: bool) {
         .iter()
         .enumerate()
         .map(|(i, e)| TrackItem {
+            id: e
+                .track
+                .as_ref()
+                .map(|t| t.id.to_string())
+                .unwrap_or_default()
+                .into(),
             number: (i + 1).to_string().into(),
             title: e.snapshot.title.clone().into(),
             artist: format!("{} · {}", e.snapshot.artist_name, e.snapshot.album_title).into(),
@@ -87,6 +93,8 @@ fn show_playlist(app: &mut App, p: types::Playlist, open: bool) {
                 .as_ref()
                 .is_some_and(|t| Some(t.id.as_str()) == playing.as_deref()),
             available: e.track.is_some(),
+            favourite: e.track.as_ref().is_some_and(|t| t.favourite),
+            shuffle_excluded: e.track.as_ref().is_some_and(|t| t.shuffle_excluded),
         })
         .collect();
     let previous_cover = ui.get_playlist();
@@ -437,6 +445,8 @@ pub fn delete_playlist() {
 /// is an entry of a playlist or the queue, that entry.
 struct Target {
     source: TrackSource,
+    /// The track itself, for its marks (favourite, left out of the library shuffle).
+    track: Option<types::Track>,
     /// Name for a new playlist created from this target.
     name: String,
     entry: Option<String>,
@@ -445,6 +455,7 @@ struct Target {
 fn track_target(app: &App, list: &str, index: i32) -> Option<Target> {
     let track = |t: &types::Track, entry: Option<String>| Target {
         source: track_ids(&[t.id.as_str()]),
+        track: Some(t.clone()),
         name: t.title.clone(),
         entry,
     };
@@ -459,6 +470,11 @@ fn track_target(app: &App, list: &str, index: i32) -> Option<Target> {
             .history_recent
             .get(index as usize)
             .map(|t| track(t, None)),
+        "favourites" => app.favourites.get(index as usize).map(|t| track(t, None)),
+        "shuffle-excluded" => app
+            .shuffle_excluded
+            .get(index as usize)
+            .map(|t| track(t, None)),
         "playlist" => {
             let e = app.playlist.as_ref()?.entries.get(index as usize)?;
             let source = e
@@ -467,6 +483,7 @@ fn track_target(app: &App, list: &str, index: i32) -> Option<Target> {
                 .map_or_else(|| track_ids(&[]), |t| track_ids(&[t.id.as_str()]));
             Some(Target {
                 source,
+                track: e.track.clone(),
                 name: e.snapshot.title.clone(),
                 entry: Some(e.entry_id.to_string()),
             })
@@ -510,6 +527,7 @@ pub fn album_action(action: SharedString, playlist_id: SharedString) {
             .unwrap_or_default();
         Some(Target {
             source: TrackSource::Album { id: source_id(&id) },
+            track: None,
             name,
             entry: None,
         })
@@ -580,6 +598,16 @@ fn run_action(list: &str, index: i32, action: &str, playlist_id: &str, target: T
             }
             _ => {}
         },
+        "favourite" | "shuffle-exclude" => {
+            if let Some(track) = &target.track {
+                let mark = if action == "favourite" {
+                    super::marks::Mark::Favourite
+                } else {
+                    super::marks::Mark::ShuffleExcluded
+                };
+                super::marks::toggle(track, mark);
+            }
+        }
         "up" | "down" => {
             let (Some(entry), Some(pid)) = (
                 target.entry,
@@ -637,12 +665,15 @@ pub fn sync_queue_ui(app: &mut App) {
     );
 
     let row = |i: usize, t: &types::Track, playing: bool| TrackItem {
+        id: t.id.to_string().into(),
         number: (i + 1).to_string().into(),
         title: t.title.clone().into(),
         artist: format!("{} · {}", t.artist_name, t.album_title).into(),
         duration: fmt_duration(t.duration_ms).into(),
         playing,
         available: true,
+        favourite: t.favourite,
+        shuffle_excluded: t.shuffle_excluded,
     };
     let current = q.index.map(|i| i as usize);
     let now: Vec<TrackItem> = current

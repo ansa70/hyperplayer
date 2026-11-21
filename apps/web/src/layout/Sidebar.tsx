@@ -137,6 +137,9 @@ export function Sidebar() {
         <NavLink to="/albums" className="nav-row">
           <Icon name="albums" size={18} /> {t("Albums")}
         </NavLink>
+        <NavLink to="/favourites" className="nav-row">
+          <Icon name="star" size={18} /> {t("Favourites")}
+        </NavLink>
         <NavLink to="/history" className="nav-row">
           <Icon name="history" size={18} /> {t("History")}
         </NavLink>

@@ -558,4 +558,20 @@ export const it: Record<string, Translation> = {
   "Stations come from radio-browser.info, a free directory anyone can add to.":
     "Le stazioni vengono da radio-browser.info, un elenco libero a cui chiunque può aggiungerne.",
   "{} stopped sending audio.": "{} ha smesso di trasmettere.",
+  "Include at least": "Includi almeno",
+  "favourites (among the tracks matching the rules)": "preferiti (tra i brani che rispettano le regole)",
+  "Left out of the library shuffle": "Escluso dalla riproduzione casuale della libreria",
+  Favourite: "Preferito",
+  "Include in library shuffle": "Includi nella riproduzione casuale della libreria",
+  "Leave out of library shuffle": "Escludi dalla riproduzione casuale della libreria",
+  "No favourites yet. Right-click a track (or use its ⋯ menu) and pick Add to favourites.":
+    "Ancora nessun preferito. Fai clic destro su un brano (o usa il suo menu ⋯) e scegli Aggiungi ai preferiti.",
+  "Added “{}” to favourites": "“{}” aggiunto ai preferiti",
+  "Removed “{}” from favourites": "“{}” tolto dai preferiti",
+  "“{}” is left out of the library shuffle": "“{}” è escluso dalla riproduzione casuale della libreria",
+  "“{}” is back in the library shuffle": "“{}” è di nuovo nella riproduzione casuale della libreria",
+  "Left out of the whole-library shuffle": "Esclusi dalla riproduzione casuale di tutta la libreria",
+  "The shuffle button skips these tracks when it draws from the whole library; they still play from their album, a playlist or a search, and when shuffling an album, artist or genre. Right-click a track (or use its ⋯ menu) to leave it out or bring it back.":
+    "Il pulsante di riproduzione casuale salta questi brani quando pesca da tutta la libreria; si possono comunque ascoltare dal loro album, da una playlist o da una ricerca, e nella riproduzione casuale di un album, artista o genere. Fai clic destro su un brano (o usa il suo menu ⋯) per escluderlo o reincluderlo.",
+  "No tracks are left out.": "Nessun brano escluso.",
 };

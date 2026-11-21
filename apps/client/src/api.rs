@@ -20,7 +20,8 @@ use types::{
     NowPlaying, Ok as OkResponse, PlayingNow, Playlist, PlaylistList, Preferences, QueueState,
     RadioFacets, RadioNowPlaying, RadioOrder, RadioStation, RadioStationList, RadioStationPage,
     RecordListen, RepeatMode, ScrobbleSettings, SearchResults, Session, SetQueue, ShuffleScope,
-    Track, TrackSource, TrackTrim, UpdatePlaylist, UpdateQueue, User, UserList, Waveform,
+    Track, TrackList, TrackMarks, TrackSource, TrackTrim, UpdatePlaylist, UpdateQueue, User,
+    UserList, Waveform,
 };
 
 use crate::{adaptive::Quality, trust};
@@ -436,6 +437,25 @@ impl Api {
             &format!("/api/tracks/{track_id}/trim"),
             Some(trim),
         )
+    }
+
+    /// Sets the caller's marks on a track (favourite, left out of the library shuffle).
+    pub fn set_track_marks(&self, track_id: &str, marks: &TrackMarks) -> Result<Track> {
+        self.send(
+            Method::PUT,
+            &format!("/api/tracks/{track_id}/marks"),
+            Some(marks),
+        )
+    }
+
+    /// The caller's favourite tracks, the latest first.
+    pub fn favourites(&self) -> Result<TrackList> {
+        self.get("/api/favourites")
+    }
+
+    /// The tracks the caller's whole-library shuffle leaves out, the latest first.
+    pub fn shuffle_exclusions(&self) -> Result<TrackList> {
+        self.get("/api/shuffle-exclusions")
     }
 
     pub fn lyrics(&self, track_id: &str) -> Result<Lyrics> {

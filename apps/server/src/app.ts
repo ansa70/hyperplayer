@@ -358,6 +358,13 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
       throw new HttpError(400, "invalid_trim", "The end must come after the start");
     return catalog.setTrim(params.id, body) ?? Promise.reject(notFound("Track"));
   });
+  route.json(
+    api.setTrackMarks,
+    ({ auth: a, params, body }) =>
+      catalog.setMarks(a.user.id, params.id, body) ?? Promise.reject(notFound("Track")),
+  );
+  route.json(api.listFavourites, ({ auth: a }) => catalog.markedTracks(a.user.id, "favourite"));
+  route.json(api.listShuffleExclusions, ({ auth: a }) => catalog.markedTracks(a.user.id, "shuffleExcluded"));
   route.json(api.lyrics, ({ params }) => {
     const remote = sources.remote(params.id);
     if (remote) return sources.lyrics(remote, params.id);

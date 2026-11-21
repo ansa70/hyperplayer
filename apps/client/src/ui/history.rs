@@ -185,12 +185,15 @@ fn show(app: &mut App, stats: types::HistoryStats, recent: types::ListenPage) {
 
     let playing = super::playing_track(app).map(|t| t.id.to_string());
     let row = |i: usize, t: &types::Track, detail: String| TrackItem {
+        id: t.id.to_string().into(),
         number: (i + 1).to_string().into(),
         title: t.title.clone().into(),
         artist: format!("{} · {detail}", t.artist_name).into(),
         duration: fmt_duration(t.duration_ms).into(),
         playing: playing.as_deref() == Some(t.id.as_str()),
         available: true,
+        favourite: t.favourite,
+        shuffle_excluded: t.shuffle_excluded,
     };
     let top: Vec<TrackItem> = stats
         .top_tracks

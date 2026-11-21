@@ -313,7 +313,32 @@ const MOVE_REFERENCES = `
     UPDATE queue_entries SET track_id = $to WHERE track_id = $from;
     UPDATE playlist_entries SET track_id = $to WHERE track_id = $from;
     UPDATE OR IGNORE listens SET track_id = $to WHERE track_id = $from;
-    UPDATE OR IGNORE scrobbles SET track_id = $to WHERE track_id = $from;`;
+    UPDATE OR IGNORE scrobbles SET track_id = $to WHERE track_id = $from;
+    UPDATE OR IGNORE favourite_tracks SET track_id = $to WHERE track_id = $from;
+    DELETE FROM favourite_tracks WHERE track_id = $from;
+    UPDATE OR IGNORE shuffle_exclusions SET track_id = $to WHERE track_id = $from;
+    DELETE FROM shuffle_exclusions WHERE track_id = $from;`;
+
+/**
+ * A user's marks on tracks: their favourites, and tracks their shuffle button leaves out
+ * when drawing from the whole library. Made once `all_tracks` exists, which they refer to
+ * (`tracks` is a view by then).
+ */
+const TRACK_MARKS = `
+CREATE TABLE IF NOT EXISTS favourite_tracks (
+  user_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  track_id TEXT NOT NULL REFERENCES all_tracks(id) ON DELETE CASCADE,
+  added_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, track_id)
+);
+CREATE INDEX IF NOT EXISTS favourite_tracks_track ON favourite_tracks(track_id);
+CREATE TABLE IF NOT EXISTS shuffle_exclusions (
+  user_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  track_id TEXT NOT NULL REFERENCES all_tracks(id) ON DELETE CASCADE,
+  added_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, track_id)
+);
+CREATE INDEX IF NOT EXISTS shuffle_exclusions_track ON shuffle_exclusions(track_id);`;
 
 /**
  * Which of a deleted track's hidden copies is shown in its place: as in `dedupe`, a shared
@@ -348,7 +373,9 @@ function separateCopies(db: DatabaseSync) {
   // Recreated every time, so a library made before uploads gets their filter.
   db.exec("DROP VIEW IF EXISTS tracks");
   db.exec(TRACKS_VIEW);
-  // The same for the trigger's choice of successor.
+  db.exec(TRACK_MARKS);
+  // Recreated too, for the references they move (and the choice of successor).
+  db.exec("DROP TRIGGER IF EXISTS all_tracks_hidden");
   db.exec("DROP TRIGGER IF EXISTS all_tracks_succeeded");
   db.exec(`
     CREATE TRIGGER IF NOT EXISTS all_tracks_hidden AFTER UPDATE OF duplicate_of ON all_tracks

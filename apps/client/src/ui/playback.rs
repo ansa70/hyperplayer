@@ -740,6 +740,7 @@ pub fn refresh_playing_marks() {
         ui.set_search_tracks(search_track_model(&app.search_tracks, playing.as_deref()));
         super::library::refresh_playlist_playing(app, &ui, playing.as_deref());
         super::history::refresh_playing(app, &ui);
+        super::marks::refresh_playing(app, &ui);
     });
 }
 

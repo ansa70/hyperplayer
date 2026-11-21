@@ -9,10 +9,11 @@ export interface Loaded<T> {
   loading: boolean;
 }
 
-/** Loads an endpoint's response for the component, again whenever `input` changes. */
+/** Loads an endpoint's response for the component, again whenever `input` or `reload` changes. */
 export function useApi<E extends JsonEndpoint>(
   endpoint: E,
   input: Omit<CallInput<E>, "signal"> = {},
+  reload: number = 0,
 ): Loaded<z.output<E["response"]>> {
   const key = JSON.stringify(input);
   const [state, setState] = useState<Loaded<z.output<E["response"]>>>({
@@ -29,6 +30,6 @@ export function useApi<E extends JsonEndpoint>(
         if (!abort.signal.aborted) setState({ data: undefined, error: errorMessage(e), loading: false });
       });
     return () => abort.abort();
-  }, [endpoint, key]);
+  }, [endpoint, key, reload]);
   return state;
 }

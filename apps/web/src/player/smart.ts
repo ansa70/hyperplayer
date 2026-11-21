@@ -20,6 +20,7 @@ export const FIELDS: { key: Field; label: string }[] = [
   { key: "lossless", label: msg("Lossless") },
   { key: "lastPlayed", label: msg("Last played") },
   { key: "added", label: msg("Added") },
+  { key: "favourite", label: msg("Favourite") },
 ];
 
 export const ORDERS: { key: Order; label: string }[] = [
@@ -51,6 +52,7 @@ export function ops(field: Field): Op[] {
     case "plays":
       return ["is", "isNot", "lessThan", "greaterThan", "between"];
     case "lossless":
+    case "favourite":
       return ["is"];
     case "lastPlayed":
       return ["inLast", "notInLast", "never"];
@@ -94,6 +96,7 @@ export function hint(field: Field): string {
     sampleRate: t("kHz, e.g. 96"),
     plays: t("times"),
     lossless: t("yes or no"),
+    favourite: t("yes or no"),
     lastPlayed: t("days"),
     added: t("days"),
   };
@@ -108,6 +111,7 @@ const rules = (list: SmartRule[], order: Order, limit: number): SmartRules => ({
   order,
   descending: false,
   limit,
+  minFavourites: 0,
 });
 
 /** The sidebar's "+" templates: created, then opened to be filled in. */

@@ -224,6 +224,7 @@ pub fn load() {
     // Outcomes of earlier actions (perhaps by another account) are stale now.
     users_message("", false);
     state(|s| s.set_folders_message("".into()));
+    super::marks::load_excluded();
     sources_message("", false);
     let api = with_app(|app| app.api.clone());
     background(

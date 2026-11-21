@@ -1,5 +1,6 @@
 import type { Track, TrackSource } from "@hyperplayer/schemas";
 import { useLibrary } from "../stores/library.ts";
+import { marksOf, useMarks } from "../stores/marks.ts";
 import type { MenuItem } from "./Menu.tsx";
 import { t } from "../i18n.ts";
 
@@ -29,6 +30,22 @@ export function queueAndPlaylistItems(source: TrackSource, what: string): MenuIt
           },
         },
       ],
+    },
+  ];
+}
+
+/** "Add to favourites" and "Leave out of library shuffle", or their opposites, for a track. */
+export function markItems(track: Track): MenuItem[] {
+  const marks = marksOf(track);
+  const set = useMarks.getState().set;
+  return [
+    {
+      label: marks.favourite ? t("Remove from favourites") : t("Add to favourites"),
+      onSelect: () => void set(track, { favourite: !marks.favourite }),
+    },
+    {
+      label: marks.shuffleExcluded ? t("Include in library shuffle") : t("Leave out of library shuffle"),
+      onSelect: () => void set(track, { shuffleExcluded: !marks.shuffleExcluded }),
     },
   ];
 }

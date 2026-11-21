@@ -84,8 +84,14 @@ const ALBUM_SELECT = `
   JOIN artists ar ON ar.id = al.artist_id
   LEFT JOIN artwork c ON c.id = al.cover_id`;
 
+/** The requesting user's marks on track `t` (see `viewer()`: none outside requests). */
+const TRACK_MARKS = `
+  EXISTS (SELECT 1 FROM favourite_tracks f WHERE f.track_id = t.id AND f.user_id = viewer()) AS favourite,
+  EXISTS (SELECT 1 FROM shuffle_exclusions x WHERE x.track_id = t.id AND x.user_id = viewer()) AS shuffle_excluded`;
+
 const TRACK_SELECT = `
-  SELECT t.*, COALESCE(t.artist_credit, ar.name) AS artist_name, al.title AS album_title, ${ARTWORK("c", "c_")}
+  SELECT t.*, COALESCE(t.artist_credit, ar.name) AS artist_name, al.title AS album_title, ${ARTWORK("c", "c_")},
+         ${TRACK_MARKS}
   FROM tracks t
   JOIN artists ar ON ar.id = t.artist_id
   JOIN albums al ON al.id = t.album_id
@@ -199,6 +205,8 @@ export class Catalog {
     fileSize: Number(r.file_size),
     cover: artwork(r, "c_"),
     trim: Number(r.trim_set) ? { startMs: num(r.trim_start_ms), endMs: num(r.trim_end_ms) } : null,
+    favourite: Boolean(r.favourite),
+    shuffleExcluded: Boolean(r.shuffle_excluded),
   });
 
   #count(table: string): number {
@@ -346,6 +354,40 @@ export class Catalog {
   getTrack(id: string): Track | null {
     const r = this.#db.prepare(`${TRACK_SELECT} WHERE t.id = ?`).get(id) as Row | undefined;
     return r ? this.#track(r) : null;
+  }
+
+  /** `userId`'s favourites, or the tracks their library shuffle leaves out: the latest first. */
+  markedTracks(userId: string, mark: "favourite" | "shuffleExcluded"): Track[] {
+    const table = mark === "favourite" ? "favourite_tracks" : "shuffle_exclusions";
+    return (
+      this.#db
+        .prepare(
+          `${TRACK_SELECT} JOIN ${table} m ON m.track_id = t.id AND m.user_id = ? ORDER BY m.added_at DESC, m.rowid DESC`,
+        )
+        .all(userId) as Row[]
+    ).map(this.#track);
+  }
+
+  /** Sets `userId`'s marks on a track (those given); null when there's no such track. */
+  setMarks(
+    userId: string,
+    id: string,
+    marks: { favourite?: boolean; shuffleExcluded?: boolean },
+  ): Track | null {
+    if (!this.#db.prepare("SELECT 1 FROM tracks WHERE id = ?").get(id)) return null;
+    const now = new Date().toISOString();
+    for (const [table, on] of [
+      ["favourite_tracks", marks.favourite],
+      ["shuffle_exclusions", marks.shuffleExcluded],
+    ] as const) {
+      if (on === true)
+        this.#db
+          .prepare(`INSERT OR IGNORE INTO ${table} (user_id, track_id, added_at) VALUES (?, ?, ?)`)
+          .run(userId, id, now);
+      else if (on === false)
+        this.#db.prepare(`DELETE FROM ${table} WHERE user_id = ? AND track_id = ?`).run(userId, id);
+    }
+    return this.getTrack(id);
   }
 
   /** Sets the part of a track to play; null when there's no such track. */

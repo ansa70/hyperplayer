@@ -662,6 +662,14 @@
               "type": "null"
             }
           ]
+        },
+        "favourite": {
+          "default": false,
+          "type": "boolean"
+        },
+        "shuffleExcluded": {
+          "default": false,
+          "type": "boolean"
         }
       },
       "required": [
@@ -680,8 +688,28 @@
         "replayGain",
         "fileSize",
         "cover",
-        "trim"
+        "trim",
+        "favourite",
+        "shuffleExcluded"
       ],
+      "additionalProperties": false
+    },
+    "TrackList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Track"
+      }
+    },
+    "TrackMarks": {
+      "type": "object",
+      "properties": {
+        "favourite": {
+          "type": "boolean"
+        },
+        "shuffleExcluded": {
+          "type": "boolean"
+        }
+      },
       "additionalProperties": false
     },
     "Album": {
@@ -1927,7 +1955,8 @@
         "plays",
         "lossless",
         "lastPlayed",
-        "added"
+        "added",
+        "favourite"
       ]
     },
     "SmartOperator": {
@@ -2016,6 +2045,12 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 500
+        },
+        "minFavourites": {
+          "default": 0,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
         }
       },
       "required": [
@@ -2023,7 +2058,8 @@
         "rules",
         "order",
         "descending",
-        "limit"
+        "limit",
+        "minFavourites"
       ],
       "additionalProperties": false
     },

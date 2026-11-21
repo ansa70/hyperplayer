@@ -16,6 +16,8 @@ import {
   StreamFormat,
   TrackPage,
   Track,
+  TrackList,
+  TrackMarks,
   TrackTrim,
   UploadInfo,
 } from "./models.ts";
@@ -431,6 +433,33 @@ export const api = {
     query: NoQuery,
     body: TrackTrim,
     response: Track,
+  }),
+  setTrackMarks: json({
+    method: "PUT",
+    path: "/api/tracks/{id}/marks",
+    summary:
+      "Mark a track as one of the caller's favourites, or leave it out of their whole-library shuffle (or undo either)",
+    params: IdParams,
+    query: NoQuery,
+    body: TrackMarks,
+    response: Track,
+  }),
+  listFavourites: json({
+    method: "GET",
+    path: "/api/favourites",
+    summary: "The caller's favourite tracks, the latest first",
+    params: NoParams,
+    query: NoQuery,
+    response: TrackList,
+  }),
+  listShuffleExclusions: json({
+    method: "GET",
+    path: "/api/shuffle-exclusions",
+    summary:
+      "The tracks the caller's shuffle button leaves out when drawing from the whole library, the latest first",
+    params: NoParams,
+    query: NoQuery,
+    response: TrackList,
   }),
   lyrics: json({
     method: "GET",

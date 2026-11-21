@@ -5,6 +5,7 @@ import { Album } from "./pages/Album.tsx";
 import { Albums } from "./pages/Albums.tsx";
 import { Artist } from "./pages/Artist.tsx";
 import { History } from "./pages/History.tsx";
+import { Favourites } from "./pages/Favourites.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Lyrics } from "./pages/Lyrics.tsx";
 import { Login } from "./pages/Login.tsx";
@@ -64,6 +65,7 @@ export function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="lyrics" element={<Lyrics />} />
           <Route path="history" element={<History />} />
+          <Route path="favourites" element={<Favourites />} />
           <Route path="radio" element={<Radio />} />
           <Route path="uploads" element={<Uploads />} />
           <Route path="*" element={<Home />} />

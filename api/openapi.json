@@ -1330,6 +1330,137 @@
         }
       }
     },
+    "/api/tracks/{id}/marks": {
+      "put": {
+        "operationId": "setTrackMarks",
+        "summary": "Mark a track as one of the caller's favourites, or leave it out of their whole-library shuffle (or undo either)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackMarks"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mark a track as one of the caller's favourites, or leave it out of their whole-library shuffle (or undo either)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Track"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/favourites": {
+      "get": {
+        "operationId": "listFavourites",
+        "summary": "The caller's favourite tracks, the latest first",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's favourite tracks, the latest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shuffle-exclusions": {
+      "get": {
+        "operationId": "listShuffleExclusions",
+        "summary": "The tracks the caller's shuffle button leaves out when drawing from the whole library, the latest first",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The tracks the caller's shuffle button leaves out when drawing from the whole library, the latest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tracks/{id}/lyrics": {
       "get": {
         "operationId": "lyrics",
@@ -4501,6 +4632,14 @@
                 "$ref": "#/components/schemas/TrackTrim"
               }
             ]
+          },
+          "favourite": {
+            "default": false,
+            "type": "boolean"
+          },
+          "shuffleExcluded": {
+            "default": false,
+            "type": "boolean"
           }
         },
         "required": [
@@ -4519,8 +4658,28 @@
           "replayGain",
           "fileSize",
           "cover",
-          "trim"
+          "trim",
+          "favourite",
+          "shuffleExcluded"
         ],
+        "additionalProperties": false
+      },
+      "TrackList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Track"
+        }
+      },
+      "TrackMarks": {
+        "type": "object",
+        "properties": {
+          "favourite": {
+            "type": "boolean"
+          },
+          "shuffleExcluded": {
+            "type": "boolean"
+          }
+        },
         "additionalProperties": false
       },
       "Album": {
@@ -5704,7 +5863,8 @@
           "plays",
           "lossless",
           "lastPlayed",
-          "added"
+          "added",
+          "favourite"
         ]
       },
       "SmartOperator": {
@@ -5793,6 +5953,12 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 500
+          },
+          "minFavourites": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
           }
         },
         "required": [
@@ -5800,7 +5966,8 @@
           "rules",
           "order",
           "descending",
-          "limit"
+          "limit",
+          "minFavourites"
         ],
         "additionalProperties": false
       },

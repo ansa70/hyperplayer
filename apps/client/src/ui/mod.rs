@@ -10,6 +10,7 @@ mod history;
 mod library;
 mod local;
 mod lyrics;
+mod marks;
 mod models;
 mod playback;
 mod radio;
@@ -60,6 +61,7 @@ pub struct App {
     page_before_history: Page,
     page_before_albums: Page,
     page_before_settings: Page,
+    page_before_favourites: Page,
     albums: albums::AlbumsView,
     appearance: appearance::Appearance,
     visuals: visuals::Visuals,
@@ -103,6 +105,9 @@ pub struct App {
     /// The History page's track lists, for playing and ⋯ menus.
     history_top: Vec<types::Track>,
     history_recent: Vec<types::Track>,
+    /// The Favourites page's tracks, and those left out of the library shuffle (Settings).
+    favourites: Vec<types::Track>,
+    shuffle_excluded: Vec<types::Track>,
     /// The playing track's lyrics once fetched, and the synced line being sung.
     lyrics: Option<types::Lyrics>,
     lyric_line: Option<usize>,
@@ -347,12 +352,15 @@ pub fn run() -> anyhow::Result<()> {
             page_before_history: Page::Welcome,
             page_before_albums: Page::Welcome,
             page_before_settings: Page::Welcome,
+            page_before_favourites: Page::Welcome,
             albums: Default::default(),
             appearance: Default::default(),
             visuals: Default::default(),
             listening: None,
             history_top: Vec::new(),
             history_recent: Vec::new(),
+            favourites: Vec::new(),
+            shuffle_excluded: Vec::new(),
             lyrics: None,
             lyric_line: None,
             playlists: Vec::new(),
@@ -414,6 +422,10 @@ pub fn run() -> anyhow::Result<()> {
         }
     });
     ui.on_show_history(history::toggle_page);
+    ui.on_show_favourites(marks::toggle_page);
+    ui.on_play_favourite(marks::play_favourite);
+    ui.on_shuffle_favourites(marks::shuffle_favourites);
+    ui.on_play_shuffle_excluded(marks::play_excluded);
     ui.on_show_albums(albums::toggle_page);
     ui.on_show_settings(settings::toggle_page);
     ui.on_show_radio(radio::toggle_page);
@@ -509,6 +521,7 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_smart_set_order(smart::set_order);
     ui.on_smart_set_descending(smart::set_descending);
     ui.on_smart_set_limit(smart::set_limit);
+    ui.on_smart_set_min_favourites(smart::set_min_favourites);
     ui.on_smart_apply(smart::apply);
     ui.on_smart_save_copy(smart::save_copy);
     ui.on_play_playlist(library::play_playlist);

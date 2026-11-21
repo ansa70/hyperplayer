@@ -42,6 +42,8 @@ export struct AlbumRow {
 }
 
 export struct TrackItem {
+    /// The track's id; empty for a playlist entry whose file is missing.
+    id: string,
     number: string,
     title: string,
     artist: string,
@@ -49,6 +51,10 @@ export struct TrackItem {
     playing: bool,
     /// False for playlist entries whose file is currently missing.
     available: bool,
+    /// One of the user's favourites.
+    favourite: bool,
+    /// Left out of the whole-library shuffle.
+    shuffle-excluded: bool,
 }
 
 /// A radio station in the Radio page's lists.
@@ -150,7 +156,7 @@ export struct LoginState {
     can-go-back: bool,
 }
 
-export enum Page { welcome, artist, album, search, playlist, queue, lyrics, history, albums, settings, radio }
+export enum Page { welcome, artist, album, search, playlist, queue, lyrics, history, albums, settings, radio, favourites }
 export enum LyricsState { loading, none, instrumental, plain, synced }
 
 export enum RepeatMode { off, all, one }
@@ -158,6 +164,8 @@ export enum RepeatMode { off, all, one }
 // Icon outlines from Lucide (https://lucide.dev, ISC licence), 24×24 viewbox.
 global Icons {
     out property <string> shuffle: "M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22 M18 2l4 4-4 4 M2 6h1.9c1.5 0 2.9.9 3.6 2.2 M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8 M18 14l4 4-4 4";
+    /// "shuffle", struck through: left out of the whole-library shuffle.
+    out property <string> shuffle-off: "M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22 M18 2l4 4-4 4 M2 6h1.9c1.5 0 2.9.9 3.6 2.2 M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8 M18 14l4 4-4 4 M3 3l18 18";
     out property <string> repeat: "M17 2l4 4-4 4 M3 11v-1a4 4 0 0 1 4-4h14 M7 22l-4-4 4-4 M21 13v1a4 4 0 0 1-4 4H3";
     out property <string> repeat-one: "M17 2l4 4-4 4 M3 11v-1a4 4 0 0 1 4-4h14 M7 22l-4-4 4-4 M21 13v1a4 4 0 0 1-4 4H3 M11 10h1v4";
     out property <string> queue: "M16 5H3 M16 12H3 M11 19H3 M21 16v6 M18 19h6";
@@ -548,6 +556,10 @@ component NewPlaylistMenu inherits PopupWindow {
 /// where the list allows, remove or move it.
 component ActionMenu inherits PopupWindow {
     in property <[PlaylistItem]> playlists;
+    /// A single track: it can be made a favourite, or left out of the library shuffle.
+    in property <bool> marks;
+    in property <bool> favourite;
+    in property <bool> shuffle-excluded;
     in property <bool> removable;
     in property <bool> movable;
     in property <string> remove-label: @tr("Remove");
@@ -568,6 +580,15 @@ component ActionMenu inherits PopupWindow {
             if root.movable: MenuItem { text: @tr("Move up"); clicked => { root.action("up", ""); } }
             if root.movable: MenuItem { text: @tr("Move down"); clicked => { root.action("down", ""); } }
             if root.removable: MenuItem { text: root.remove-label; clicked => { root.action("remove", ""); } }
+            if root.marks: Rectangle { height: 9px; Rectangle { height: 1px; background: Theme.surface.brighter(0.8); } }
+            if root.marks: MenuItem {
+                text: root.favourite ? @tr("Remove from favourites") : @tr("Add to favourites");
+                clicked => { root.action("favourite", ""); }
+            }
+            if root.marks: MenuItem {
+                text: root.shuffle-excluded ? @tr("Include in library shuffle") : @tr("Leave out of library shuffle");
+                clicked => { root.action("shuffle-exclude", ""); }
+            }
             Rectangle { height: 9px; Rectangle { height: 1px; background: Theme.surface.brighter(0.8); } }
             Text {
                 text: @tr("ADD TO PLAYLIST");
@@ -593,10 +614,22 @@ component TrackRow inherits Rectangle {
     in property <string> remove-label: @tr("Remove");
     callback play();
     callback action(string, string);
+    /// Where the menu opens: under the ⋯ button, or where the row was right-clicked.
+    property <length> menu-x: root.width - 238px;
+    property <length> menu-y: root.height - 4px;
     height: 44px;
     border-radius: 6px;
     background: ta.has-hover || more-ta.has-hover ? Theme.surface-hi : transparent;
-    ta := TouchArea { clicked => { if root.track.available { root.play(); } } }
+    ta := TouchArea {
+        clicked => { if root.track.available { root.play(); } }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                root.menu-x = clamp(self.mouse-x, 0px, max(0px, root.width - 230px));
+                root.menu-y = self.mouse-y;
+                menu.show();
+            }
+        }
+    }
     HorizontalLayout {
         padding-left: 12px;
         padding-right: 6px;
@@ -610,6 +643,7 @@ component TrackRow inherits Rectangle {
         }
         VerticalLayout {
             alignment: center;
+            horizontal-stretch: 1;
             Text {
                 text: track.title;
                 color: !track.available ? Theme.faint : track.playing ? Theme.accent : Theme.text;
@@ -618,7 +652,40 @@ component TrackRow inherits Rectangle {
             }
             Text { text: track.available ? track.artist : @tr("{} · missing", track.artist); color: Theme.muted; font-size: 11px; overflow: elide; }
         }
-        Text { text: track.duration; color: Theme.muted; font-size: 12px; vertical-alignment: center; horizontal-alignment: right; }
+        // Favourite, left out of the library shuffle.
+        HorizontalLayout {
+            width: 40px;
+            spacing: 6px;
+            alignment: end;
+            if track.shuffle-excluded: VerticalLayout {
+                alignment: center;
+                Path {
+                    width: 16px;
+                    height: 16px;
+                    viewbox-width: 24;
+                    viewbox-height: 24;
+                    commands: Icons.shuffle-off;
+                    fill: transparent;
+                    stroke: Theme.muted;
+                    stroke-width: 1.5px;
+                    stroke-line-cap: round;
+                }
+            }
+            if track.favourite: VerticalLayout {
+                alignment: center;
+                Path {
+                    width: 13px;
+                    height: 13px;
+                    viewbox-width: 24;
+                    viewbox-height: 24;
+                    commands: Icons.star;
+                    fill: Theme.accent;
+                    stroke: Theme.accent;
+                    stroke-width: 1.5px;
+                }
+            }
+        }
+        Text { width: 48px; text: track.duration; color: Theme.muted; font-size: 12px; vertical-alignment: center; horizontal-alignment: right; }
         Rectangle {
             width: 32px;
             Path {
@@ -632,13 +699,23 @@ component TrackRow inherits Rectangle {
                 stroke-width: 2.5px;
                 stroke-line-cap: round;
             }
-            more-ta := TouchArea { mouse-cursor: pointer; clicked => { menu.show(); } }
+            more-ta := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    root.menu-x = root.width - 238px;
+                    root.menu-y = root.height - 4px;
+                    menu.show();
+                }
+            }
         }
     }
     menu := ActionMenu {
-        x: root.width - self.width - 8px;
-        y: root.height - 4px;
+        x: root.menu-x;
+        y: root.menu-y;
         playlists: root.playlists;
+        marks: root.track.id != "";
+        favourite: root.track.favourite;
+        shuffle-excluded: root.track.shuffle-excluded;
         removable: root.removable;
         movable: root.movable;
         remove-label: root.remove-label;
@@ -728,6 +805,8 @@ component Sidebar inherits Rectangle {
     in property <[ArtistItem]> artists;
     in property <bool> history-open;
     callback show-history();
+    in property <bool> favourites-open;
+    callback show-favourites();
     in property <bool> albums-open;
     callback show-albums();
     in property <bool> radio-open;
@@ -789,6 +868,12 @@ component Sidebar inherits Rectangle {
                 text: @tr("Albums");
                 active: root.albums-open;
                 clicked => { root.show-albums(); }
+            }
+            NavRow {
+                icon: Icons.star;
+                text: @tr("Favourites");
+                active: root.favourites-open;
+                clicked => { root.show-favourites(); }
             }
             NavRow {
                 icon: Icons.history;
@@ -1198,6 +1283,62 @@ component AlbumsPage inherits Rectangle {
                 content-height: list.content-height;
                 content-y <=> list.content-y;
             }
+        }
+    }
+}
+
+/// The user's favourite tracks, the latest first.
+component FavouritesPage inherits Rectangle {
+    in property <bool> loaded;
+    in property <string> summary;
+    in property <[TrackItem]> tracks;
+    in property <[PlaylistItem]> playlists;
+    callback play(int);
+    callback shuffle-play();
+    callback track-action(int, string, string);
+    Rectangle {
+        favourites-scroll := ScrollView {
+            vertical-scrollbar-policy: always-off;
+            VerticalLayout {
+                alignment: start;
+                padding: 28px;
+                spacing: 18px;
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: @tr("Favourites"); color: Theme.text; font-size: 28px; font-weight: 800; }
+                    if root.summary != "": Text { text: root.summary; color: Theme.muted; font-size: 13px; }
+                }
+                if root.tracks.length > 0: HorizontalLayout {
+                    alignment: start;
+                    spacing: 12px;
+                    IconButton { commands: Icons.play; filled: true; primary: true; size: 48px; clicked => { root.play(0); } }
+                    VerticalLayout {
+                        alignment: center;
+                        ToggleIcon { commands: Icons.shuffle; clicked => { root.shuffle-play(); } }
+                    }
+                }
+                if root.loaded && root.tracks.length == 0: Text {
+                    text: @tr("No favourites yet. Right-click a track (or use its ⋯ menu) and pick Add to favourites.");
+                    color: Theme.faint;
+                    font-size: 13px;
+                    wrap: word-wrap;
+                }
+                VerticalLayout {
+                    for track[i] in root.tracks: TrackRow {
+                        track: track;
+                        playlists: root.playlists;
+                        play => { root.play(i); }
+                        action(kind, id) => { root.track-action(i, kind, id); }
+                    }
+                }
+            }
+        }
+        AccentScrollBar {
+            x: parent.width - self.width;
+            height: parent.height;
+            visible-height: favourites-scroll.visible-height;
+            content-height: favourites-scroll.content-height;
+            content-y <=> favourites-scroll.content-y;
         }
     }
 }
@@ -1636,6 +1777,8 @@ component SmartEditor inherits Rectangle {
     in property <int> order;
     in property <bool> descending;
     in property <string> limit;
+    /// At least this many favourites among the tracks ("0": no need).
+    in property <string> min-favourites;
     /// Edited since last applied.
     in property <bool> dirty;
     in property <string> message;
@@ -1649,6 +1792,7 @@ component SmartEditor inherits Rectangle {
     callback set-order(int);
     callback set-descending(bool);
     callback set-limit(string);
+    callback set-min-favourites(string);
     callback apply();
     border-radius: 8px;
     background: Theme.surface.with-alpha(0.7);
@@ -1669,7 +1813,7 @@ component SmartEditor inherits Rectangle {
             spacing: 8px;
             ComboBox {
                 width: 140px;
-                model: [@tr("Title"), @tr("Artist"), @tr("Album"), @tr("Genre"), @tr("Format"), @tr("Year"), @tr("Duration"), @tr("Sample rate"), @tr("Plays"), @tr("Lossless"), @tr("Last played"), @tr("Added")];
+                model: [@tr("Title"), @tr("Artist"), @tr("Album"), @tr("Genre"), @tr("Format"), @tr("Year"), @tr("Duration"), @tr("Sample rate"), @tr("Plays"), @tr("Lossless"), @tr("Last played"), @tr("Added"), @tr("Favourite")];
                 current-index: rule.field;
                 selected => { root.rule-field(i, self.current-index); }
             }
@@ -1728,6 +1872,18 @@ component SmartEditor inherits Rectangle {
             Text { text: @tr("tracks (max 500)"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
         }
         HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            Text { text: @tr("Include at least"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+            LineEdit {
+                width: 64px;
+                text: root.min-favourites;
+                edited(text) => { root.set-min-favourites(text); }
+                accepted => { root.apply(); }
+            }
+            Text { text: @tr("favourites (among the tracks matching the rules)"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+        }
+        HorizontalLayout {
             spacing: 12px;
             alignment: start;
             OutlineButton { text: root.dirty ? @tr("Apply rules") : @tr("Rules applied"); clicked => { root.apply(); } }
@@ -1769,6 +1925,7 @@ component PlaylistPage inherits Rectangle {
     in property <int> order;
     in property <bool> descending;
     in property <string> limit;
+    in property <string> min-favourites;
     in property <bool> rules-dirty;
     in property <string> rules-message;
     callback set-match(bool);
@@ -1781,6 +1938,7 @@ component PlaylistPage inherits Rectangle {
     callback set-order(int);
     callback set-descending(bool);
     callback set-limit(string);
+    callback set-min-favourites(string);
     callback apply-rules();
     callback save-copy();
     property <bool> confirm-delete;
@@ -1859,6 +2017,7 @@ component PlaylistPage inherits Rectangle {
             order: root.order;
             descending: root.descending;
             limit: root.limit;
+            min-favourites: root.min-favourites;
             dirty: root.rules-dirty;
             message: root.rules-message;
             set-match(any) => { root.set-match(any); }
@@ -1871,6 +2030,7 @@ component PlaylistPage inherits Rectangle {
             set-order(o) => { root.set-order(o); }
             set-descending(d) => { root.set-descending(d); }
             set-limit(l) => { root.set-limit(l); }
+            set-min-favourites(n) => { root.set-min-favourites(n); }
             apply => { root.apply-rules(); }
         }
         // While searching, the results and the playlist share the page about evenly.
@@ -3192,6 +3352,11 @@ component Note inherits Text {
 }
 
 component SettingsPage inherits Rectangle {
+    /// Tracks left out of the whole-library shuffle.
+    in property <[TrackItem]> excluded;
+    in property <[PlaylistItem]> playlists;
+    callback play-excluded(int);
+    callback track-action(int, string, string);
     // Per-row admin actions waiting for input or confirmation.
     property <string> removing-folder;
     property <string> removing-source;
@@ -3213,7 +3378,7 @@ component SettingsPage inherits Rectangle {
                 Segmented {
                     selected: SettingsState.tab;
                     // Listeners see the library's state too, read-only, as "Library".
-                    options: [{ key: "playback", label: @tr("Playback") }, { key: "appearance", label: @tr("Appearance") }, { key: "account", label: @tr("Account") }, { key: "scrobbling", label: @tr("Scrobbling") }, { key: "server", label: SettingsState.is-admin && !SettingsState.local ? @tr("Server") : @tr("Library") }];
+                    options: [{ key: "playback", label: @tr("Playback") }, { key: "appearance", label: @tr("Appearance") }, { key: "account", label: @tr("Account") }, { key: "scrobbling", label: @tr("Scrobbling") }, { key: "shuffle", label: @tr("Shuffle") }, { key: "server", label: SettingsState.is-admin && !SettingsState.local ? @tr("Server") : @tr("Library") }];
                     pick(key) => { SettingsState.tab = key; }
                 }
 
@@ -3291,6 +3456,25 @@ component SettingsPage inherits Rectangle {
                         enabled: SettingsState.crossfade > 0;
                         checked: SettingsState.crossfade-albums;
                         toggled => { SettingsState.set-crossfade-albums(self.checked); }
+                    }
+                }
+
+                // ------------------------------------------------------------- shuffle
+                if SettingsState.tab == "shuffle": Card {
+                    title: @tr("Left out of the whole-library shuffle");
+                    Note { text: @tr("The shuffle button skips these tracks when it draws from the whole library; they still play from their album, a playlist or a search, and when shuffling an album, artist or genre. Right-click a track (or use its ⋯ menu) to leave it out or bring it back."); }
+                    if root.excluded.length == 0: Text {
+                        text: @tr("No tracks are left out.");
+                        color: Theme.faint;
+                        font-size: 12px;
+                    }
+                    VerticalLayout {
+                        for track[i] in root.excluded: TrackRow {
+                            track: track;
+                            playlists: root.playlists;
+                            play => { root.play-excluded(i); }
+                            action(kind, id) => { root.track-action(i, kind, id); }
+                        }
                     }
                 }
 
@@ -3963,6 +4147,7 @@ export component AppWindow inherits Window {
     in property <int> smart-order;
     in property <bool> smart-descending;
     in property <string> smart-limit;
+    in property <string> smart-min-favourites;
     in property <bool> smart-dirty;
     in property <string> smart-message;
     callback smart-set-match(bool);
@@ -3975,6 +4160,7 @@ export component AppWindow inherits Window {
     callback smart-set-order(int);
     callback smart-set-descending(bool);
     callback smart-set-limit(string);
+    callback smart-set-min-favourites(string);
     callback smart-apply();
     callback smart-save-copy();
     in property <string> queue-origin;
@@ -4045,6 +4231,15 @@ export component AppWindow inherits Window {
     callback radio-back-to-queue();
     callback radio-open-homepage();
     callback play-history-track(string, int);
+    callback show-favourites();
+    in property <bool> favourites-loaded;
+    in property <string> favourites-summary;
+    in property <[TrackItem]> favourites;
+    callback play-favourite(int);
+    callback shuffle-favourites();
+    /// Left out of the whole-library shuffle (Settings).
+    in property <[TrackItem]> shuffle-excluded;
+    callback play-shuffle-excluded(int);
     in property <bool> history-loaded;
     in property <string> history-summary;
     in property <[ArtistItem]> history-artists;
@@ -4131,6 +4326,7 @@ export component AppWindow inherits Window {
                 else if root.page == Page.queue { root.show-queue(); }
                 else if root.page == Page.lyrics { root.show-lyrics(); }
                 else if root.page == Page.history { root.show-history(); }
+                else if root.page == Page.favourites { root.show-favourites(); }
                 else if root.page == Page.albums { root.show-albums(); }
                 else if root.page == Page.radio { root.show-radio(); }
                 else if root.page == Page.settings { root.show-settings(); }
@@ -4200,6 +4396,8 @@ export component AppWindow inherits Window {
                     switch-library => { root.switch-library(); }
                     history-open: root.page == Page.history;
                     show-history => { root.show-history(); }
+                    favourites-open: root.page == Page.favourites;
+                    show-favourites => { root.show-favourites(); }
                     albums-open: root.page == Page.albums;
                     show-albums => { root.show-albums(); }
                     radio-open: root.page == Page.radio;
@@ -4258,6 +4456,7 @@ export component AppWindow inherits Window {
                         order: root.smart-order;
                         descending: root.smart-descending;
                         limit: root.smart-limit;
+                        min-favourites: root.smart-min-favourites;
                         rules-dirty: root.smart-dirty;
                         rules-message: root.smart-message;
                         set-match(any) => { root.smart-set-match(any); }
@@ -4270,10 +4469,25 @@ export component AppWindow inherits Window {
                         set-order(o) => { root.smart-set-order(o); }
                         set-descending(d) => { root.smart-set-descending(d); }
                         set-limit(l) => { root.smart-set-limit(l); }
+                        set-min-favourites(n) => { root.smart-set-min-favourites(n); }
                         apply-rules => { root.smart-apply(); }
                         save-copy => { root.smart-save-copy(); }
                     }
-                    if root.page == Page.settings: SettingsPage { }
+                    if root.page == Page.settings: SettingsPage {
+                        excluded: root.shuffle-excluded;
+                        playlists: root.editable-playlists;
+                        play-excluded(i) => { root.play-shuffle-excluded(i); }
+                        track-action(i, kind, id) => { root.track-action("shuffle-excluded", i, kind, id); }
+                    }
+                    if root.page == Page.favourites: FavouritesPage {
+                        loaded: root.favourites-loaded;
+                        summary: root.favourites-summary;
+                        tracks: root.favourites;
+                        playlists: root.editable-playlists;
+                        play(i) => { root.play-favourite(i); }
+                        shuffle-play => { root.shuffle-favourites(); }
+                        track-action(i, kind, id) => { root.track-action("favourites", i, kind, id); }
+                    }
                     if root.page == Page.radio: RadioPage {
                         favourites: root.radio-favourites;
                         stations: root.radio-stations;

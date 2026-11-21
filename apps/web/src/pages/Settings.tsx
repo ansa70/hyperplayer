@@ -7,6 +7,7 @@ import { Library, Users } from "./settings/Admin.tsx";
 import { Appearance } from "./settings/Appearance.tsx";
 import { Card } from "./settings/Card.tsx";
 import { Scrobbling } from "./settings/Scrobbling.tsx";
+import { Shuffle } from "./settings/Shuffle.tsx";
 import { canBoost } from "../player/output.ts";
 import { useLibrary } from "../stores/library.ts";
 import { useSession } from "../stores/session.ts";
@@ -14,7 +15,7 @@ import "./pages.css";
 import "./settings.css";
 import { locale, t } from "../i18n.ts";
 
-type Tab = "playback" | "appearance" | "account" | "scrobbling" | "library" | "users";
+type Tab = "playback" | "appearance" | "account" | "scrobbling" | "shuffle" | "library" | "users";
 
 /** Settings, like the Rust player's: playback (the account's preferences) and the account. */
 export function Settings() {
@@ -38,6 +39,7 @@ export function Settings() {
           { key: "appearance", label: t("Appearance") },
           { key: "account", label: t("Account") },
           { key: "scrobbling", label: t("Scrobbling") },
+          { key: "shuffle", label: t("Shuffle") },
           ...(user?.admin
             ? [
                 { key: "library", label: t("Library") },
@@ -51,6 +53,7 @@ export function Settings() {
       {tab === "appearance" && <Appearance />}
       {tab === "account" && <Account />}
       {tab === "scrobbling" && <Scrobbling />}
+      {tab === "shuffle" && <Shuffle />}
       {tab === "library" && <Library />}
       {tab === "users" && <Users />}
       <p className="faint versions">{t("HyperPlayer web · server {}", serverVersion)}</p>

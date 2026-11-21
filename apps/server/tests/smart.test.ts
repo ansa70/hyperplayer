@@ -215,3 +215,36 @@ test("a smart playlist follows the library, and plays or shuffles what matches",
   expect(q.entries[q.index!]!.track.id).toBe(ids[1]);
   expect(q.origin).toMatchObject({ kind: "playlist", name: "Random four" });
 });
+
+test("favourites: a rule picks them (or not), and at least N of them can be asked for", async () => {
+  const tracks = (
+    (await inject("/api/tracks?limit=500")).json() as { items: { id: string; title: string }[] }
+  ).items;
+  const fav = async (title: string) =>
+    inject({
+      method: "PUT",
+      url: `/api/tracks/${tracks.find((t) => t.title === title)!.id}/marks`,
+      payload: { favourite: true },
+    });
+  await fav("Return");
+  await fav("Avril 14th");
+  expect(await pick({ rules: [rule("favourite", "is", "yes")] })).toEqual(["Avril 14th", "Return"]);
+  expect(await pick({ rules: [rule("favourite", "is", "no"), rule("genre", "is", "electronic")] })).toEqual([
+    "Vordhosbn",
+  ]);
+
+  // In title order the first two would be "Avril 14th" and "Blue in Green": both favourites come in.
+  for (let i = 0; i < 5; i++) {
+    const p = await create({ order: "title", limit: 2, minFavourites: 2 });
+    expect(titles(p)).toEqual(["Avril 14th", "Return"]);
+    expect(p.matching).toBe(7);
+  }
+  // Only among what the rules match; with fewer favourites than asked, the rest as usual.
+  expect(await pick({ rules: [rule("genre", "contains", "jazz")], limit: 2, minFavourites: 2 })).toEqual([
+    "Blue in Green",
+    "Return",
+  ]);
+  const random = await create({ limit: 3, minFavourites: 5 });
+  expect(titles(random)).toHaveLength(3);
+  expect(titles(random)).toEqual(expect.arrayContaining(["Avril 14th", "Return"]));
+});

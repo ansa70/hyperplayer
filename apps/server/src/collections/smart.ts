@@ -27,6 +27,7 @@ const OPS: Record<SmartRule["field"], string[]> = {
   sampleRate: NUMBER_OPS,
   plays: NUMBER_OPS,
   lossless: ["is"],
+  favourite: ["is"],
   lastPlayed: [...DATE_OPS, "never"],
   added: DATE_OPS,
 };
@@ -65,7 +66,7 @@ const like = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 export function checkRules(rules: SmartRules) {
   for (const r of rules.rules) {
     if (!OPS[r.field].includes(r.op)) throw invalid(`"${r.op}" doesn't apply to ${r.field}`);
-    if (r.value.trim()) condition(r, 0); // parses the value
+    if (r.value.trim()) condition(r, 0, ""); // parses the value
   }
 }
 
@@ -78,7 +79,17 @@ function number(rule: SmartRule, text: string): number {
   return n;
 }
 
-function condition(r: SmartRule, now: number): Sql {
+/** "yes" or "no", in English or Italian, as the players' hints ask for it. */
+function yesNo(r: SmartRule, v: string): boolean {
+  const yes = ["yes", "true", "1", "sì", "si"].includes(v.toLowerCase());
+  if (!yes && !["no", "false", "0"].includes(v.toLowerCase())) throw invalid(`${r.field} is "yes" or "no"`);
+  return yes;
+}
+
+/** `userId`'s favourites among the tracks `t`. */
+const FAVOURITE = "EXISTS (SELECT 1 FROM favourite_tracks fv WHERE fv.track_id = t.id AND fv.user_id = ?)";
+
+function condition(r: SmartRule, now: number, userId: string): Sql {
   const v = r.value.trim();
   const text = TEXT[r.field];
   if (text) {
@@ -125,12 +136,8 @@ function condition(r: SmartRule, now: number): Sql {
       }
     }
   }
-  if (r.field === "lossless") {
-    // In English or Italian, as the players' hints ask for it.
-    const yes = ["yes", "true", "1", "sì", "si"].includes(v.toLowerCase());
-    if (!yes && !["no", "false", "0"].includes(v.toLowerCase())) throw invalid(`lossless is "yes" or "no"`);
-    return { sql: "t.lossless = ?", args: [yes ? 1 : 0] };
-  }
+  if (r.field === "lossless") return { sql: "t.lossless = ?", args: [yesNo(r, v) ? 1 : 0] };
+  if (r.field === "favourite") return { sql: yesNo(r, v) ? FAVOURITE : `NOT ${FAVOURITE}`, args: [userId] };
   // Dates: lastPlayed (from this user's listens) or added (when the album first appeared).
   const date = r.field === "lastPlayed" ? "h.last" : "al.added_at";
   if (r.op === "never") return { sql: "h.last IS NULL", args: [] };
@@ -142,8 +149,9 @@ function condition(r: SmartRule, now: number): Sql {
 }
 
 /**
- * The tracks matching `rules` for `userId` (whose listens count for plays and last played),
- * in the rules' order, up to their limit; and how many match in all.
+ * The tracks matching `rules` for `userId` (whose listens count for plays and last played,
+ * and whose favourites are theirs), in the rules' order, up to their limit; and how many
+ * match in all. With `minFavourites`, that many of them (at random) are favourites first.
  */
 export function smartTracks(
   db: Db,
@@ -153,9 +161,9 @@ export function smartTracks(
   const now = Date.now();
   // A rule still being written (no value yet) doesn't count.
   const active = rules.rules.filter((r) => r.op === "never" || r.value.trim());
-  const conditions = active.map((r) => condition(r, now));
+  const conditions = active.map((r) => condition(r, now, userId));
   const where = conditions.length
-    ? conditions.map((c) => c.sql).join(rules.match === "all" ? " AND " : " OR ")
+    ? `(${conditions.map((c) => c.sql).join(rules.match === "all" ? " AND " : " OR ")})`
     : "1";
   const args = conditions.flatMap((c) => c.args);
   const from = `FROM tracks t
@@ -172,8 +180,22 @@ export function smartTracks(
     rules.order === "random"
       ? key
       : `${key} IS NULL, ${key} ${rules.descending ? "DESC" : "ASC"}, al.title COLLATE NOCASE, t.disc_number, t.track_number`;
-  const trackIds = (
-    db.prepare(`SELECT t.id ${from} ORDER BY ${order} LIMIT ?`).all(userId, ...args, rules.limit) as Row[]
-  ).map((r) => String(r.id));
+  const ids = (sql: string, ...more: (string | number)[]) =>
+    (db.prepare(sql).all(userId, ...args, ...more) as Row[]).map((r) => String(r.id));
+  const favourites = Math.min(rules.minFavourites ?? 0, rules.limit);
+  if (!favourites)
+    return { trackIds: ids(`SELECT t.id ${from} ORDER BY ${order} LIMIT ?`, rules.limit), matching };
+  // The favourites first, then the rest as usual, all in the rules' order.
+  const picked = ids(`SELECT t.id ${from} AND ${FAVOURITE} ORDER BY random() LIMIT ?`, userId, favourites);
+  const others = ids(
+    `SELECT t.id ${from} AND t.id NOT IN (SELECT value FROM json_each(?)) ORDER BY ${order} LIMIT ?`,
+    JSON.stringify(picked),
+    rules.limit - picked.length,
+  );
+  const chosen = JSON.stringify([...picked, ...others]);
+  const trackIds =
+    rules.order === "random"
+      ? ids(`SELECT t.id ${from} AND t.id IN (SELECT value FROM json_each(?)) ORDER BY random()`, chosen)
+      : ids(`SELECT t.id ${from} AND t.id IN (SELECT value FROM json_each(?)) ORDER BY ${order}`, chosen);
   return { trackIds, matching };
 }

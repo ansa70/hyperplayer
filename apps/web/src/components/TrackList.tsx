@@ -1,9 +1,12 @@
 import type { Track } from "@hyperplayer/schemas";
+import { useRef } from "react";
 import { Link, useNavigate } from "react-router";
 import { duration } from "../format.ts";
+import { useTrackMarks } from "../stores/marks.ts";
 import { usePlayer } from "../stores/player.ts";
-import { MenuButton, type MenuItem } from "./Menu.tsx";
-import { queueAndPlaylistItems, trackSource } from "./trackActions.ts";
+import { Icon } from "./Icon.tsx";
+import { MenuButton, type MenuHandle, type MenuItem } from "./Menu.tsx";
+import { markItems, queueAndPlaylistItems, trackSource } from "./trackActions.ts";
 import "./components.css";
 import { t } from "../i18n.ts";
 
@@ -26,6 +29,25 @@ export const rowOf = (t: Track): Row => ({
   key: t.id,
 });
 
+/** A star for a favourite, a struck-through shuffle for a track left out of the library shuffle. */
+export function TrackMarks({ track }: { track: Track | null }) {
+  const marks = useTrackMarks(track);
+  return (
+    <>
+      {marks.shuffleExcluded && (
+        <span className="track-mark" title={t("Left out of the library shuffle")}>
+          <Icon name="shuffleOff" size={13} />
+        </span>
+      )}
+      {marks.favourite && (
+        <span className="track-mark favourite" title={t("Favourite")}>
+          <Icon name="star" size={13} />
+        </span>
+      )}
+    </>
+  );
+}
+
 /** Tracks of an album (numbered) or a mixed list (with their artist and album). */
 export function TrackList({
   tracks,
@@ -44,6 +66,8 @@ export function TrackList({
   const list = rows ?? (tracks ?? []).map(rowOf);
   const playingId = usePlayer((s) => s.track?.id);
   const navigate = useNavigate();
+  // Each row's menu, opened by a right-click anywhere on the row.
+  const menus = useRef(new Map<string, MenuHandle>());
   // Disc headings only on an album's own list.
   const discs = numbered === true && new Set(list.map((r) => r.track?.discNumber ?? 1)).size > 1;
   return (
@@ -61,6 +85,12 @@ export function TrackList({
               tabIndex={0}
               onClick={() => track && onPlay(i)}
               onKeyDown={(e) => e.key === "Enter" && track && onPlay(i)}
+              onContextMenu={(e) => {
+                const menu = menus.current.get(r.key);
+                if (!menu) return;
+                e.preventDefault();
+                menu.open();
+              }}
             >
               <span className="track-number">{numbered ? (track?.trackNumber ?? i + 1) : i + 1}</span>
               <span className="track-title">
@@ -83,10 +113,18 @@ export function TrackList({
                   </span>
                 )}
               </span>
-              <span className="muted track-duration">{duration(r.durationMs)}</span>
+              <span className="muted track-duration">
+                <TrackMarks track={track} />
+                {duration(r.durationMs)}
+              </span>
               <MenuButton
+                handle={(m) => {
+                  if (m) menus.current.set(r.key, m);
+                  else menus.current.delete(r.key);
+                }}
                 items={() => [
                   ...(track ? queueAndPlaylistItems(trackSource(track), track.title) : []),
+                  ...(track ? markItems(track) : []),
                   ...(track && !numbered
                     ? [{ label: t("Go to album"), onSelect: () => void navigate(`/album/${track.albumId}`) }]
                     : []),

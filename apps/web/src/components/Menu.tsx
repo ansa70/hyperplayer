@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from "react";
 import "./menu.css";
 import { t } from "../i18n.ts";
 
@@ -10,19 +10,32 @@ export interface MenuItem {
   danger?: boolean;
 }
 
+/** Opens a menu from elsewhere, e.g. a right-click on the row it belongs to. */
+export interface MenuHandle {
+  open: () => void;
+}
+
 /** A "⋯" button that opens a menu of actions; on phones the menu is a sheet from the bottom. */
 export function MenuButton({
   items,
   title = t("More"),
   children,
+  handle,
 }: {
   items: () => MenuItem[];
   title?: string;
   children?: ReactNode;
+  handle?: Ref<MenuHandle>;
 }) {
   const [open, setOpen] = useState<MenuItem[] | null>(null);
   const [heading, setHeading] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  useImperativeHandle(handle, () => ({
+    open: () => {
+      setHeading("");
+      setOpen(items());
+    },
+  }));
 
   useEffect(() => {
     if (!open) return;

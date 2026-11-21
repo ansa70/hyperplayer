@@ -424,12 +424,15 @@ pub fn search_track_model(tracks: &[types::Track], playing: Option<&str>) -> Mod
             .iter()
             .enumerate()
             .map(|(i, t)| TrackItem {
+                id: t.id.to_string().into(),
                 number: (i + 1).to_string().into(),
                 title: t.title.clone().into(),
                 artist: format!("{} · {}", t.artist_name, t.album_title).into(),
                 duration: fmt_duration(t.duration_ms).into(),
                 playing: playing == Some(t.id.as_str()),
                 available: true,
+                favourite: t.favourite,
+                shuffle_excluded: t.shuffle_excluded,
             })
             .collect::<Vec<_>>(),
     ))
@@ -442,6 +445,7 @@ pub fn track_model(tracks: &[types::Track], playing: Option<&str>) -> ModelRc<Tr
             .iter()
             .enumerate()
             .map(|(i, t)| TrackItem {
+                id: t.id.to_string().into(),
                 number: t
                     .track_number
                     .map(|n| n.get() as usize)
@@ -453,6 +457,8 @@ pub fn track_model(tracks: &[types::Track], playing: Option<&str>) -> ModelRc<Tr
                 duration: fmt_duration(t.duration_ms).into(),
                 playing: playing == Some(t.id.as_str()),
                 available: true,
+                favourite: t.favourite,
+                shuffle_excluded: t.shuffle_excluded,
             })
             .collect::<Vec<_>>(),
     ))

@@ -376,7 +376,12 @@ export class Queues {
     if (c.tracks) return [...c.tracks].sort();
     const ids = (sql: string, ...args: string[]) =>
       (this.#db.prepare(sql).all(...args) as Row[]).map((r) => String(r.id));
-    if (c.key === null) return ids("SELECT id FROM tracks ORDER BY id");
+    // The whole library, without the tracks the user leaves out of it (`viewer()`: the queue's user).
+    if (c.key === null)
+      return ids(
+        `SELECT id FROM tracks WHERE id NOT IN (SELECT track_id FROM shuffle_exclusions WHERE user_id = viewer())
+         ORDER BY id`,
+      );
     switch (c.scope) {
       case "album":
         return ids("SELECT id FROM tracks WHERE album_id = ? ORDER BY id", c.key);

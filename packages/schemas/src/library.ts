@@ -50,8 +50,9 @@ export const SmartField = named(
     "lossless",
     "lastPlayed",
     "added",
+    "favourite",
   ]),
-  "What a smart playlist rule looks at. `artist` matches the track's or the album's artist.",
+  "What a smart playlist rule looks at. `artist` matches the track's or the album's artist; `favourite` the user's favourites.",
 );
 
 export const SmartOperator = named(
@@ -71,7 +72,7 @@ export const SmartOperator = named(
   ]),
   `How a rule compares. Text fields (title, artist, album, genre, format): contains, notContains,
 is, isNot, startsWith. Numbers (year; duration in seconds or m:ss; sampleRate in kHz; plays):
-is, isNot, lessThan, greaterThan, between. lossless: is (yes or no). Dates (lastPlayed, added):
+is, isNot, lessThan, greaterThan, between. lossless and favourite: is (yes or no). Dates (lastPlayed, added):
 inLast and notInLast a number of days; lastPlayed also never.`,
 );
 
@@ -98,6 +99,11 @@ export const SmartRules = named(
       .default("random"),
     descending: z.boolean().default(false),
     limit: z.int().min(1).max(500).default(100),
+    /**
+     * At least this many of the tracks are the user's favourites (among those matching the
+     * rules), when there are that many; the rest are picked as usual.
+     */
+    minFavourites: z.int().min(0).max(500).default(0),
   }),
   "A smart playlist's rules: its tracks are whatever matches, worked out whenever it's read.",
 );

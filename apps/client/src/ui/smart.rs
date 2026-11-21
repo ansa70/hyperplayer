@@ -14,7 +14,7 @@ use slint::{ModelRc, SharedString, VecModel};
 use super::{App, AppWindow, RuleRow, background, library, with_app};
 
 /// The editor's fields and orders, in the order its lists show them (app.slint).
-const FIELDS: [F; 12] = [
+const FIELDS: [F; 13] = [
     F::Title,
     F::Artist,
     F::Album,
@@ -27,6 +27,7 @@ const FIELDS: [F; 12] = [
     F::Lossless,
     F::LastPlayed,
     F::Added,
+    F::Favourite,
 ];
 const ORDERS: [SmartRulesOrder; 8] = [
     SmartRulesOrder::Random,
@@ -58,7 +59,7 @@ fn ops(field: F) -> &'static [Op] {
             Op::GreaterThan,
             Op::Between,
         ],
-        F::Lossless => &[Op::Is],
+        F::Lossless | F::Favourite => &[Op::Is],
         F::LastPlayed => &[Op::InLast, Op::NotInLast, Op::Never],
         F::Added => &[Op::InLast, Op::NotInLast],
     }
@@ -95,7 +96,7 @@ fn hint(field: F) -> &'static str {
         F::Duration => tr!("seconds or m:ss"),
         F::SampleRate => tr!("kHz, e.g. 96"),
         F::Plays => tr!("times"),
-        F::Lossless => tr!("yes or no"),
+        F::Lossless | F::Favourite => tr!("yes or no"),
         F::LastPlayed | F::Added => tr!("days"),
     }
 }
@@ -129,6 +130,7 @@ fn rules(rules: Vec<SmartRule>, order: SmartRulesOrder, limit: u64) -> SmartRule
         order,
         descending: false,
         limit: NonZeroU64::new(limit).expect("a limit above zero"),
+        min_favourites: 0,
     }
 }
 
@@ -239,6 +241,7 @@ fn push(app: &App, ui: &AppWindow) {
     ui.set_smart_order(ORDERS.iter().position(|o| *o == e.rules.order).unwrap_or(0) as i32);
     ui.set_smart_descending(e.rules.descending);
     ui.set_smart_limit(e.rules.limit.to_string().into());
+    ui.set_smart_min_favourites(e.rules.min_favourites.to_string().into());
     ui.set_smart_dirty(e.dirty);
 }
 
@@ -341,6 +344,19 @@ pub fn set_limit(text: SharedString) {
         edit(false, |r| {
             r.limit = NonZeroU64::new(n.clamp(1, MAX_LIMIT)).expect("a limit above zero")
         });
+    }
+}
+
+pub fn set_min_favourites(text: SharedString) {
+    // Empty means none; anything else that isn't a number keeps the last one.
+    let text = text.trim();
+    let n = if text.is_empty() {
+        Ok(0)
+    } else {
+        text.parse::<u64>()
+    };
+    if let Ok(n) = n {
+        edit(false, |r| r.min_favourites = n.min(MAX_LIMIT) as i64);
     }
 }
 
