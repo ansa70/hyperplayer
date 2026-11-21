@@ -1,7 +1,15 @@
-import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, renameSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Playlist, PlaylistList, QueueState, Track, TrackList, type RepeatMode } from "@hyperplayer/schemas";
+import {
+  Playlist,
+  PlaylistList,
+  QueueState,
+  Track,
+  TrackList,
+  TrackProperties,
+  type RepeatMode,
+} from "@hyperplayer/schemas";
 import { afterEach, beforeEach, expect, test } from "vite-plus/test";
 import { buildApp } from "../src/app.ts";
 import { authed, setupAdmin, testConfig, wav } from "./helpers.ts";
@@ -446,7 +454,7 @@ test("a playlist's Shuffle draws from that playlist, as the shuffle button's pla
 
 // ------------------------------------------------------------ track marks
 
-const mark = (id: string, marks: { favourite?: boolean; shuffleExcluded?: boolean }) =>
+const mark = (id: string, marks: { favourite?: boolean; shuffleExcluded?: boolean; rating?: number }) =>
   call("PUT", `/api/tracks/${id}/marks`, Track, marks);
 const albumTracks = async () =>
   ((await inject(`/api/albums/${await albumId()}`)).json() as { tracks: Track[] }).tracks;
@@ -507,4 +515,72 @@ test("shuffle button: the whole library leaves out excluded tracks, other scopes
   await setScope("album");
   q = await update({ shuffle: true });
   expect([...order(q)].sort()).toEqual([...ALBUM].sort());
+});
+
+// ------------------------------------------------------------ track properties
+
+const properties = (id: string, change?: object) =>
+  change
+    ? call("PUT", `/api/tracks/${id}/properties`, TrackProperties, change)
+    : call("GET", `/api/tracks/${id}/properties`, TrackProperties);
+
+test("properties: tags are edited in HyperPlayer only, survive a rescan, and can go back to the file's", async () => {
+  const two = (await albumTracks()).find((t) => t.title === "Two")!;
+  let p = await properties(two.id);
+  expect(p).toMatchObject({
+    tags: { title: "Two", artist: "Band", trackNumber: 2, year: null, genres: [] },
+    edited: [],
+    plays: 0,
+  });
+  expect(p.path).toMatch(/2\.wav$/);
+
+  p = await properties(two.id, { tags: { title: "Deux", year: 1999, genres: ["Rock", "Pop"] } });
+  expect(p.tags).toMatchObject({ title: "Deux", artist: "Band", year: 1999, genres: ["Rock", "Pop"] });
+  expect(p.original).toMatchObject({ title: "Two", year: null, genres: [] });
+  expect(p.edited.sort()).toEqual(["genres", "title", "year"]);
+  expect(p.track).toMatchObject({ title: "Deux", year: 1999 });
+  // Search finds it by its new title.
+  const found = (await inject("/api/search?q=deux")).json() as { tracks: Track[] };
+  expect(found.tracks.map((t) => t.title)).toEqual(["Deux"]);
+
+  // The file is retagged and read again: the edits stay, over the file's new values.
+  const file = join(lib, "Band", "Album", "2.wav");
+  writeFileSync(file, wav({ INAM: "Zwei", IART: "Band", IPRD: "Album", ITRK: "2", ICRD: "2001" }));
+  utimesSync(file, new Date(), new Date(Date.now() + 120_000));
+  await ctx.startScan();
+  p = await properties(two.id);
+  expect(p.tags).toMatchObject({ title: "Deux", year: 1999 });
+  expect(p.original).toMatchObject({ title: "Zwei", year: 2001 });
+
+  // Edited back to the file's value, or reset: no longer an edit.
+  p = await properties(two.id, { tags: { year: 2001 }, reset: ["genres"] });
+  expect(p.edited).toEqual(["title"]);
+  expect(p.tags).toMatchObject({ title: "Deux", year: 2001, genres: [] });
+  p = await properties(two.id, { reset: ["title"] });
+  expect(p.edited).toEqual([]);
+  expect(p.track.title).toBe("Zwei");
+});
+
+test("properties: volume and the part played are for everyone; ratings are each user's own", async () => {
+  const one = (await albumTracks())[0]!;
+  let p = await properties(one.id, { volumeDb: -3.5, trim: { startMs: 100, endMs: 900 } });
+  expect(p.track).toMatchObject({ volumeDb: -3.5, trim: { startMs: 100, endMs: 900 } });
+  expect(
+    (await inject({ method: "PUT", url: `/api/tracks/${one.id}/properties`, payload: { volumeDb: 40 } }))
+      .statusCode,
+  ).toBe(400);
+  expect(
+    (
+      await inject({
+        method: "PUT",
+        url: `/api/tracks/${one.id}/properties`,
+        payload: { trim: { startMs: 900, endMs: 100 } },
+      })
+    ).statusCode,
+  ).toBe(400);
+
+  expect(await mark(one.id, { rating: 4 })).toMatchObject({ rating: 4, favourite: false });
+  p = await properties(one.id);
+  expect(p.track.rating).toBe(4);
+  expect(await mark(one.id, { rating: 0 })).toMatchObject({ rating: 0 });
 });

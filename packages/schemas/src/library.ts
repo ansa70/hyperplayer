@@ -51,6 +51,7 @@ export const SmartField = named(
     "lastPlayed",
     "added",
     "favourite",
+    "rating",
   ]),
   "What a smart playlist rule looks at. `artist` matches the track's or the album's artist; `favourite` the user's favourites.",
 );
@@ -72,7 +73,7 @@ export const SmartOperator = named(
   ]),
   `How a rule compares. Text fields (title, artist, album, genre, format): contains, notContains,
 is, isNot, startsWith. Numbers (year; duration in seconds or m:ss; sampleRate in kHz; plays):
-is, isNot, lessThan, greaterThan, between. lossless and favourite: is (yes or no). Dates (lastPlayed, added):
+is, isNot, lessThan, greaterThan, between; rating (0 to 5 stars, the user's) too. lossless and favourite: is (yes or no). Dates (lastPlayed, added):
 inLast and notInLast a number of days; lastPlayed also never.`,
 );
 
@@ -95,7 +96,7 @@ export const SmartRules = named(
     match: z.enum(["all", "any"]).default("all"),
     rules: z.array(SmartRule).max(20).default([]),
     order: z
-      .enum(["random", "title", "artist", "album", "year", "added", "plays", "lastPlayed"])
+      .enum(["random", "title", "artist", "album", "year", "added", "plays", "lastPlayed", "rating"])
       .default("random"),
     descending: z.boolean().default(false),
     limit: z.int().min(1).max(500).default(100),

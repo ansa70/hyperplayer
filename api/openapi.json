@@ -1387,6 +1387,108 @@
         }
       }
     },
+    "/api/tracks/{id}/properties": {
+      "get": {
+        "operationId": "trackProperties",
+        "summary": "Everything about a track: its file, its tags (the file's and as edited), and the caller's listens",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Everything about a track: its file, its tags (the file's and as edited), and the caller's listens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackProperties"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateTrackProperties",
+        "summary": "Edit a track's tags (in HyperPlayer only, the file is never changed), its volume and the part played; for every user",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTrackProperties"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Edit a track's tags (in HyperPlayer only, the file is never changed), its volume and the part played; for every user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackProperties"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/favourites": {
       "get": {
         "operationId": "listFavourites",
@@ -4640,6 +4742,18 @@
           "shuffleExcluded": {
             "default": false,
             "type": "boolean"
+          },
+          "rating": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "volumeDb": {
+            "default": 0,
+            "type": "number",
+            "minimum": -12,
+            "maximum": 12
           }
         },
         "required": [
@@ -4660,7 +4774,9 @@
           "cover",
           "trim",
           "favourite",
-          "shuffleExcluded"
+          "shuffleExcluded",
+          "rating",
+          "volumeDb"
         ],
         "additionalProperties": false
       },
@@ -4678,6 +4794,200 @@
           },
           "shuffleExcluded": {
             "type": "boolean"
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          }
+        },
+        "additionalProperties": false
+      },
+      "TagField": {
+        "type": "string",
+        "enum": [
+          "title",
+          "artist",
+          "trackNumber",
+          "discNumber",
+          "year",
+          "genres"
+        ]
+      },
+      "TrackTags": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "artist": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "trackNumber": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9999
+          },
+          "discNumber": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 999
+          },
+          "year": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9999
+          },
+          "genres": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        },
+        "required": [
+          "title",
+          "artist",
+          "trackNumber",
+          "discNumber",
+          "year",
+          "genres"
+        ],
+        "additionalProperties": false
+      },
+      "TrackProperties": {
+        "type": "object",
+        "properties": {
+          "track": {
+            "$ref": "#/components/schemas/Track"
+          },
+          "tags": {
+            "$ref": "#/components/schemas/TrackTags"
+          },
+          "original": {
+            "$ref": "#/components/schemas/TrackTags"
+          },
+          "edited": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagField"
+            }
+          },
+          "path": {
+            "type": "string"
+          },
+          "addedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "musicbrainzRecordingId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "plays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "lastPlayedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "track",
+          "tags",
+          "original",
+          "edited",
+          "path",
+          "addedAt",
+          "musicbrainzRecordingId",
+          "plays",
+          "lastPlayedAt"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateTrackProperties": {
+        "type": "object",
+        "properties": {
+          "tags": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "artist": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "trackNumber": {
+                "nullable": true,
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true,
+                "maximum": 9999
+              },
+              "discNumber": {
+                "nullable": true,
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true,
+                "maximum": 999
+              },
+              "year": {
+                "nullable": true,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "genres": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "reset": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagField"
+            }
+          },
+          "volumeDb": {
+            "type": "number",
+            "minimum": -12,
+            "maximum": 12
+          },
+          "trim": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TrackTrim"
+              }
+            ]
           }
         },
         "additionalProperties": false
@@ -5864,7 +6174,8 @@
           "lossless",
           "lastPlayed",
           "added",
-          "favourite"
+          "favourite",
+          "rating"
         ]
       },
       "SmartOperator": {
@@ -5941,7 +6252,8 @@
               "year",
               "added",
               "plays",
-              "lastPlayed"
+              "lastPlayed",
+              "rating"
             ]
           },
           "descending": {

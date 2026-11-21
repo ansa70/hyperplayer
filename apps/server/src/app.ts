@@ -363,6 +363,17 @@ export async function buildApp(config: Config, opts: { logger?: boolean; fetch?:
     ({ auth: a, params, body }) =>
       catalog.setMarks(a.user.id, params.id, body) ?? Promise.reject(notFound("Track")),
   );
+  route.json(
+    api.trackProperties,
+    ({ auth: a, params }) => catalog.properties(a.user.id, params.id) ?? Promise.reject(notFound("Track")),
+  );
+  route.json(api.updateTrackProperties, ({ auth: a, params, body }) => {
+    const { startMs, endMs } = body.trim ?? { startMs: null, endMs: null };
+    if (startMs !== null && endMs !== null && endMs <= startMs)
+      throw new HttpError(400, "invalid_trim", "The end must come after the start");
+    if (!catalog.updateProperties(params.id, body)) throw notFound("Track");
+    return catalog.properties(a.user.id, params.id)!;
+  });
   route.json(api.listFavourites, ({ auth: a }) => catalog.markedTracks(a.user.id, "favourite"));
   route.json(api.listShuffleExclusions, ({ auth: a }) => catalog.markedTracks(a.user.id, "shuffleExcluded"));
   route.json(api.lyrics, ({ params }) => {

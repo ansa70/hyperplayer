@@ -13,6 +13,7 @@ mod lyrics;
 mod marks;
 mod models;
 mod playback;
+mod props;
 mod radio;
 mod settings;
 mod smart;
@@ -105,6 +106,8 @@ pub struct App {
     /// The History page's track lists, for playing and ⋯ menus.
     history_top: Vec<types::Track>,
     history_recent: Vec<types::Track>,
+    /// A track's Properties being changed.
+    props: Option<props::Editing>,
     /// The Favourites page's tracks, and those left out of the library shuffle (Settings).
     favourites: Vec<types::Track>,
     shuffle_excluded: Vec<types::Track>,
@@ -359,6 +362,7 @@ pub fn run() -> anyhow::Result<()> {
             listening: None,
             history_top: Vec::new(),
             history_recent: Vec::new(),
+            props: None,
             favourites: Vec::new(),
             shuffle_excluded: Vec::new(),
             lyrics: None,
@@ -438,6 +442,7 @@ pub fn run() -> anyhow::Result<()> {
     ui.on_radio_back_to_queue(radio::back_to_queue);
     ui.on_radio_open_homepage(radio::open_homepage);
     settings::init(&ui);
+    props::init(&ui);
     window::init(&ui, system_title_bar);
     visuals::init(&ui);
     ui.on_albums_sort_by(|key| albums::load(key.to_string()));

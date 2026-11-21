@@ -26,6 +26,7 @@ const OPS: Record<SmartRule["field"], string[]> = {
   duration: NUMBER_OPS,
   sampleRate: NUMBER_OPS,
   plays: NUMBER_OPS,
+  rating: NUMBER_OPS,
   lossless: ["is"],
   favourite: ["is"],
   lastPlayed: [...DATE_OPS, "never"],
@@ -46,6 +47,7 @@ const NUMBER: Partial<Record<SmartRule["field"], string>> = {
   duration: "t.duration_ms / 1000.0",
   sampleRate: "t.sample_rate / 1000.0",
   plays: "coalesce(h.plays, 0)",
+  rating: "coalesce(rt.rating, 0)",
 };
 
 const ORDER: Record<SmartRules["order"], string> = {
@@ -57,6 +59,7 @@ const ORDER: Record<SmartRules["order"], string> = {
   added: "al.added_at",
   plays: "coalesce(h.plays, 0)",
   lastPlayed: "h.last",
+  rating: "coalesce(rt.rating, 0)",
 };
 
 const invalid = (message: string) => new HttpError(400, "invalid_rule", message);
@@ -172,8 +175,9 @@ export function smartTracks(
     JOIN artists aa ON aa.id = al.artist_id
     LEFT JOIN (SELECT track_id, count(*) AS plays, max(started_at) AS last FROM listens
                WHERE user_id = ? GROUP BY track_id) h ON h.track_id = t.id
+    LEFT JOIN track_ratings rt ON rt.track_id = t.id AND rt.user_id = ?
     WHERE ${where}`;
-  const matching = Number((db.prepare(`SELECT count(*) AS n ${from}`).get(userId, ...args) as Row).n);
+  const matching = Number((db.prepare(`SELECT count(*) AS n ${from}`).get(userId, userId, ...args) as Row).n);
   // Ties keep albums in order; missing values (no year, never played) go last either way.
   const key = ORDER[rules.order];
   const order =
@@ -181,7 +185,7 @@ export function smartTracks(
       ? key
       : `${key} IS NULL, ${key} ${rules.descending ? "DESC" : "ASC"}, al.title COLLATE NOCASE, t.disc_number, t.track_number`;
   const ids = (sql: string, ...more: (string | number)[]) =>
-    (db.prepare(sql).all(userId, ...args, ...more) as Row[]).map((r) => String(r.id));
+    (db.prepare(sql).all(userId, userId, ...args, ...more) as Row[]).map((r) => String(r.id));
   const favourites = Math.min(rules.minFavourites ?? 0, rules.limit);
   if (!favourites)
     return { trackIds: ids(`SELECT t.id ${from} ORDER BY ${order} LIMIT ?`, rules.limit), matching };

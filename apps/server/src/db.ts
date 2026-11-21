@@ -281,6 +281,8 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ["waveforms", "trailing_silence_ms", "INTEGER"],
   // An upload (see `viewer`): only its owner sees it. Null for the shared library.
   ["tracks", "owner_id", "TEXT REFERENCES users(id) ON DELETE CASCADE"],
+  // A volume adjustment in dB for everyone, on top of ReplayGain (see `Track.volumeDb`).
+  ["tracks", "volume_db", "REAL NOT NULL DEFAULT 0"],
 ];
 
 /** The table tracks are stored in: `all_tracks` once `separateCopies` has run. */
@@ -317,11 +319,13 @@ const MOVE_REFERENCES = `
     UPDATE OR IGNORE favourite_tracks SET track_id = $to WHERE track_id = $from;
     DELETE FROM favourite_tracks WHERE track_id = $from;
     UPDATE OR IGNORE shuffle_exclusions SET track_id = $to WHERE track_id = $from;
-    DELETE FROM shuffle_exclusions WHERE track_id = $from;`;
+    DELETE FROM shuffle_exclusions WHERE track_id = $from;
+    UPDATE OR IGNORE track_ratings SET track_id = $to WHERE track_id = $from;
+    DELETE FROM track_ratings WHERE track_id = $from;`;
 
 /**
- * A user's marks on tracks: their favourites, and tracks their shuffle button leaves out
- * when drawing from the whole library. Made once `all_tracks` exists, which they refer to
+ * A user's marks on tracks: their favourites, tracks their shuffle button leaves out
+ * when drawing from the whole library, and their ratings; and the tags edited for everyone. Made once `all_tracks` exists, which they refer to
  * (`tracks` is a view by then).
  */
 const TRACK_MARKS = `
@@ -338,7 +342,35 @@ CREATE TABLE IF NOT EXISTS shuffle_exclusions (
   added_at TEXT NOT NULL,
   PRIMARY KEY (user_id, track_id)
 );
-CREATE INDEX IF NOT EXISTS shuffle_exclusions_track ON shuffle_exclusions(track_id);`;
+CREATE INDEX IF NOT EXISTS shuffle_exclusions_track ON shuffle_exclusions(track_id);
+CREATE TABLE IF NOT EXISTS track_ratings (
+  user_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  track_id TEXT NOT NULL REFERENCES all_tracks(id) ON DELETE CASCADE,
+  rating   INTEGER NOT NULL,             -- 1 to 5 stars
+  rated_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, track_id)
+);
+CREATE INDEX IF NOT EXISTS track_ratings_track ON track_ratings(track_id);
+-- Tags edited in HyperPlayer (the file is never changed), and the file's own values to
+-- go back to. A null edit is the file's own. Applied over the file's after every scan.
+CREATE TABLE IF NOT EXISTS track_edits (
+  track_id          TEXT PRIMARY KEY REFERENCES all_tracks(id) ON DELETE CASCADE,
+  title             TEXT,
+  artist_credit     TEXT,
+  track_number      INTEGER,
+  disc_number       INTEGER,
+  year              INTEGER,
+  genres            TEXT,
+  -- Which of the columns above are set: a track number or year may be edited to nothing.
+  fields            TEXT NOT NULL DEFAULT '[]',
+  file_title        TEXT,
+  file_artist_credit TEXT,
+  file_track_number INTEGER,
+  file_disc_number  INTEGER,
+  file_year         INTEGER,
+  file_genres       TEXT,
+  edited_at         TEXT NOT NULL
+);`;
 
 /**
  * Which of a deleted track's hidden copies is shown in its place: as in `dedupe`, a shared

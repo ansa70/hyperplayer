@@ -18,11 +18,14 @@ import type {
   Track,
   TrackTrim,
   TrackCredits,
+  TrackProperties,
+  UpdateTrackProperties,
   TrackPage,
 } from "@hyperplayer/schemas";
 import type { Db } from "../db.ts";
 import { TRACK_GENRES } from "./genres.ts";
 import { SEARCH_WEIGHTS, toFtsQuery } from "./searchIndex.ts";
+import { editTags, trackTags } from "../library/edits.ts";
 
 type Row = Record<string, unknown>;
 
@@ -87,7 +90,8 @@ const ALBUM_SELECT = `
 /** The requesting user's marks on track `t` (see `viewer()`: none outside requests). */
 const TRACK_MARKS = `
   EXISTS (SELECT 1 FROM favourite_tracks f WHERE f.track_id = t.id AND f.user_id = viewer()) AS favourite,
-  EXISTS (SELECT 1 FROM shuffle_exclusions x WHERE x.track_id = t.id AND x.user_id = viewer()) AS shuffle_excluded`;
+  EXISTS (SELECT 1 FROM shuffle_exclusions x WHERE x.track_id = t.id AND x.user_id = viewer()) AS shuffle_excluded,
+  (SELECT r.rating FROM track_ratings r WHERE r.track_id = t.id AND r.user_id = viewer()) AS rating`;
 
 const TRACK_SELECT = `
   SELECT t.*, COALESCE(t.artist_credit, ar.name) AS artist_name, al.title AS album_title, ${ARTWORK("c", "c_")},
@@ -207,6 +211,8 @@ export class Catalog {
     trim: Number(r.trim_set) ? { startMs: num(r.trim_start_ms), endMs: num(r.trim_end_ms) } : null,
     favourite: Boolean(r.favourite),
     shuffleExcluded: Boolean(r.shuffle_excluded),
+    rating: Number(r.rating ?? 0),
+    volumeDb: Number(r.volume_db ?? 0),
   });
 
   #count(table: string): number {
@@ -372,10 +378,19 @@ export class Catalog {
   setMarks(
     userId: string,
     id: string,
-    marks: { favourite?: boolean; shuffleExcluded?: boolean },
+    marks: { favourite?: boolean; shuffleExcluded?: boolean; rating?: number },
   ): Track | null {
     if (!this.#db.prepare("SELECT 1 FROM tracks WHERE id = ?").get(id)) return null;
     const now = new Date().toISOString();
+    if (marks.rating)
+      this.#db
+        .prepare(
+          `INSERT INTO track_ratings (user_id, track_id, rating, rated_at) VALUES (?, ?, ?, ?)
+           ON CONFLICT (user_id, track_id) DO UPDATE SET rating = excluded.rating, rated_at = excluded.rated_at`,
+        )
+        .run(userId, id, marks.rating, now);
+    else if (marks.rating === 0)
+      this.#db.prepare("DELETE FROM track_ratings WHERE user_id = ? AND track_id = ?").run(userId, id);
     for (const [table, on] of [
       ["favourite_tracks", marks.favourite],
       ["shuffle_exclusions", marks.shuffleExcluded],
@@ -388,6 +403,40 @@ export class Catalog {
         this.#db.prepare(`DELETE FROM ${table} WHERE user_id = ? AND track_id = ?`).run(userId, id);
     }
     return this.getTrack(id);
+  }
+
+  /** Everything about a track for `userId` (their listens); null when there's no such track. */
+  properties(userId: string, id: string): TrackProperties | null {
+    const track = this.getTrack(id);
+    const tags = track && trackTags(this.#db, id);
+    if (!track || !tags) return null;
+    const r = this.#db
+      .prepare(
+        `SELECT t.path, t.musicbrainz_recording_id, al.added_at,
+                (SELECT count(*) FROM listens l WHERE l.track_id = t.id AND l.user_id = ?) AS plays,
+                (SELECT max(started_at) FROM listens l WHERE l.track_id = t.id AND l.user_id = ?) AS last_played
+         FROM tracks t JOIN albums al ON al.id = t.album_id WHERE t.id = ?`,
+      )
+      .get(userId, userId, id) as Row;
+    return {
+      track,
+      ...tags,
+      path: String(r.path),
+      addedAt: (r.added_at as string | null) ?? null,
+      musicbrainzRecordingId: (r.musicbrainz_recording_id as string | null) ?? null,
+      plays: Number(r.plays),
+      lastPlayedAt: (r.last_played as string | null) ?? null,
+    };
+  }
+
+  /** Changes a track for everyone: tags, volume, the part played. False when there's no such track. */
+  updateProperties(id: string, change: UpdateTrackProperties): boolean {
+    if (!this.#db.prepare("SELECT 1 FROM tracks WHERE id = ?").get(id)) return false;
+    if (change.tags || change.reset) editTags(this.#db, id, change.tags ?? {}, change.reset ?? []);
+    if (change.volumeDb !== undefined)
+      this.#db.prepare("UPDATE all_tracks SET volume_db = ? WHERE id = ?").run(change.volumeDb, id);
+    if (change.trim) this.setTrim(id, change.trim);
+    return true;
   }
 
   /** Sets the part of a track to play; null when there's no such track. */

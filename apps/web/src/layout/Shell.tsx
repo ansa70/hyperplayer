@@ -7,6 +7,7 @@ import { NowPlayingPanel } from "./NowPlayingPanel.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 import { TransportBar } from "./TransportBar.tsx";
 import { TrimOffer } from "./TrimOffer.tsx";
+import { PropertiesDialog } from "../components/PropertiesDialog.tsx";
 import "./layout.css";
 
 const PHONE = "(max-width: 760px)";
@@ -44,6 +45,7 @@ export function Shell() {
         <TabBar />
         <Notice />
         <TrimOffer />
+        <PropertiesDialog />
         {sheet && <NowPlayingSheet onClose={closeSheet} />}
       </div>
     );
@@ -59,6 +61,7 @@ export function Shell() {
       <TransportBar />
       <Notice />
       <TrimOffer />
+      <PropertiesDialog />
     </div>
   );
 }

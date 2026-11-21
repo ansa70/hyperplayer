@@ -89,7 +89,7 @@ fn save(id: String, trim: TrackTrim) {
 }
 
 /// Takes in a track's new trim: wherever it's held, and in the stream playing it.
-fn apply(app: &mut App, track: &types::Track) {
+pub(super) fn apply(app: &mut App, track: &types::Track) {
     let same = |t: &types::Track| t.id == track.id;
     if let Some(s) = app.session.as_mut().filter(|s| same(&s.track)) {
         s.track.trim = track.trim.clone();

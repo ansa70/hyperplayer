@@ -55,6 +55,48 @@ export struct TrackItem {
     favourite: bool,
     /// Left out of the whole-library shuffle.
     shuffle-excluded: bool,
+    /// The user's stars, 1 to 5; 0 when unrated.
+    rating: int,
+}
+
+/// A line of a track's Properties: what it is, and its value.
+export struct DetailRow {
+    label: string,
+    value: string,
+}
+
+/// A tag in a track's Properties: as shown (editable), and the file's own when edited.
+export struct TagRow {
+    key: string,
+    label: string,
+    value: string,
+    original: string,
+    edited: bool,
+}
+
+/// A track's Properties, open over the window, driven from Rust (`ui.global::<TrackProps>()`).
+export global TrackProps {
+    in property <bool> open;
+    in property <bool> loading;
+    in property <string> title;
+    in property <string> subtitle;
+    in property <image> cover;
+    in property <[DetailRow]> details;
+    in property <[TagRow]> tags;
+    in-out property <bool> favourite;
+    in-out property <bool> shuffle-excluded;
+    in-out property <int> rating;
+    /// The playable range, in seconds of the file.
+    in property <float> duration;
+    in-out property <float> range-start;
+    in-out property <float> range-end;
+    in-out property <float> volume-db;
+    in property <string> message;
+    in property <bool> saving;
+    callback tag-edited(string, string);
+    callback reset-tag(string);
+    callback save();
+    callback close();
 }
 
 /// A radio station in the Radio page's lists.
@@ -589,6 +631,7 @@ component ActionMenu inherits PopupWindow {
                 text: root.shuffle-excluded ? @tr("Include in library shuffle") : @tr("Leave out of library shuffle");
                 clicked => { root.action("shuffle-exclude", ""); }
             }
+            if root.marks: MenuItem { text: @tr("Properties…"); clicked => { root.action("properties", ""); } }
             Rectangle { height: 9px; Rectangle { height: 1px; background: Theme.surface.brighter(0.8); } }
             Text {
                 text: @tr("ADD TO PLAYLIST");
@@ -651,6 +694,28 @@ component TrackRow inherits Rectangle {
                 overflow: elide;
             }
             Text { text: track.available ? track.artist : @tr("{} · missing", track.artist); color: Theme.muted; font-size: 11px; overflow: elide; }
+        }
+        // The user's stars, when rated.
+        HorizontalLayout {
+            width: 62px;
+            spacing: 2px;
+            alignment: end;
+            if track.rating > 0: VerticalLayout {
+                alignment: center;
+                HorizontalLayout {
+                    spacing: 2px;
+                    for i in 5: Path {
+                        width: 10px;
+                        height: 10px;
+                        viewbox-width: 24;
+                        viewbox-height: 24;
+                        commands: Icons.star;
+                        fill: i < track.rating ? Theme.accent : transparent;
+                        stroke: i < track.rating ? Theme.accent : Theme.faint;
+                        stroke-width: 2px;
+                    }
+                }
+            }
         }
         // Favourite, left out of the library shuffle.
         HorizontalLayout {
@@ -1813,7 +1878,7 @@ component SmartEditor inherits Rectangle {
             spacing: 8px;
             ComboBox {
                 width: 140px;
-                model: [@tr("Title"), @tr("Artist"), @tr("Album"), @tr("Genre"), @tr("Format"), @tr("Year"), @tr("Duration"), @tr("Sample rate"), @tr("Plays"), @tr("Lossless"), @tr("Last played"), @tr("Added"), @tr("Favourite")];
+                model: [@tr("Title"), @tr("Artist"), @tr("Album"), @tr("Genre"), @tr("Format"), @tr("Year"), @tr("Duration"), @tr("Sample rate"), @tr("Plays"), @tr("Lossless"), @tr("Last played"), @tr("Added"), @tr("Favourite"), @tr("Rating")];
                 current-index: rule.field;
                 selected => { root.rule-field(i, self.current-index); }
             }
@@ -1853,7 +1918,7 @@ component SmartEditor inherits Rectangle {
             Text { text: @tr("Order"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
             ComboBox {
                 width: 140px;
-                model: [@tr("Random"), @tr("Title"), @tr("Artist"), @tr("Album"), @tr("Year"), @tr("Date added"), @tr("Plays"), @tr("Last played")];
+                model: [@tr("Random"), @tr("Title"), @tr("Artist"), @tr("Album"), @tr("Year"), @tr("Date added"), @tr("Plays"), @tr("Last played"), @tr("Rating")];
                 current-index: root.order;
                 selected => { root.set-order(self.current-index); }
             }
@@ -4072,6 +4137,294 @@ component TitleBar inherits Rectangle {
     }
 }
 
+/// Five stars to click: the same star again takes the rating away.
+component StarRating inherits HorizontalLayout {
+    in-out property <int> rating;
+    spacing: 4px;
+    alignment: start;
+    for i in 5: Rectangle {
+        width: 24px;
+        height: 24px;
+        Path {
+            width: 20px;
+            height: 20px;
+            viewbox-width: 24;
+            viewbox-height: 24;
+            commands: Icons.star;
+            fill: i < root.rating ? Theme.accent : transparent;
+            stroke: i < root.rating ? Theme.accent : (star-ta.has-hover ? Theme.text : Theme.muted);
+            stroke-width: 1.5px;
+        }
+        star-ta := TouchArea { mouse-cursor: pointer; clicked => { root.rating = root.rating == i + 1 ? 0 : i + 1; } }
+    }
+}
+
+/// A start and an end on one track: drag either handle (the nearer one moves).
+component RangeSlider inherits Rectangle {
+    in property <float> maximum: 1;
+    in-out property <float> start;
+    in-out property <float> end;
+    /// The least the range may be, in the same unit.
+    in property <float> gap: 1;
+    property <length> inset: 9px;
+    property <length> usable: self.width - 2 * self.inset;
+    property <int> dragging;
+    height: 28px;
+    function x-of(v: float) -> length { return root.inset + root.usable * v / max(root.maximum, 0.001); }
+    Rectangle {
+        x: root.inset;
+        y: (parent.height - self.height) / 2;
+        width: root.usable;
+        height: 4px;
+        border-radius: 2px;
+        background: Theme.surface-hi.brighter(0.4);
+    }
+    Rectangle {
+        x: root.x-of(root.start);
+        y: (parent.height - self.height) / 2;
+        width: root.x-of(root.end) - root.x-of(root.start);
+        height: 4px;
+        border-radius: 2px;
+        background: Theme.accent;
+    }
+    for v in [root.start, root.end]: Rectangle {
+        x: root.x-of(v) - self.width / 2;
+        y: (parent.height - self.height) / 2;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        background: Theme.text;
+        drop-shadow-blur: 4px;
+        drop-shadow-color: #00000080;
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        function value-at(x: length) -> float { return clamp((x - root.inset) / root.usable, 0, 1) * root.maximum; }
+        function move-to(v: float) {
+            if root.dragging == 1 { root.start = clamp(v, 0, max(0, root.end - root.gap)); }
+            if root.dragging == 2 { root.end = clamp(v, min(root.maximum, root.start + root.gap), root.maximum); }
+        }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                root.dragging = abs(self.value-at(self.mouse-x) - root.start) <= abs(self.value-at(self.mouse-x) - root.end) ? 1 : 2;
+                self.move-to(self.value-at(self.mouse-x));
+            }
+            if e.kind == PointerEventKind.up { root.dragging = 0; }
+        }
+        moved => { if self.pressed { self.move-to(self.value-at(self.mouse-x)); } }
+    }
+}
+
+/// m:ss for a time in seconds.
+component Clock inherits Text {
+    in property <float> seconds;
+    text: floor(root.seconds / 60) + ":" + (mod(floor(root.seconds), 60) < 10 ? "0" : "") + mod(floor(root.seconds), 60);
+    color: Theme.text;
+    font-size: 12px;
+    vertical-alignment: center;
+}
+
+component PropsSection inherits VerticalLayout {
+    in property <string> title;
+    spacing: 10px;
+    Text { text: root.title; color: Theme.faint; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; }
+    @children
+}
+
+/// A track's Properties, over the window: its details, its tags (edited in HyperPlayer only),
+/// the user's own marks, and the part played and volume for everyone.
+component PropertiesDialog inherits Rectangle {
+    background: #000000a8;
+    // Clicks outside the card don't reach the page underneath.
+    TouchArea { }
+    card := Rectangle {
+        width: min(660px, parent.width - 48px);
+        height: min(parent.height - 48px, 820px);
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        background: Theme.surface;
+        border-radius: 12px;
+        border-width: 1px;
+        border-color: Theme.surface.brighter(0.8);
+        drop-shadow-blur: 30px;
+        drop-shadow-color: #000000c0;
+        clip: true;
+        VerticalLayout {
+            HorizontalLayout {
+                padding: 20px;
+                spacing: 16px;
+                Rectangle {
+                    width: 72px;
+                    height: 72px;
+                    border-radius: 6px;
+                    clip: true;
+                    background: Theme.surface-hi;
+                    Image { width: 72px; height: 72px; source: TrackProps.cover; image-fit: cover; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 4px;
+                    Text { text: TrackProps.title; color: Theme.text; font-size: 20px; font-weight: 700; overflow: elide; }
+                    Text { text: TrackProps.subtitle; color: Theme.muted; font-size: 12px; overflow: elide; }
+                }
+                VerticalLayout {
+                    alignment: start;
+                    IconButton { commands: Icons.window-close; size: 32px; clicked => { TrackProps.close(); } }
+                }
+            }
+            Rectangle { height: 1px; background: Theme.surface.brighter(0.6); }
+            props-scroll := ScrollView {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 20px;
+                    spacing: 22px;
+                    if TrackProps.loading: Text { text: @tr("Loading…"); color: Theme.faint; font-size: 13px; }
+                    if !TrackProps.loading: PropsSection {
+                        title: @tr("YOUR RATING AND MARKS");
+                        StarRating { rating <=> TrackProps.rating; }
+                        CheckBox {
+                            text: @tr("Favourite");
+                            checked <=> TrackProps.favourite;
+                        }
+                        CheckBox {
+                            text: @tr("Leave out of library shuffle");
+                            checked <=> TrackProps.shuffle-excluded;
+                        }
+                    }
+                    if !TrackProps.loading: PropsSection {
+                        title: @tr("TAGS");
+                        Text {
+                            text: @tr("Edits are kept in HyperPlayer: the file itself isn't changed. Separate genres with commas.");
+                            color: Theme.muted;
+                            font-size: 12px;
+                            wrap: word-wrap;
+                        }
+                        for tag in TrackProps.tags: HorizontalLayout {
+                            spacing: 10px;
+                            Text { width: 110px; text: tag.label; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+                            VerticalLayout {
+                                spacing: 2px;
+                                LineEdit {
+                                    text: tag.value;
+                                    edited(text) => { TrackProps.tag-edited(tag.key, text); }
+                                    accepted => { TrackProps.save(); }
+                                }
+                                if tag.edited: Text {
+                                    text: tag.original == "" ? @tr("Edited · empty in the file") : @tr("Edited · in the file: {}", tag.original);
+                                    color: Theme.accent;
+                                    font-size: 11px;
+                                    overflow: elide;
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: start;
+                                width: 32px;
+                                if tag.edited: IconButton { commands: Icons.replay; size: 32px; clicked => { TrackProps.reset-tag(tag.key); } }
+                            }
+                        }
+                    }
+                    if !TrackProps.loading: PropsSection {
+                        title: @tr("PLAYBACK, FOR EVERYONE");
+                        HorizontalLayout {
+                            spacing: 10px;
+                            Text { width: 110px; text: @tr("Part played"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+                            RangeSlider {
+                                maximum: TrackProps.duration;
+                                start <=> TrackProps.range-start;
+                                end <=> TrackProps.range-end;
+                            }
+                        }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            padding-left: 120px;
+                            Clock { seconds: TrackProps.range-start; }
+                            Text { text: "–"; color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+                            Clock { seconds: TrackProps.range-end; }
+                            Text {
+                                text: TrackProps.range-start <= 0 && TrackProps.range-end >= TrackProps.duration ? @tr("· the whole track") : @tr("· of {}", floor(TrackProps.duration / 60) + ":" + (mod(floor(TrackProps.duration), 60) < 10 ? "0" : "") + mod(floor(TrackProps.duration), 60));
+                                color: Theme.muted;
+                                font-size: 12px;
+                                vertical-alignment: center;
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                            OutlineButton {
+                                text: @tr("Whole track");
+                                clicked => {
+                                    TrackProps.range-start = 0;
+                                    TrackProps.range-end = TrackProps.duration;
+                                }
+                            }
+                        }
+                        HorizontalLayout {
+                            spacing: 10px;
+                            Text { width: 110px; text: @tr("Volume"); color: Theme.muted; font-size: 12px; vertical-alignment: center; }
+                            Slider {
+                                minimum: -12;
+                                maximum: 12;
+                                step: 0.5;
+                                value: TrackProps.volume-db;
+                                changed(v) => { TrackProps.volume-db = round(v * 2) / 2; }
+                            }
+                            Text {
+                                width: 56px;
+                                text: (TrackProps.volume-db > 0 ? "+" : "") + TrackProps.volume-db + " dB";
+                                color: Theme.text;
+                                font-size: 12px;
+                                vertical-alignment: center;
+                                horizontal-alignment: right;
+                            }
+                            OutlineButton { text: "0 dB"; clicked => { TrackProps.volume-db = 0; } }
+                        }
+                        Text {
+                            text: @tr("Added to ReplayGain (boosts are still limited so peaks never clip), or applied by itself when the track has none.");
+                            color: Theme.muted;
+                            font-size: 12px;
+                            wrap: word-wrap;
+                        }
+                    }
+                    if !TrackProps.loading: PropsSection {
+                        title: @tr("DETAILS");
+                        for row in TrackProps.details: HorizontalLayout {
+                            spacing: 10px;
+                            Text { width: 110px; text: row.label; color: Theme.muted; font-size: 12px; }
+                            Text { text: row.value; color: Theme.text; font-size: 12px; wrap: word-wrap; horizontal-stretch: 1; }
+                        }
+                    }
+                }
+            }
+            Rectangle { height: 1px; background: Theme.surface.brighter(0.6); }
+            HorizontalLayout {
+                padding: 14px;
+                padding-left: 20px;
+                spacing: 12px;
+                Text {
+                    text: TrackProps.message;
+                    color: #ff8a80;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                    wrap: word-wrap;
+                    horizontal-stretch: 1;
+                }
+                VerticalLayout { alignment: center; OutlineButton { text: @tr("Cancel"); clicked => { TrackProps.close(); } } }
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: save-label.preferred-width + 32px;
+                        height: 32px;
+                        border-radius: 16px;
+                        background: TrackProps.saving || TrackProps.loading ? Theme.accent.with-alpha(0.5) : (save-ta.has-hover ? Theme.accent.brighter(0.15) : Theme.accent);
+                        save-label := Text { text: @tr("Save"); color: Theme.bg; font-size: 13px; font-weight: 700; }
+                        save-ta := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { if !TrackProps.saving && !TrackProps.loading { TrackProps.save(); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 export component AppWindow inherits Window {
     icon: @image-url("../icons/hyperplayer-256.png");
     title: np.active ? np.title + " — " + np.artist : "HyperPlayer";
@@ -4321,7 +4674,8 @@ export component AppWindow inherits Window {
         keys := FocusScope {
         key-pressed(event) => {
             if event.text == Key.Escape {
-                if root.show-help { root.show-help = false; }
+                if TrackProps.open { TrackProps.close(); }
+                else if root.show-help { root.show-help = false; }
                 else if sidebar.clear-search() { }
                 else if root.page == Page.queue { root.show-queue(); }
                 else if root.page == Page.lyrics { root.show-lyrics(); }
@@ -4636,6 +4990,7 @@ export component AppWindow inherits Window {
         if root.show-help: ShortcutHelp {
             close => { root.show-help = false; keys.focus(); }
         }
+        if TrackProps.open: PropertiesDialog { }
         if !root.signed-in: LoginScreen {
             state: root.login;
             server <=> root.login-server;

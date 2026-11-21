@@ -670,6 +670,18 @@
         "shuffleExcluded": {
           "default": false,
           "type": "boolean"
+        },
+        "rating": {
+          "default": 0,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "volumeDb": {
+          "default": 0,
+          "type": "number",
+          "minimum": -12,
+          "maximum": 12
         }
       },
       "required": [
@@ -690,7 +702,9 @@
         "cover",
         "trim",
         "favourite",
-        "shuffleExcluded"
+        "shuffleExcluded",
+        "rating",
+        "volumeDb"
       ],
       "additionalProperties": false
     },
@@ -708,6 +722,246 @@
         },
         "shuffleExcluded": {
           "type": "boolean"
+        },
+        "rating": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        }
+      },
+      "additionalProperties": false
+    },
+    "TagField": {
+      "type": "string",
+      "enum": [
+        "title",
+        "artist",
+        "trackNumber",
+        "discNumber",
+        "year",
+        "genres"
+      ]
+    },
+    "TrackTags": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "artist": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "trackNumber": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9999
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "discNumber": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 999
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "year": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "genres": {
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        }
+      },
+      "required": [
+        "title",
+        "artist",
+        "trackNumber",
+        "discNumber",
+        "year",
+        "genres"
+      ],
+      "additionalProperties": false
+    },
+    "TrackProperties": {
+      "type": "object",
+      "properties": {
+        "track": {
+          "$ref": "#/definitions/Track"
+        },
+        "tags": {
+          "$ref": "#/definitions/TrackTags"
+        },
+        "original": {
+          "$ref": "#/definitions/TrackTags"
+        },
+        "edited": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TagField"
+          }
+        },
+        "path": {
+          "type": "string"
+        },
+        "addedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "musicbrainzRecordingId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "plays": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "lastPlayedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "track",
+        "tags",
+        "original",
+        "edited",
+        "path",
+        "addedAt",
+        "musicbrainzRecordingId",
+        "plays",
+        "lastPlayedAt"
+      ],
+      "additionalProperties": false
+    },
+    "UpdateTrackProperties": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "artist": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "trackNumber": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9999
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "discNumber": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 999
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "year": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9999
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "genres": {
+              "maxItems": 20,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "reset": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TagField"
+          }
+        },
+        "volumeDb": {
+          "type": "number",
+          "minimum": -12,
+          "maximum": 12
+        },
+        "trim": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/TrackTrim"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -1956,7 +2210,8 @@
         "lossless",
         "lastPlayed",
         "added",
-        "favourite"
+        "favourite",
+        "rating"
       ]
     },
     "SmartOperator": {
@@ -2033,7 +2288,8 @@
             "year",
             "added",
             "plays",
-            "lastPlayed"
+            "lastPlayed",
+            "rating"
           ]
         },
         "descending": {

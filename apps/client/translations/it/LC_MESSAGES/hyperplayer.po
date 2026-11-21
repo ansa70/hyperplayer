@@ -14,6 +14,14 @@ msgid " · last scan {}"
 msgstr " · ultima scansione {}"
 
 #: ui/app.slint
+msgid "· of {}"
+msgstr "· di {}"
+
+#: ui/app.slint
+msgid "· the whole track"
+msgstr "· tutto il brano"
+
+#: ui/app.slint
 msgid "‹ Back to artist"
 msgstr "‹ Torna all'artista"
 
@@ -49,6 +57,10 @@ msgstr "{} ({} già nella libreria)"
 msgid "{} (saved)"
 msgstr "{} (salvata)"
 
+#: src/ui/props.rs
+msgid "{} can't be empty"
+msgstr "{} non può essere vuoto"
+
 #: src/ui/history.rs
 msgid "{} days ago"
 msgstr "{} giorni fa"
@@ -60,6 +72,10 @@ msgstr "{} h {} min"
 #: src/ui/history.rs
 msgid "{} h ago"
 msgstr "{} h fa"
+
+#: src/ui/props.rs
+msgid "{} isn't a valid {}"
+msgstr "{} non è un valore valido per {}"
 
 #: src/ui/account.rs
 msgid "{} isn't trusted, so HyperPlayer won't connect to it."
@@ -97,6 +113,12 @@ msgstr "{} usa un proprio certificato (autofirmato), che questo computer non pu�
 msgid "{} was added to your favourites."
 msgstr "{} è stata aggiunta ai tuoi preferiti."
 
+#: src/ui/props.rs
+msgid "{n} · last on {}"
+msgid_plural "{n} · last on {}"
+msgstr[0] "{n} · l'ultimo il {}"
+msgstr[1] "{n} · l'ultimo il {}"
+
 #: src/ui/albums.rs src/ui/browse.rs src/ui/models.rs src/ui/settings.rs
 msgid "{n} album"
 msgid_plural "{n} albums"
@@ -114,6 +136,12 @@ msgid "{n} artist on server"
 msgid_plural "{n} artists on server"
 msgstr[0] "{n} artista sul server"
 msgstr[1] "{n} artisti sul server"
+
+#: src/ui/props.rs
+msgid "{n} channel"
+msgid_plural "{n} channels"
+msgstr[0] "{n} canale"
+msgstr[1] "{n} canali"
 
 #: src/ui/history.rs
 msgid "{n} listen · {} in the last {} days"
@@ -251,7 +279,7 @@ msgstr "Aggiungi a questa playlist: cerca brani, album, artisti o generi"
 msgid "Add user"
 msgstr "Aggiungi utente"
 
-#: ui/app.slint
+#: src/ui/props.rs ui/app.slint
 msgid "Added"
 msgstr "Aggiunto"
 
@@ -277,6 +305,10 @@ msgstr "Si somma a ogni correzione ReplayGain; gli aumenti restano limitati perc
 msgid "Added to favourites: “{}”"
 msgstr "Aggiunto ai preferiti: “{}”"
 
+#: ui/app.slint
+msgid "Added to ReplayGain (boosts are still limited so peaks never clip), or applied by itself when the track has none."
+msgstr "Si somma al ReplayGain (gli aumenti restano limitati perché i picchi non saturino), o si applica da solo se il brano non ne ha."
+
 #: src/roles.rs
 msgid "additional {}"
 msgstr "{} (in aggiunta)"
@@ -293,13 +325,17 @@ msgstr "Amministratore (può gestire il server e i suoi utenti)"
 msgid "after"
 msgstr "dopo il"
 
-#: ui/app.slint
+#: src/ui/props.rs ui/app.slint
 msgid "Album"
 msgstr "Album"
 
 #: ui/app.slint
 msgid "ALBUM"
 msgstr "ALBUM"
+
+#: src/ui/props.rs
+msgid "album {}"
+msgstr "album {}"
 
 #: src/ui/smart.rs
 msgid "Album mix"
@@ -377,7 +413,7 @@ msgstr "arrangiatore"
 msgid "art direction"
 msgstr "direzione artistica"
 
-#: ui/app.slint
+#: src/ui/props.rs ui/app.slint
 msgid "Artist"
 msgstr "Artista"
 
@@ -766,6 +802,18 @@ msgid "design"
 msgstr "grafica"
 
 #: ui/app.slint
+msgid "DETAILS"
+msgstr "DETTAGLI"
+
+#: src/ui/props.rs
+msgid "disc number"
+msgstr "numero di disco"
+
+#: src/ui/props.rs
+msgid "Disc number"
+msgstr "Numero di disco"
+
+#: ui/app.slint
 msgid "Discography"
 msgstr "Discografia"
 
@@ -809,7 +857,7 @@ msgstr "batteria"
 msgid "dulcimer"
 msgstr "dulcimer"
 
-#: ui/app.slint
+#: src/ui/props.rs ui/app.slint
 msgid "Duration"
 msgstr "Durata"
 
@@ -825,9 +873,21 @@ msgstr "es. FLAC"
 msgid "e.g. music.example.com or 192.168.1.20:4533"
 msgstr "es. music.example.com o 192.168.1.20:4533"
 
+#: ui/app.slint
+msgid "Edited · empty in the file"
+msgstr "Modificato · vuoto nel file"
+
+#: ui/app.slint
+msgid "Edited · in the file: {}"
+msgstr "Modificato · nel file: {}"
+
 #: src/roles.rs
 msgid "editor"
 msgstr "montaggio"
+
+#: ui/app.slint
+msgid "Edits are kept in HyperPlayer: the file itself isn't changed. Separate genres with commas."
+msgstr "Le modifiche restano in HyperPlayer: il file non viene cambiato. Separa i generi con virgole."
 
 #: src/roles.rs
 msgid "effects"
@@ -913,6 +973,14 @@ msgstr "Recupero della biografia…"
 msgid "fiddle"
 msgstr "violino"
 
+#: src/ui/props.rs
+msgid "File"
+msgstr "File"
+
+#: src/ui/props.rs
+msgid "File size"
+msgstr "Dimensione del file"
+
 #: src/ui/smart.rs
 msgid "Fill in the rules, then apply them."
 msgstr "Compila le regole, poi applicale."
@@ -949,7 +1017,7 @@ msgstr "Cartella aggiunta; scansione in corso."
 msgid "Folder removed; rescanning."
 msgstr "Cartella rimossa; nuova scansione in corso."
 
-#: ui/app.slint
+#: src/ui/props.rs ui/app.slint
 msgid "Format"
 msgstr "Formato"
 
@@ -996,6 +1064,10 @@ msgstr "genere, es. Jazz"
 #: src/ui/library.rs
 msgid "Genre: {}"
 msgstr "Genere: {}"
+
+#: src/ui/props.rs
+msgid "Genres"
+msgstr "Generi"
 
 #: ui/app.slint
 msgid "GENRES"
@@ -1233,9 +1305,17 @@ msgstr "Ricerca dei musicisti…"
 msgid "loops"
 msgstr "loop"
 
+#: src/ui/props.rs
+msgid "lossless"
+msgstr "lossless"
+
 #: ui/app.slint
 msgid "Lossless"
 msgstr "Lossless"
+
+#: src/ui/props.rs
+msgid "lossy"
+msgstr "con perdita"
 
 #: src/roles.rs
 msgid "lute"
@@ -1309,6 +1389,10 @@ msgstr "missaggio"
 msgid "mix engineer"
 msgstr "tecnico del missaggio"
 
+#: src/ui/props.rs
+msgid "mono"
+msgstr "mono"
+
 #: src/roles.rs
 msgid "Moog"
 msgstr "Moog"
@@ -1349,6 +1433,10 @@ msgstr "CARTELLA MUSICALE"
 msgid "Music on a HyperPlayer server can join this library: its artists and albums merge with yours, and it plays from the server whenever this computer can reach it. Your playlists on the server are copied here when you add it, and Copy playlists brings those copies up to date (replacing changes made to them here). The queue, playlists and listening history stay on this computer."
 msgstr "La musica di un server HyperPlayer può unirsi a questa libreria: i suoi artisti e album si fondono con i tuoi, e viene riprodotta dal server ogni volta che questo computer può raggiungerlo. Le tue playlist sul server vengono copiate qui quando lo aggiungi, e Copia le playlist aggiorna quelle copie (sostituendo le modifiche fatte qui). La coda, le playlist e la cronologia degli ascolti restano su questo computer."
 
+#: src/ui/props.rs
+msgid "MusicBrainz ID"
+msgstr "ID MusicBrainz"
+
 #: src/ui/models.rs
 msgid "MUSICIANS"
 msgstr "MUSICISTI"
@@ -1376,6 +1464,10 @@ msgstr "mai"
 #: ui/app.slint
 msgid "Never for this track"
 msgstr "Mai per questo brano"
+
+#: src/ui/props.rs
+msgid "never played"
+msgstr "mai ascoltato"
 
 #: ui/app.slint
 msgid "NEW PASSWORD"
@@ -1436,6 +1528,10 @@ msgstr "Nessun brano escluso."
 #: ui/app.slint
 msgid "No tracks match these rules."
 msgstr "Nessun brano corrisponde a queste regole."
+
+#: src/ui/props.rs
+msgid "none in the file"
+msgstr "nessuno nel file"
 
 #: src/ui/settings.rs
 msgid "Not added: its certificate isn't trusted."
@@ -1550,6 +1646,10 @@ msgid "pan flute"
 msgstr "flauto di Pan"
 
 #: ui/app.slint
+msgid "Part played"
+msgstr "Parte riprodotta"
+
+#: ui/app.slint
 msgid "Password"
 msgstr "Password"
 
@@ -1622,6 +1722,10 @@ msgid "Playback"
 msgstr "Riproduzione"
 
 #: ui/app.slint
+msgid "PLAYBACK, FOR EVERYONE"
+msgstr "RIPRODUZIONE, PER TUTTI"
+
+#: ui/app.slint
 msgid "Playing from {}"
 msgstr "In riproduzione da {}"
 
@@ -1690,6 +1794,10 @@ msgid "programming"
 msgstr "programmazione"
 
 #: ui/app.slint
+msgid "Properties…"
+msgstr "Proprietà…"
+
+#: ui/app.slint
 msgid "Queue"
 msgstr "Coda"
 
@@ -1716,6 +1824,10 @@ msgstr "Brani casuali"
 #: src/roles.rs
 msgid "rap"
 msgstr "rap"
+
+#: ui/app.slint
+msgid "Rating"
+msgstr "Voto"
 
 #: src/ui/settings.rs
 msgid "Reading files: {} of {}"
@@ -1797,6 +1909,10 @@ msgstr "RIPETI LA NUOVA PASSWORD"
 msgid "Replay the track from the start"
 msgstr "Riascolta il brano dall'inizio"
 
+#: src/ui/props.rs
+msgid "ReplayGain"
+msgstr "ReplayGain"
+
 #: ui/app.slint
 msgid "Rescan now"
 msgstr "Riesamina ora"
@@ -1860,6 +1976,10 @@ msgstr "Salva e continua"
 #: ui/app.slint
 msgid "Save as playlist"
 msgstr "Salva come playlist"
+
+#: src/ui/props.rs
+msgid "Saved: “{}”"
+msgstr "Salvato: “{}”"
 
 #: src/ui/settings.rs
 msgid "Saved."
@@ -2061,6 +2181,10 @@ msgstr "tecnico del suono"
 msgid "Standalone player"
 msgstr "Player autonomo"
 
+#: src/ui/smart.rs
+msgid "stars, 0 to 5"
+msgstr "stelle, da 0 a 5"
+
 #: ui/app.slint
 msgid "Start the track here"
 msgstr "Inizia il brano qui"
@@ -2088,6 +2212,10 @@ msgstr "steel guitar"
 #: src/roles.rs
 msgid "steelpan"
 msgstr "steel drum"
+
+#: src/ui/props.rs
+msgid "stereo"
+msgstr "stereo"
 
 #: ui/app.slint
 msgid "Stop scan"
@@ -2124,6 +2252,10 @@ msgstr "sintetizzatore"
 #: src/roles.rs
 msgid "tabla"
 msgstr "tabla"
+
+#: ui/app.slint
+msgid "TAGS"
+msgstr "TAG"
 
 #: src/roles.rs
 msgid "tambourine"
@@ -2237,7 +2369,7 @@ msgstr "timpani"
 msgid "Tint the window with the colours of the album playing"
 msgstr "Colora la finestra con i colori dell'album in riproduzione"
 
-#: ui/app.slint
+#: src/ui/props.rs ui/app.slint
 msgid "Title"
 msgstr "Titolo"
 
@@ -2252,6 +2384,18 @@ msgstr "Artisti più ascoltati · ultimi 30 giorni"
 #: ui/app.slint
 msgid "Track"
 msgstr "Brano"
+
+#: src/ui/props.rs
+msgid "track {}"
+msgstr "brano {}"
+
+#: src/ui/props.rs
+msgid "track number"
+msgstr "numero di traccia"
+
+#: src/ui/props.rs
+msgid "Track number"
+msgstr "Numero di traccia"
 
 #: ui/app.slint
 msgid "Tracks"
@@ -2412,6 +2556,10 @@ msgid "vocals"
 msgstr "voce"
 
 #: ui/app.slint
+msgid "Volume"
+msgstr "Volume"
+
+#: ui/app.slint
 msgid "Volume levelling (ReplayGain)"
 msgstr "Livellamento del volume (ReplayGain)"
 
@@ -2430,6 +2578,10 @@ msgstr "Chi ascolta?"
 #: src/ui/library.rs ui/app.slint
 msgid "Whole library"
 msgstr "Tutta la libreria"
+
+#: ui/app.slint
+msgid "Whole track"
+msgstr "Tutto il brano"
 
 #: ui/app.slint
 msgid "Window"
@@ -2455,7 +2607,11 @@ msgstr "piano elettrico Wurlitzer"
 msgid "xylophone"
 msgstr "xilofono"
 
-#: ui/app.slint
+#: src/ui/props.rs
+msgid "year"
+msgstr "anno"
+
+#: src/ui/props.rs ui/app.slint
 msgid "Year"
 msgstr "Anno"
 
@@ -2494,6 +2650,14 @@ msgstr "La tua libreria musicale continua a fermarsi. Il suo log (engine.log, ac
 #: ui/app.slint
 msgid "Your name"
 msgstr "Il tuo nome"
+
+#: src/ui/props.rs
+msgid "Your plays"
+msgstr "I tuoi ascolti"
+
+#: ui/app.slint
+msgid "YOUR RATING AND MARKS"
+msgstr "IL TUO VOTO E I TUOI SEGNI"
 
 #: src/ui/account.rs
 msgid "Your session has ended; please sign in again."

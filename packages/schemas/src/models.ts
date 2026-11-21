@@ -199,6 +199,10 @@ export const Track = named(
     favourite: z.boolean().default(false),
     /** Left out when the requesting user's shuffle button draws from the whole library. */
     shuffleExcluded: z.boolean().default(false),
+    /** The requesting user's rating, 1 to 5 stars; 0 when unrated. */
+    rating: z.int().min(0).max(5).default(0),
+    /** Volume adjustment in dB, for everyone, on top of ReplayGain (still limited by the peak). */
+    volumeDb: z.number().min(-12).max(12).default(0),
   }),
 );
 
@@ -209,8 +213,64 @@ export const TrackMarks = named(
   z.object({
     favourite: z.boolean().optional(),
     shuffleExcluded: z.boolean().optional(),
+    /** 1 to 5 stars; 0 takes the rating away. */
+    rating: z.int().min(0).max(5).optional(),
   }),
   "The caller's marks on a track; one left out stays as it is.",
+);
+
+export const TagField = named(
+  "TagField",
+  z.enum(["title", "artist", "trackNumber", "discNumber", "year", "genres"]),
+);
+
+export const TrackTags = named(
+  "TrackTags",
+  z.object({
+    title: z.string().trim().min(1).max(500),
+    /** The artist as credited on the track (the track stays with its artist in the library). */
+    artist: z.string().trim().min(1).max(500),
+    trackNumber: z.int().positive().max(9999).nullable(),
+    discNumber: z.int().positive().max(999).nullable(),
+    year: Year.nullable(),
+    genres: z.array(z.string().trim().min(1).max(100)).max(20),
+  }),
+  "A track's tags as HyperPlayer shows them.",
+);
+
+export const TrackProperties = named(
+  "TrackProperties",
+  z.object({
+    track: Track,
+    /** The tags shown: the file's, with HyperPlayer's edits over them. */
+    tags: TrackTags,
+    /** The file's own tags. */
+    original: TrackTags,
+    /** The tags edited in HyperPlayer (the files are never changed). */
+    edited: z.array(TagField),
+    /** Where the file is (on the server, or its address for one copied from another server). */
+    path: z.string(),
+    /** When the track's album appeared in the library. */
+    addedAt: z.iso.datetime().nullable(),
+    musicbrainzRecordingId: z.string().nullable(),
+    /** The caller's listens. */
+    plays: Count,
+    lastPlayedAt: z.iso.datetime().nullable(),
+  }),
+  "Everything about a track, for its Properties.",
+);
+
+export const UpdateTrackProperties = named(
+  "UpdateTrackProperties",
+  z.object({
+    /** Tags to change; the file's own are kept (and come back with `reset`). */
+    tags: TrackTags.partial().optional(),
+    /** Edited tags to take back to the file's own. */
+    reset: z.array(TagField).optional(),
+    volumeDb: z.number().min(-12).max(12).optional(),
+    trim: TrackTrim.optional(),
+  }),
+  "Changes to a track for everyone: its tags in HyperPlayer, its volume and the part played.",
 );
 
 export const Album = named(
@@ -453,6 +513,11 @@ export type AudioFormat = z.infer<typeof AudioFormat>;
 export type Track = z.infer<typeof Track>;
 export type UploadInfo = z.infer<typeof UploadInfo>;
 export type TrackTrim = z.infer<typeof TrackTrim>;
+export type TagField = z.infer<typeof TagField>;
+export type TrackTags = z.infer<typeof TrackTags>;
+export type TrackProperties = z.infer<typeof TrackProperties>;
+export type UpdateTrackProperties = z.infer<typeof UpdateTrackProperties>;
+export type TrackMarks = z.infer<typeof TrackMarks>;
 export type Silence = z.infer<typeof Silence>;
 export type ReplayGain = z.infer<typeof ReplayGain>;
 export type Album = z.infer<typeof Album>;

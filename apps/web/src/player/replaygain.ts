@@ -44,6 +44,22 @@ export function compute(rg: ReplayGain, mode: RgMode, inAlbumOrder: boolean, pre
   return { db, linear, basis: chosen.basis, limited: false };
 }
 
+/**
+ * The gain for a track with its own volume adjustment (`Track.volumeDb`) on top: added to
+ * the pre-amp, and applied by itself when ReplayGain applies nothing (no tags, or off).
+ */
+export function withVolume(
+  rg: ReplayGain,
+  mode: RgMode,
+  inAlbumOrder: boolean,
+  preampDb: number,
+  volumeDb: number,
+): Applied {
+  const applied = compute(rg, mode, inAlbumOrder, preampDb + volumeDb);
+  if (applied.basis || !volumeDb) return applied;
+  return { db: volumeDb, linear: Math.pow(10, volumeDb / 20), basis: null, limited: false };
+}
+
 /** E.g. "RG −6.4 dB track", or nothing when no gain applies. */
 export function label(a: Applied): string {
   if (!a.basis) return "";

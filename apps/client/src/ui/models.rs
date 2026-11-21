@@ -433,6 +433,7 @@ pub fn search_track_model(tracks: &[types::Track], playing: Option<&str>) -> Mod
                 available: true,
                 favourite: t.favourite,
                 shuffle_excluded: t.shuffle_excluded,
+                rating: t.rating as i32,
             })
             .collect::<Vec<_>>(),
     ))
@@ -459,6 +460,7 @@ pub fn track_model(tracks: &[types::Track], playing: Option<&str>) -> ModelRc<Tr
                 available: true,
                 favourite: t.favourite,
                 shuffle_excluded: t.shuffle_excluded,
+                rating: t.rating as i32,
             })
             .collect::<Vec<_>>(),
     ))

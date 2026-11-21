@@ -194,6 +194,7 @@ fn show(app: &mut App, stats: types::HistoryStats, recent: types::ListenPage) {
         available: true,
         favourite: t.favourite,
         shuffle_excluded: t.shuffle_excluded,
+        rating: t.rating as i32,
     };
     let top: Vec<TrackItem> = stats
         .top_tracks

@@ -30,6 +30,7 @@ fn row(i: usize, t: &types::Track, playing: Option<&str>) -> TrackItem {
         available: true,
         favourite: t.favourite,
         shuffle_excluded: t.shuffle_excluded,
+        rating: t.rating as i32,
     }
 }
 
@@ -47,6 +48,7 @@ pub fn set(id: String, mark: Mark, on: bool) {
     let marks = types::TrackMarks {
         favourite: (mark == Mark::Favourite).then_some(on),
         shuffle_excluded: (mark == Mark::ShuffleExcluded).then_some(on),
+        rating: None,
     };
     background(
         move || api.set_track_marks(&id, &marks),
@@ -77,11 +79,31 @@ pub fn set(id: String, mark: Mark, on: bool) {
 }
 
 /// Takes in a track's new marks: wherever it's held, and in every list showing it.
+/// Takes in a track as it is now (its marks, tags, trim or volume changed): wherever it's
+/// held, in every list showing it, and in what's playing.
+pub fn track_changed(app: &mut App, track: &types::Track) {
+    apply(app, track);
+    super::trim::apply(app, track);
+    let same = |t: &types::Track| t.id == track.id;
+    let mut playing = false;
+    if let Some(s) = app.session.as_mut().filter(|s| same(&s.track)) {
+        s.track.volume_db = track.volume_db;
+        playing = true;
+    }
+    if let Some(p) = app.preload.as_mut().filter(|p| same(&p.session.track)) {
+        p.session.track.volume_db = track.volume_db;
+        playing = true;
+    }
+    if playing {
+        super::playback::apply_replaygain(app);
+    }
+}
+
+/// Takes in a track's new marks and tags: wherever it's held, and in every list showing it.
 fn apply(app: &mut App, track: &types::Track) {
     let update = |t: &mut types::Track| {
         if t.id == track.id {
-            t.favourite = track.favourite;
-            t.shuffle_excluded = track.shuffle_excluded;
+            *t = track.clone();
         }
     };
     app.album_tracks.iter_mut().for_each(update);
@@ -114,9 +136,9 @@ fn apply(app: &mut App, track: &types::Track) {
         for i in 0..model.row_count() {
             if let Some(mut row) = model.row_data(i)
                 && row.id == track.id.as_str()
-                && (row.favourite != track.favourite
-                    || row.shuffle_excluded != track.shuffle_excluded)
             {
+                row.title = track.title.clone().into();
+                row.rating = track.rating as i32;
                 row.favourite = track.favourite;
                 row.shuffle_excluded = track.shuffle_excluded;
                 model.set_row_data(i, row);

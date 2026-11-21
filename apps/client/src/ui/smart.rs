@@ -14,7 +14,7 @@ use slint::{ModelRc, SharedString, VecModel};
 use super::{App, AppWindow, RuleRow, background, library, with_app};
 
 /// The editor's fields and orders, in the order its lists show them (app.slint).
-const FIELDS: [F; 13] = [
+const FIELDS: [F; 14] = [
     F::Title,
     F::Artist,
     F::Album,
@@ -28,8 +28,9 @@ const FIELDS: [F; 13] = [
     F::LastPlayed,
     F::Added,
     F::Favourite,
+    F::Rating,
 ];
-const ORDERS: [SmartRulesOrder; 8] = [
+const ORDERS: [SmartRulesOrder; 9] = [
     SmartRulesOrder::Random,
     SmartRulesOrder::Title,
     SmartRulesOrder::Artist,
@@ -38,6 +39,7 @@ const ORDERS: [SmartRulesOrder; 8] = [
     SmartRulesOrder::Added,
     SmartRulesOrder::Plays,
     SmartRulesOrder::LastPlayed,
+    SmartRulesOrder::Rating,
 ];
 /// The server's cap on a smart playlist's length.
 const MAX_LIMIT: u64 = 500;
@@ -52,7 +54,7 @@ fn ops(field: F) -> &'static [Op] {
             Op::IsNot,
             Op::StartsWith,
         ],
-        F::Year | F::Duration | F::SampleRate | F::Plays => &[
+        F::Year | F::Duration | F::SampleRate | F::Plays | F::Rating => &[
             Op::Is,
             Op::IsNot,
             Op::LessThan,
@@ -96,6 +98,7 @@ fn hint(field: F) -> &'static str {
         F::Duration => tr!("seconds or m:ss"),
         F::SampleRate => tr!("kHz, e.g. 96"),
         F::Plays => tr!("times"),
+        F::Rating => tr!("stars, 0 to 5"),
         F::Lossless | F::Favourite => tr!("yes or no"),
         F::LastPlayed | F::Added => tr!("days"),
     }

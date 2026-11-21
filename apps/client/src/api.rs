@@ -20,8 +20,8 @@ use types::{
     NowPlaying, Ok as OkResponse, PlayingNow, Playlist, PlaylistList, Preferences, QueueState,
     RadioFacets, RadioNowPlaying, RadioOrder, RadioStation, RadioStationList, RadioStationPage,
     RecordListen, RepeatMode, ScrobbleSettings, SearchResults, Session, SetQueue, ShuffleScope,
-    Track, TrackList, TrackMarks, TrackSource, TrackTrim, UpdatePlaylist, UpdateQueue, User,
-    UserList, Waveform,
+    Track, TrackList, TrackMarks, TrackProperties, TrackSource, TrackTrim, UpdatePlaylist,
+    UpdateQueue, User, UserList, Waveform,
 };
 
 use crate::{adaptive::Quality, trust};
@@ -445,6 +445,24 @@ impl Api {
             Method::PUT,
             &format!("/api/tracks/{track_id}/marks"),
             Some(marks),
+        )
+    }
+
+    /// Everything about a track, for its Properties.
+    pub fn track_properties(&self, track_id: &str) -> Result<TrackProperties> {
+        self.get(&format!("/api/tracks/{track_id}/properties"))
+    }
+
+    /// Changes a track for everyone (an `UpdateTrackProperties`, as JSON: tags may be set to null).
+    pub fn update_track_properties(
+        &self,
+        track_id: &str,
+        change: &serde_json::Value,
+    ) -> Result<TrackProperties> {
+        self.send(
+            Method::PUT,
+            &format!("/api/tracks/{track_id}/properties"),
+            Some(change),
         )
     }
 

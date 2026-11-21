@@ -91,6 +91,20 @@
 .track-mark.favourite path {
   fill: currentColor;
 }
+.track-rating {
+  display: inline-flex;
+  gap: 1px;
+  color: var(--faint);
+}
+.track-rating span {
+  display: inline-flex;
+}
+.track-rating .on {
+  color: var(--accent);
+}
+.track-rating .on path {
+  fill: currentColor;
+}
 .track.playing .track-title > .ellipsis:first-child,
 .track.playing .track-number {
   color: var(--accent);

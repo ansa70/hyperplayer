@@ -15,7 +15,7 @@ import { api, artworkUrl, call, errorMessage } from "../api.ts";
 import { begin, follow } from "../player/listening.ts";
 import { canFade, fade, prepareOutput, setLevel, stopFade } from "../player/output.ts";
 import { chooseStream, type Mode } from "../player/quality.ts";
-import { compute, label, UNITY, type Applied, type RgMode } from "../player/replaygain.ts";
+import { label, UNITY, withVolume, type Applied, type RgMode } from "../player/replaygain.ts";
 import { t } from "../i18n.ts";
 import { radioElement, radioHooks } from "../player/radioElement.ts";
 
@@ -102,7 +102,9 @@ function applyLevels() {
   const { volume, rgMode, preamp } = usePlayer.getState();
   elements.forEach((e, slot) => {
     const l = loaded[slot];
-    gains[slot] = l ? compute(l.track.replayGain, rgMode, inAlbumOrder(), preamp) : UNITY;
+    gains[slot] = l
+      ? withVolume(l.track.replayGain, rgMode, inAlbumOrder(), preamp, l.track.volumeDb)
+      : UNITY;
     setLevel(e, volume, gains[slot]!.linear);
   });
   if (radioElement) setLevel(radioElement, volume, 1);
@@ -258,6 +260,8 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
         entries: queue.entries.map((e) => (e.track.id === track.id ? { ...e, track } : e)),
       },
     });
+    // Its volume adjustment may have changed.
+    applyLevels();
   },
 
   setPreferences(p) {

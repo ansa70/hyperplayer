@@ -8,7 +8,7 @@ import { Icon } from "./Icon.tsx";
 import { MenuButton, type MenuHandle, type MenuItem } from "./Menu.tsx";
 import { markItems, queueAndPlaylistItems, trackSource } from "./trackActions.ts";
 import "./components.css";
-import { t } from "../i18n.ts";
+import { t, tn } from "../i18n.ts";
 
 export interface Row {
   /** Null for a playlist entry whose file is missing from the library. */
@@ -34,6 +34,15 @@ export function TrackMarks({ track }: { track: Track | null }) {
   const marks = useTrackMarks(track);
   return (
     <>
+      {marks.rating > 0 && (
+        <span className="track-rating" title={tn("{n} star", "{n} stars", marks.rating)}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <span key={n} className={n <= marks.rating ? "on" : ""}>
+              <Icon name="star" size={10} />
+            </span>
+          ))}
+        </span>
+      )}
       {marks.shuffleExcluded && (
         <span className="track-mark" title={t("Left out of the library shuffle")}>
           <Icon name="shuffleOff" size={13} />

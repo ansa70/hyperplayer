@@ -117,7 +117,7 @@ impl Drop for Session {
 /// the current one ends (gapless playback).
 pub struct Preload {
     entry_id: String,
-    session: Session,
+    pub(super) session: Session,
 }
 
 /// How long before the current track's end the next one starts opening.
@@ -455,12 +455,22 @@ fn gain_for(app: &App, track: &types::Track) -> replaygain::Applied {
                 .as_ref()
                 .is_some_and(|o| o.kind == types::QueueOriginKind::Album)
     });
-    replaygain::compute(
+    // The track's own volume adjustment goes on top, by itself when ReplayGain applies nothing.
+    let volume = track.volume_db as f32;
+    let applied = replaygain::compute(
         &track.replay_gain,
         app.rg_mode,
         in_album_order,
-        app.rg_preamp,
-    )
+        app.rg_preamp + volume,
+    );
+    if matches!(applied.basis, replaygain::Basis::None) && volume != 0.0 {
+        return replaygain::Applied {
+            db: volume,
+            linear: 10f32.powf(volume / 20.0),
+            ..applied
+        };
+    }
+    applied
 }
 
 /// (Re)computes the current (and preloaded) track's ReplayGain, and applies it.

@@ -18,7 +18,9 @@ import {
   Track,
   TrackList,
   TrackMarks,
+  TrackProperties,
   TrackTrim,
+  UpdateTrackProperties,
   UploadInfo,
 } from "./models.ts";
 import {
@@ -428,7 +430,6 @@ export const api = {
     path: "/api/tracks/{id}/trim",
     summary:
       "Set the part of a track to play (both null: all of it, and don't offer to trim it again); for every user",
-    access: "admin",
     params: IdParams,
     query: NoQuery,
     body: TrackTrim,
@@ -443,6 +444,25 @@ export const api = {
     query: NoQuery,
     body: TrackMarks,
     response: Track,
+  }),
+  trackProperties: json({
+    method: "GET",
+    path: "/api/tracks/{id}/properties",
+    summary:
+      "Everything about a track: its file, its tags (the file's and as edited), and the caller's listens",
+    params: IdParams,
+    query: NoQuery,
+    response: TrackProperties,
+  }),
+  updateTrackProperties: json({
+    method: "PUT",
+    path: "/api/tracks/{id}/properties",
+    summary:
+      "Edit a track's tags (in HyperPlayer only, the file is never changed), its volume and the part played; for every user",
+    params: IdParams,
+    query: NoQuery,
+    body: UpdateTrackProperties,
+    response: TrackProperties,
   }),
   listFavourites: json({
     method: "GET",

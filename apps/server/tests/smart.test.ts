@@ -248,3 +248,22 @@ test("favourites: a rule picks them (or not), and at least N of them can be aske
   expect(titles(random)).toHaveLength(3);
   expect(titles(random)).toEqual(expect.arrayContaining(["Avril 14th", "Return"]));
 });
+
+test("ratings: a rule picks by the user's stars, and they can be the order", async () => {
+  const tracks = (
+    (await inject("/api/tracks?limit=500")).json() as { items: { id: string; title: string }[] }
+  ).items;
+  const rate = (title: string, rating: number) =>
+    inject({
+      method: "PUT",
+      url: `/api/tracks/${tracks.find((t) => t.title === title)!.id}/marks`,
+      payload: { rating },
+    });
+  await rate("Return", 5);
+  await rate("So What", 3);
+  await rate("Vordhosbn", 1);
+  expect(await pick({ rules: [rule("rating", "greaterThan", "2")] })).toEqual(["Return", "So What"]);
+  expect(await pick({ rules: [rule("rating", "is", "0")] })).toHaveLength(4);
+  const p = await create({ rules: [rule("rating", "greaterThan", "0")], order: "rating", descending: true });
+  expect(titles(p)).toEqual(["Return", "So What", "Vordhosbn"]);
+});

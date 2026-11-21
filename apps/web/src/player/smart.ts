@@ -21,6 +21,7 @@ export const FIELDS: { key: Field; label: string }[] = [
   { key: "lastPlayed", label: msg("Last played") },
   { key: "added", label: msg("Added") },
   { key: "favourite", label: msg("Favourite") },
+  { key: "rating", label: msg("Rating") },
 ];
 
 export const ORDERS: { key: Order; label: string }[] = [
@@ -32,6 +33,7 @@ export const ORDERS: { key: Order; label: string }[] = [
   { key: "added", label: msg("Recently added") },
   { key: "plays", label: msg("Plays") },
   { key: "lastPlayed", label: msg("Last played") },
+  { key: "rating", label: msg("Rating") },
 ];
 
 /** The server's cap on a smart playlist's length. */
@@ -50,6 +52,7 @@ export function ops(field: Field): Op[] {
     case "duration":
     case "sampleRate":
     case "plays":
+    case "rating":
       return ["is", "isNot", "lessThan", "greaterThan", "between"];
     case "lossless":
     case "favourite":
@@ -97,6 +100,7 @@ export function hint(field: Field): string {
     plays: t("times"),
     lossless: t("yes or no"),
     favourite: t("yes or no"),
+    rating: t("stars, 0 to 5"),
     lastPlayed: t("days"),
     added: t("days"),
   };

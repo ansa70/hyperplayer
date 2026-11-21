@@ -1,6 +1,7 @@
 import type { Track, TrackSource } from "@hyperplayer/schemas";
 import { useLibrary } from "../stores/library.ts";
 import { marksOf, useMarks } from "../stores/marks.ts";
+import { useProperties } from "./PropertiesDialog.tsx";
 import type { MenuItem } from "./Menu.tsx";
 import { t } from "../i18n.ts";
 
@@ -47,6 +48,7 @@ export function markItems(track: Track): MenuItem[] {
       label: marks.shuffleExcluded ? t("Include in library shuffle") : t("Leave out of library shuffle"),
       onSelect: () => void set(track, { shuffleExcluded: !marks.shuffleExcluded }),
     },
+    { label: t("Properties…"), onSelect: () => useProperties.getState().open(track) },
   ];
 }
 

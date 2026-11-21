@@ -1,0 +1,218 @@
+.props-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #000000a8;
+}
+.props {
+  width: min(660px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid #2e323b;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px #000c;
+}
+.props-head {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #262a32;
+}
+.props-title {
+  flex: 1;
+  min-width: 0;
+}
+.props-title h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+.props-body {
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.props-body section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.props-body .note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.props-body .check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.props-body .check input {
+  accent-color: var(--accent);
+}
+.props-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 32px;
+  gap: 10px;
+  align-items: center;
+}
+.props-row > label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.props-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.props-field input {
+  width: 100%;
+}
+.accent {
+  color: var(--accent);
+}
+.small {
+  font-size: 11px;
+}
+.props-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.props-inline input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+.props-inline .outline-button {
+  margin-left: auto;
+}
+.props-db {
+  width: 56px;
+  text-align: right;
+}
+.stars {
+  display: flex;
+  gap: 4px;
+}
+.stars button {
+  color: var(--muted);
+  padding: 1px;
+}
+.stars button:hover {
+  color: var(--text);
+}
+.stars button.on {
+  color: var(--accent);
+}
+.stars button.on path {
+  fill: currentColor;
+}
+
+/* Two range inputs on one track: only their thumbs take the pointer. */
+.range {
+  position: relative;
+  height: 28px;
+}
+.range::before,
+.range-fill {
+  content: "";
+  position: absolute;
+  top: 12px;
+  height: 4px;
+  border-radius: 2px;
+}
+.range::before {
+  left: 0;
+  right: 0;
+  background: #2e323b;
+}
+.range-fill {
+  background: var(--accent);
+}
+.range input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  background: none;
+  pointer-events: none;
+  appearance: none;
+}
+.range input::-webkit-slider-thumb {
+  appearance: none;
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 1px 4px #0008;
+  cursor: pointer;
+}
+.range input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text);
+  cursor: pointer;
+}
+.range input::-webkit-slider-runnable-track,
+.range input::-moz-range-track {
+  background: none;
+}
+.props-details {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.props-details div {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 10px;
+}
+.props-details dt {
+  color: var(--muted);
+}
+.props-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.props-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid #262a32;
+}
+.props-foot .error {
+  flex: 1;
+  color: #ff8a80;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .props-backdrop {
+    padding: 0;
+    align-items: end;
+  }
+  .props {
+    border-radius: 12px 12px 0 0;
+    max-height: 92vh;
+  }
+  .props-row,
+  .props-details div {
+    grid-template-columns: 90px 1fr 32px;
+  }
+}

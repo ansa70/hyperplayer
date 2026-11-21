@@ -95,6 +95,7 @@ fn show_playlist(app: &mut App, p: types::Playlist, open: bool) {
             available: e.track.is_some(),
             favourite: e.track.as_ref().is_some_and(|t| t.favourite),
             shuffle_excluded: e.track.as_ref().is_some_and(|t| t.shuffle_excluded),
+            rating: e.track.as_ref().map_or(0, |t| t.rating as i32),
         })
         .collect();
     let previous_cover = ui.get_playlist();
@@ -598,6 +599,11 @@ fn run_action(list: &str, index: i32, action: &str, playlist_id: &str, target: T
             }
             _ => {}
         },
+        "properties" => {
+            if let Some(track) = &target.track {
+                super::props::open(track);
+            }
+        }
         "favourite" | "shuffle-exclude" => {
             if let Some(track) = &target.track {
                 let mark = if action == "favourite" {
@@ -674,6 +680,7 @@ pub fn sync_queue_ui(app: &mut App) {
         available: true,
         favourite: t.favourite,
         shuffle_excluded: t.shuffle_excluded,
+        rating: t.rating as i32,
     };
     let current = q.index.map(|i| i as usize);
     let now: Vec<TrackItem> = current

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Db } from "../db.ts";
 import type { CreditRow } from "./tagCredits.ts";
+import { reapplyEdits } from "./edits.ts";
 
 export const stableId = (...parts: string[]) =>
   createHash("sha1").update(parts.join("\u0000").toLowerCase()).digest("hex").slice(0, 16);
@@ -151,6 +152,8 @@ export function writeTrack(db: Db, t: TrackRecord): string {
     INSERT INTO credits (track_id, source, scope, category, name, musicbrainz_id, role, position)
     VALUES (?, 'tags', 'track', ?, ?, ?, ?, ?)`);
   t.credits.forEach((c, i) => insertCredit.run(trackId, c.category, c.name, c.musicbrainzId, c.role, i));
+  // Tags edited in HyperPlayer go back over the file's.
+  reapplyEdits(db, trackId);
   return trackId;
 }
 
